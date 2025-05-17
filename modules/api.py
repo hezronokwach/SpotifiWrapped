@@ -29,6 +29,48 @@ class SpotifyAPI:
             print(f"Error connecting to Spotify API: {e}")
             self.sp = None
     
+    def get_audio_features_safely(self, track_id):
+        """
+        Safely get audio features for a track, handling potential 403 errors.
+        
+        Args:
+            track_id: Spotify track ID
+            
+        Returns:
+            Audio features dictionary or empty dict if error
+        """
+        if not track_id:
+            return {}
+            
+        try:
+            # Add retry mechanism with backoff
+            max_retries = 3
+            retry_count = 0
+            
+            while retry_count < max_retries:
+                try:
+                    features = self.sp.audio_features(track_id)
+                    if features and features[0]:
+                        return features[0]
+                    return {}
+                except Exception as e:
+                    # Check if it's a 403 error
+                    if "403" in str(e):
+                        # For 403 errors, just return empty features rather than retrying
+                        return {}
+                    
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        # Exponential backoff
+                        time.sleep(2 ** retry_count)
+                    else:
+                        raise
+            
+            return {}
+        except Exception as e:
+            print(f"Error fetching audio features for track {track_id}: {e}")
+            return {}
+    
     def get_top_tracks(self, limit=10, time_range='short_term'):
         """
         Fetch user's top tracks.
@@ -48,8 +90,8 @@ class SpotifyAPI:
             tracks_data = []
             
             for idx, track in enumerate(results['items'], 1):
-                # Get audio features for each track
-                audio_features = self.sp.audio_features(track['id'])[0] if track['id'] else {}
+                # Get audio features for each track - using the safe method
+                audio_features = self.get_audio_features_safely(track['id'])
                 
                 tracks_data.append({
                     'track': track['name'],
@@ -63,11 +105,11 @@ class SpotifyAPI:
                     'preview_url': track['preview_url'],
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
                     # Audio features
-                    'danceability': audio_features.get('danceability', 0) if audio_features else 0,
-                    'energy': audio_features.get('energy', 0) if audio_features else 0,
-                    'tempo': audio_features.get('tempo', 0) if audio_features else 0,
-                    'valence': audio_features.get('valence', 0) if audio_features else 0,
-                    'acousticness': audio_features.get('acousticness', 0) if audio_features else 0
+                    'danceability': audio_features.get('danceability', 0),
+                    'energy': audio_features.get('energy', 0),
+                    'tempo': audio_features.get('tempo', 0),
+                    'valence': audio_features.get('valence', 0),
+                    'acousticness': audio_features.get('acousticness', 0)
                 })
             
             return tracks_data
@@ -143,8 +185,8 @@ class SpotifyAPI:
             if current_track and current_track.get('is_playing', False) and current_track.get('item'):
                 track = current_track['item']
                 
-                # Get audio features
-                audio_features = self.sp.audio_features(track['id'])[0] if track['id'] else {}
+                # Get audio features - using the safe method
+                audio_features = self.get_audio_features_safely(track['id'])
                 
                 return {
                     'track': track['name'],
@@ -156,9 +198,9 @@ class SpotifyAPI:
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
                     'is_playing': current_track['is_playing'],
                     # Audio features
-                    'danceability': audio_features.get('danceability', 0) if audio_features else 0,
-                    'energy': audio_features.get('energy', 0) if audio_features else 0,
-                    'tempo': audio_features.get('tempo', 0) if audio_features else 0
+                    'danceability': audio_features.get('danceability', 0),
+                    'energy': audio_features.get('energy', 0),
+                    'tempo': audio_features.get('tempo', 0)
                 }
             return None
         except Exception as e:
@@ -227,30 +269,53 @@ class SpotifyAPI:
             
             if not track_ids:
                 return []
-                
-            # Get audio features for all tracks in one request
-            audio_features = self.sp.audio_features(track_ids)
             
             features_data = []
-            for i, features in enumerate(audio_features):
+            
+            # Process tracks individually to handle potential 403 errors
+            for i, track_id in enumerate(track_ids):
+                if i >= len(top_tracks['items']):
+                    continue
+                    
+                track = top_tracks['items'][i]
+                features = self.get_audio_features_safely(track_id)
+                
                 if features:
-                    track = top_tracks['items'][i]
                     features_data.append({
                         'track': track['name'],
                         'artist': track['artists'][0]['name'],
-                        'danceability': features['danceability'],
-                        'energy': features['energy'],
-                        'key': features['key'],
-                        'loudness': features['loudness'],
-                        'mode': features['mode'],
-                        'speechiness': features['speechiness'],
-                        'acousticness': features['acousticness'],
-                        'instrumentalness': features['instrumentalness'],
-                        'liveness': features['liveness'],
-                        'valence': features['valence'],
-                        'tempo': features['tempo'],
-                        'id': features['id'],
-                        'duration_ms': features['duration_ms']
+                        'danceability': features.get('danceability', 0),
+                        'energy': features.get('energy', 0),
+                        'key': features.get('key', 0),
+                        'loudness': features.get('loudness', 0),
+                        'mode': features.get('mode', 0),
+                        'speechiness': features.get('speechiness', 0),
+                        'acousticness': features.get('acousticness', 0),
+                        'instrumentalness': features.get('instrumentalness', 0),
+                        'liveness': features.get('liveness', 0),
+                        'valence': features.get('valence', 0),
+                        'tempo': features.get('tempo', 0),
+                        'id': track_id,
+                        'duration_ms': features.get('duration_ms', 0)
+                    })
+                else:
+                    # Add track with default audio features
+                    features_data.append({
+                        'track': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'danceability': 0,
+                        'energy': 0,
+                        'key': 0,
+                        'loudness': 0,
+                        'mode': 0,
+                        'speechiness': 0,
+                        'acousticness': 0,
+                        'instrumentalness': 0,
+                        'liveness': 0,
+                        'valence': 0,
+                        'tempo': 0,
+                        'id': track_id,
+                        'duration_ms': track.get('duration_ms', 0)
                     })
             
             return features_data
