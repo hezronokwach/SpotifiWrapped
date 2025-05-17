@@ -189,7 +189,7 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     saved_tracks_df = data_processor.load_data('saved_tracks.csv')
     
     # Create visualization
-    return visualizations.create_saved_tracks_chart(saved_tracks_df)
+    return visualizations.create_saved_tracks_timeline(saved_tracks_df)
 
 # Update playlists chart
 @app.callback(
@@ -227,7 +227,7 @@ def update_audio_features_chart(n_intervals, n_clicks):
     audio_features_df = data_processor.load_data('audio_features.csv')
     
     # Create visualization
-    return visualizations.create_audio_features_chart(audio_features_df)
+    return visualizations.create_audio_features_radar(audio_features_df)
 
 # Update top artists chart
 @app.callback(
@@ -260,7 +260,7 @@ def update_genre_chart(n_intervals, n_clicks):
     genre_df = data_processor.load_data('genre_analysis.csv')
     
     # Create visualization
-    return visualizations.create_genre_chart(genre_df)
+    return visualizations.create_genre_pie_chart(genre_df)
 
 # Update listening patterns chart
 @app.callback(
@@ -279,7 +279,7 @@ def update_listening_patterns_chart(n_intervals, n_clicks):
     recently_played_df = data_processor.load_data('recently_played.csv')
     
     # Create visualization
-    return visualizations.create_listening_patterns_chart(recently_played_df)
+    return visualizations.create_listening_patterns_heatmap(recently_played_df)
 
 # Update wrapped summary
 @app.callback(
@@ -565,5 +565,5 @@ if __name__ == '__main__':
         print(f"Error during initial data fetch: {e}")
         print("The dashboard will start with empty or cached data")
     
-    # Run the app - Fixed method name from run_server to run
+    # Run the app
     app.run(debug=True)
