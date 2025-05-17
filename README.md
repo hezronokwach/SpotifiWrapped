@@ -17,6 +17,7 @@ SpotifyWrappedRemix is a Python-powered, interactive remake of Spotify Wrapped, 
    ```
    CLIENT_ID=your_client_id
    CLIENT_SECRET=your_client_secret
+   REDIRECT_URI = 'http://127.0.0.1:8000/callback' /
    ```
 6. Run the app: `python app.py`
 7. Open your browser at `http://127.0.0.1:8050/`
