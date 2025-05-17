@@ -1,4 +1,3 @@
-
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import os
@@ -13,7 +12,7 @@ from typing import Dict, List, Optional, Union, Any
 from modules.ai_audio_features import get_track_audio_features
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('spotify_api')
 
@@ -34,14 +33,28 @@ class SpotifyAPI:
     def initialize_connection(self):
         """Create Spotify API connection with proper authentication."""
         try:
-            self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+            auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
                 redirect_uri=self.redirect_uri,
                 scope=self.scopes,
-                open_browser=False
-            ))
-            logger.info("Successfully connected to Spotify API")
+                open_browser=True,  # Show browser for authentication
+                show_dialog=True,  # Always show auth dialog
+                cache_path='.spotify_cache'  # Cache tokens
+            )
+            
+            # Force token refresh
+            auth_manager.get_access_token(as_dict=False)
+            
+            self.sp = spotipy.Spotify(auth_manager=auth_manager)
+            
+            # Test connection
+            user = self.sp.current_user()
+            if user:
+                logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+            else:
+                logger.error("Failed to get user profile after connection")
+                self.sp = None
         except Exception as e:
             logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
@@ -234,6 +247,7 @@ class SpotifyAPI:
                     'rank': idx,
                     'popularity': track['popularity'],
                     'id': track['id'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'duration_ms': track['duration_ms'],
                     'explicit': track['explicit'],
                     'preview_url': track['preview_url'],
@@ -292,13 +306,19 @@ class SpotifyAPI:
         
         return tracks_data
     
-    def get_saved_tracks(self, limit=10):
-        """Fetch user's saved tracks."""
+    def get_saved_tracks(self, limit=50, offset=0):
+        """
+        Fetch user's saved tracks.
+        
+        Args:
+            limit: Number of tracks to fetch
+            offset: The index of the first track to return
+        """
         if not self.sp:
             return self._generate_sample_saved_tracks(limit)
             
         try:
-            results = self.sp.current_user_saved_tracks(limit=limit)
+            results = self.sp.current_user_saved_tracks(limit=limit, offset=offset)
             tracks_data = []
             
             for idx, item in enumerate(results['items'], 1):
@@ -312,10 +332,11 @@ class SpotifyAPI:
                     'artist': track['artists'][0]['name'],
                     'album': track['album']['name'],
                     'added_at': item['added_at'],
-                    'end_date': end_date.isoformat(),  # For timeline visualization
+                    'end_date': end_date.isoformat(),
                     'id': track['id'],
                     'popularity': track['popularity'],
                     'duration_ms': track['duration_ms'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else ''
                 })
             
@@ -482,13 +503,26 @@ class SpotifyAPI:
                 'product': 'premium'
             }
     
-    def get_recently_played(self, limit=50):  # Increased limit for better patterns
-        """Fetch recently played tracks."""
+    def get_recently_played(self, limit=50, before=None, after=None):
+        """
+        Fetch recently played tracks.
+        
+        Args:
+            limit: Number of tracks to fetch
+            before: Unix timestamp in milliseconds - returns all items before this timestamp
+            after: Unix timestamp in milliseconds - returns all items after this timestamp
+        """
         if not self.sp:
             return self._generate_sample_recently_played(limit)
             
         try:
-            results = self.sp.current_user_recently_played(limit=limit)
+            params = {'limit': limit}
+            if before:
+                params['before'] = before
+            elif after:
+                params['after'] = after
+                
+            results = self.sp.current_user_recently_played(**params)
             tracks_data = []
             
             for idx, item in enumerate(results['items'], 1):
@@ -505,6 +539,7 @@ class SpotifyAPI:
                     'end_time': end_time.isoformat(),
                     'id': track['id'],
                     'duration_ms': track['duration_ms'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
                     'day_of_week': played_at.day_name(),
                     'hour_of_day': played_at.hour

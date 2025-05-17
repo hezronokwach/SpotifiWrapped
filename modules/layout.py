@@ -329,6 +329,9 @@ class DashboardLayout:
             # Error message
             self.create_error_message(),
             
+            # Collection status
+            html.Div(id='collection-status', className='mb-3'),
+            
             # Header (will be populated with user data)
             html.Div(id='header-container'),
             

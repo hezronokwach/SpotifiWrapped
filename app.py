@@ -6,9 +6,10 @@ from dotenv import load_dotenv
 import os
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Import custom modules
+import sqlite3
 from modules.api import SpotifyAPI
 from modules.data_processing import DataProcessor
 from modules.layout import DashboardLayout
@@ -17,6 +18,10 @@ from modules.visualizations import (
     SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY,
     create_album_card, create_personality_card
 )
+
+# Import data storage modules
+from modules.database import SpotifyDatabase
+from modules.data_collector import SpotifyDataCollector
 
 # Import new modules
 from modules.top_albums import get_top_albums, get_album_listening_patterns
@@ -31,6 +36,10 @@ data_processor = DataProcessor()
 dashboard_layout = DashboardLayout()
 visualizations = SpotifyVisualizations()
 animations = SpotifyAnimations()
+
+# Initialize database and data collector
+db = SpotifyDatabase()  # This will create tables if they don't exist
+data_collector = SpotifyDataCollector(spotify_api, db)
 
 # Initialize personality analyzer
 personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
@@ -60,11 +69,37 @@ app.layout = dashboard_layout.create_layout()
 )
 def update_user_data(n_intervals, n_clicks):
     """Fetch and store user profile data."""
-    user_data = spotify_api.get_user_profile()
-    if user_data:
-        data_processor.save_data([user_data], 'user_profile.csv')
-        return user_data
-    return {}
+    print("Fetching user profile data...")  # Debug log
+    try:
+        # Try to read from CSV first
+        try:
+            stored_data = data_processor.load_data('user_profile.csv')
+            if not stored_data.empty:
+                user_data = stored_data.iloc[0].to_dict()
+                print(f"Loaded user data from CSV: {user_data}")
+                return user_data
+        except Exception as e:
+            print(f"Error loading from CSV: {e}")
+
+        # If CSV fails or is empty, try to fetch from API
+        user_data = spotify_api.get_user_profile()
+        if user_data:
+            print(f"Got user data from API: {user_data}")
+            # Save user data both to CSV and database
+            data_processor.save_data([user_data], 'user_profile.csv')
+            db.save_user(user_data)
+            
+            # Start historical data collection from Jan 1, 2025
+            start_date = datetime(2025, 1, 1)
+            data_collector.collect_historical_data(user_data['id'], start_date)
+            
+            return user_data
+            
+        print("No user data received") 
+        return {}
+    except Exception as e:
+        print(f"Error in update_user_data: {e}")
+        return {}
 
 # Update header with user data
 @app.callback(
@@ -73,7 +108,10 @@ def update_user_data(n_intervals, n_clicks):
 )
 def update_header(user_data):
     """Update the header with user profile data."""
-    return dashboard_layout.create_header(user_data)
+    print(f"Updating header with user data: {user_data}")  # Debug log
+    header = dashboard_layout.create_header(user_data)
+    print(f"Created header: {header}")  # Debug log
+    return header
 
 # Update current track
 @app.callback(
@@ -83,8 +121,25 @@ def update_header(user_data):
 def update_current_track(n_intervals):
     """Fetch and store currently playing track."""
     current_track = spotify_api.get_currently_playing()
-    if current_track:
+    if current_track and 'track' in current_track:
+        # Get user profile to get user_id
+        user_data = spotify_api.get_user_profile()
+        if user_data:
+            current_track['user_id'] = user_data['id']
+            
+        # Save to CSV for backward compatibility
         data_processor.save_data([current_track], 'current_track.csv')
+        
+        # Save to database if we have user_id
+        if 'user_id' in current_track:
+            db.save_track(current_track)
+            db.save_listening_history(
+                user_id=current_track['user_id'],
+                track_id=current_track['id'],
+                played_at=datetime.now().isoformat(),
+                source='current'
+            )
+        
         return current_track
     return {}
 
@@ -369,21 +424,43 @@ def update_genre_chart(n_intervals, n_clicks):
 # Update listening patterns chart
 @app.callback(
     Output('listening-patterns-chart', 'figure'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('interval-component', 'n_intervals')
 )
-def update_listening_patterns_chart(n_intervals, n_clicks):
+def update_listening_patterns_chart(n_intervals):
     """Update the listening patterns chart."""
-    # Fetch new data if refresh button clicked
-    if n_clicks is not None and n_clicks > 0:
-        # Respect the 50 track limit for recently played
-        recently_played_data = spotify_api.get_recently_played(limit=50)
-        data_processor.process_recently_played(recently_played_data)
+    user_data = spotify_api.get_user_profile()
+    if not user_data:
+        return visualizations.create_empty_chart("Log in to see your listening patterns")
     
-    # Load data from file
+    # Try database first
+    conn = sqlite3.connect(db.db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT 
+            strftime('%w', played_at) as day_of_week,
+            strftime('%H', played_at) as hour_of_day,
+            COUNT(*) as play_count
+        FROM listening_history
+        WHERE user_id = ?
+        AND played_at >= datetime('now', '-7 days')
+        GROUP BY day_of_week, hour_of_day
+        ORDER BY day_of_week, hour_of_day
+    ''', (user_data['id'],))
+    
+    patterns_data = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    if patterns_data:
+        # Convert numeric day of week to name
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        patterns_df = pd.DataFrame(patterns_data)
+        patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
+        return visualizations.create_listening_patterns_heatmap(patterns_df)
+    
+    # Fallback to CSV data
     recently_played_df = data_processor.load_data('recently_played.csv')
-    
-    # Create visualization
     return visualizations.create_listening_patterns_heatmap(recently_played_df)
 
 # New callback for top albums section
@@ -431,28 +508,62 @@ def update_top_albums(n_intervals, n_clicks):
         return html.Div("Error loading album data", 
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-# New callback for album listening patterns
+# Callback for album listening patterns
 @app.callback(
     Output('album-listening-patterns-container', 'children'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('interval-component', 'n_intervals')
 )
-def update_album_listening_patterns(n_intervals, n_clicks):
+def update_album_listening_patterns(n_intervals):
     """Update the album listening patterns section."""
+    user_data = spotify_api.get_user_profile()
+    if not user_data:
+        return html.Div("Log in to see your album listening patterns", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+    
     try:
-        # Fetch new data if refresh button clicked
-        if n_clicks is not None and n_clicks > 0:
-            patterns = get_album_listening_patterns(spotify_api)
-            data_processor.save_data([patterns], 'album_patterns.csv')
+        # Get patterns from database
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
         
-        # Load data from file
-        patterns_df = data_processor.load_data('album_patterns.csv')
+        # Calculate album completion rate and sequential listening
+        cursor.execute('''
+            WITH album_plays AS (
+                SELECT 
+                    t.album,
+                    COUNT(*) as play_count,
+                    COUNT(DISTINCT t.track_id) as unique_tracks,
+                    SUM(CASE 
+                        WHEN LAG(t.album) OVER (ORDER BY h.played_at) = t.album THEN 1 
+                        ELSE 0 
+                    END) as sequential_plays
+                FROM listening_history h
+                JOIN tracks t ON h.track_id = t.track_id
+                WHERE h.user_id = ?
+                GROUP BY t.album
+            )
+            SELECT 
+                COUNT(CASE WHEN unique_tracks > 1 THEN 1 END) * 100.0 / COUNT(*) as album_completion_rate,
+                SUM(sequential_plays) * 100.0 / SUM(play_count) as sequential_listening_score
+            FROM album_plays
+        ''', (user_data['id'],))
         
-        if patterns_df.empty:
-            return html.Div("No album listening patterns available", 
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        result = cursor.fetchone()
+        conn.close()
         
-        patterns = patterns_df.iloc[0].to_dict()
+        if result and result[0] is not None:
+            patterns = {
+                'album_completion_rate': round(result[0], 2),
+                'sequential_listening_score': round(result[1], 2),
+                'album_focused': result[1] > 40 or result[0] > 30,
+                'listening_style': get_listening_style(result[0], result[1])
+            }
+        else:
+            # Fallback to CSV data
+            patterns_df = data_processor.load_data('album_patterns.csv')
+            if patterns_df.empty:
+                return html.Div("No album patterns available", 
+                              style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+            patterns = patterns_df.iloc[0].to_dict()
         
         # Create stats cards
         from modules.visualizations import create_stat_card
@@ -489,6 +600,19 @@ def update_album_listening_patterns(n_intervals, n_clicks):
         print(f"Error updating album listening patterns: {e}")
         return html.Div("Error loading album listening patterns", 
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+def get_listening_style(completion_rate, sequential_score):
+    """Determine listening style based on metrics."""
+    album_focused = sequential_score > 40 or completion_rate > 30
+    
+    if album_focused:
+        if sequential_score > 70:
+            return "Album Purist"
+        return "Album Explorer"
+    
+    if sequential_score < 20:
+        return "Track Hopper"
+    return "Mood Curator"
 
 # New callback for personality analysis
 @app.callback(
@@ -985,28 +1109,45 @@ def update_wrapped_summary_display(summary):
         Output('unique-tracks-stat', 'children'),
         Output('playlist-count-stat', 'children')
     ],
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('interval-component', 'n_intervals')
 )
-def update_stat_cards(n_intervals, n_clicks):
+def update_stat_cards(n_intervals):
     """Update the stat cards with user statistics."""
-    # Load data
-    top_tracks_df = data_processor.load_data('top_tracks.csv')
-    recently_played_df = data_processor.load_data('recently_played.csv')
-    playlists_df = data_processor.load_data('playlists.csv')
+    user_data = spotify_api.get_user_profile()
+    if not user_data:
+        return create_empty_stats()
+        
+    # Get stats from database first
+    conn = sqlite3.connect(db.db_path)
+    cursor = conn.cursor()
     
-    # Calculate stats
-    total_minutes = 0
-    if not recently_played_df.empty and 'duration_ms' in recently_played_df.columns:
-        total_minutes = int(recently_played_df['duration_ms'].sum() / 60000)
+    # Calculate total minutes from database
+    cursor.execute('''
+        SELECT SUM(t.duration_ms) / 60000 as total_minutes,
+               COUNT(DISTINCT t.artist) as unique_artists,
+               COUNT(DISTINCT h.track_id) as unique_tracks
+        FROM listening_history h
+        JOIN tracks t ON h.track_id = t.track_id
+        WHERE h.user_id = ?
+    ''', (user_data['id'],))
     
-    unique_artists = 0
-    if not top_tracks_df.empty and 'artist' in top_tracks_df.columns:
-        unique_artists = len(top_tracks_df['artist'].unique())
+    db_stats = cursor.fetchone()
+    conn.close()
     
-    unique_tracks = len(top_tracks_df) if not top_tracks_df.empty else 0
+    # Fallback to CSV data if database is empty
+    total_minutes = int(db_stats[0] or 0) if db_stats[0] else 0
+    unique_artists = db_stats[1] or 0
+    unique_tracks = db_stats[2] or 0
     
-    playlist_count = len(playlists_df) if not playlists_df.empty else 0
+    if total_minutes == 0:
+        # Fallback to CSV data
+        recently_played_df = data_processor.load_data('recently_played.csv')
+        if not recently_played_df.empty and 'duration_ms' in recently_played_df.columns:
+            total_minutes = int(recently_played_df['duration_ms'].sum() / 60000)
+    
+    # Get playlist count from Spotify API directly
+    playlists_data = spotify_api.get_playlists()
+    playlist_count = len(playlists_data) if playlists_data else 0
     
     # Create stat cards
     from modules.visualizations import create_stat_card
@@ -1026,7 +1167,7 @@ def update_stat_cards(n_intervals, n_clicks):
     )
     
     unique_tracks_card = create_stat_card(
-        "Top Tracks", 
+        "Unique Tracks", 
         str(unique_tracks), 
         icon="fa-music",
         color="#2D46B9"
@@ -1040,6 +1181,16 @@ def update_stat_cards(n_intervals, n_clicks):
     )
     
     return total_minutes_card, unique_artists_card, unique_tracks_card, playlist_count_card
+
+def create_empty_stats():
+    """Create empty stat cards when no user data is available."""
+    from modules.visualizations import create_stat_card
+    return [
+        create_stat_card("Minutes Listened", "0", icon="fa-clock", color=SPOTIFY_GREEN),
+        create_stat_card("Unique Artists", "0", icon="fa-user", color="#1ED760"),
+        create_stat_card("Unique Tracks", "0", icon="fa-music", color="#2D46B9"),
+        create_stat_card("Your Playlists", "0", icon="fa-list", color="#F037A5")
+    ]
 
 # Error handling callback
 @app.callback(
@@ -1070,6 +1221,48 @@ def update_error_message(n_intervals):
         'display': 'none'
     }
     return "", error_style
+
+# New callback for data collection status
+@app.callback(
+    Output('collection-status', 'children'),
+    Input('interval-component', 'n_intervals')
+)
+def update_collection_status(n_intervals):
+    """Update the collection status display."""
+    user_data = spotify_api.get_user_profile()
+    if not user_data:
+        return html.Div("Please log in to see your data", className="alert alert-info")
+        
+    # Get collection status from database
+    status = db.get_collection_status(user_data['id'])
+    if not status:
+        return html.Div("Starting data collection...", className="alert alert-info")
+        
+    # Get track count
+    conn = sqlite3.connect(db.db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COUNT(*) as track_count
+        FROM listening_history
+        WHERE user_id = ?
+    ''', (user_data['id'],))
+    track_count = cursor.fetchone()[0]
+    conn.close()
+    
+    # Calculate collection period
+    if status['earliest_known'] and status['latest_known']:
+        earliest = datetime.fromisoformat(status['earliest_known'])
+        latest = datetime.fromisoformat(status['latest_known'])
+        days = (latest - earliest).days
+        
+        return html.Div([
+            html.P([
+                f"Collected {track_count} tracks over {days} days. ",
+                html.Small("Data collection is running in the background.")
+            ], className="alert alert-success mb-0")
+        ])
+    
+    return html.Div("Data collection in progress...", className="alert alert-info")
 
 # Main entry point
 if __name__ == '__main__':
@@ -1128,6 +1321,31 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Error during initial data fetch: {e}")
         print("The dashboard will start with empty or cached data")
+    
+    def background_data_collector():
+        """Background thread to periodically collect data."""
+        while True:
+            try:
+                # Get current user
+                user_data = spotify_api.get_user_profile()
+                if user_data:
+                    # Update database with latest data
+                    data_collector.collect_historical_data(
+                        user_data['id'], 
+                        datetime.now() - timedelta(hours=24)  # Last 24 hours
+                    )
+                
+                # Wait for 30 minutes before next collection
+                time.sleep(1800)
+                    
+            except Exception as e:
+                print(f"Error in background collector: {e}")
+                time.sleep(300)  # Wait 5 minutes on error
+    
+    # Start background collector thread
+    import threading
+    collector_thread = threading.Thread(target=background_data_collector, daemon=True)
+    collector_thread.start()
     
     # Run the app
     app.run(debug=True)
