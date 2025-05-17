@@ -1,0 +1,150 @@
+/* Spotify Wrapped Custom Styles */
+
+/* Custom fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+/* Global styles */
+body {
+    font-family: 'Montserrat', 'Gotham', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #191414;
+    color: #FFFFFF;
+    margin: 0;
+    padding: 0;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Apply animations to elements */
+.fade-in {
+    animation: fadeIn 1s ease-in-out;
+}
+
+.slide-up {
+    animation: slideUp 0.8s ease-out;
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Card hover effects */
+.spotify-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.spotify-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.8);
+}
+
+/* Button hover effects */
+.spotify-button {
+    transition: all 0.3s ease;
+}
+
+.spotify-button:hover {
+    background-color: #1ED760 !important;
+    transform: scale(1.05);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #121212;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #535353;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #1DB954;
+}
+
+/* Wrapped-specific styles */
+.wrapped-section {
+    background: linear-gradient(135deg, #191414 0%, #121212 100%);
+    border-radius: 15px;
+    padding: 30px;
+    margin: 20px 0;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+}
+
+.wrapped-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1DB954;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.wrapped-highlight {
+    font-size: 2rem;
+    color: #FFFFFF;
+    text-align: center;
+    margin: 10px 0;
+    font-weight: 700;
+}
+
+.wrapped-subtitle {
+    font-size: 1.2rem;
+    color: #AAAAAA;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Progress bar animation */
+.progress-bar-animated {
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-bar-animated::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background-image: linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.2) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.2) 75%,
+        transparent 75%,
+        transparent
+    );
+    background-size: 50px 50px;
+    animation: move 2s linear infinite;
+    border-radius: 4px;
+}
+
+@keyframes move {
+    0% {
+        background-position: 0 0;
+    }
+    100% {
+        background-position: 50px 50px;
+    }
+}
