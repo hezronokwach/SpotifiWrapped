@@ -5,6 +5,9 @@ import time
 import pandas as pd
 import random
 
+# Import the AI audio feature extractor
+from modules.ai_audio_features import get_track_audio_features
+
 class SpotifyAPI:
     def __init__(self):
         """Initialize Spotify API with credentials from environment variables."""
@@ -13,8 +16,8 @@ class SpotifyAPI:
         self.redirect_uri = os.getenv('REDIRECT_URI')
         self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played'
         self.sp = None
-        # Flag to disable audio features
-        self.audio_features_enabled = False
+        # Flag to enable AI-based audio features instead of Spotify API
+        self.use_ai_audio_features = True
         self.initialize_connection()
         
     def initialize_connection(self):
@@ -34,8 +37,7 @@ class SpotifyAPI:
     
     def get_audio_features_safely(self, track_id):
         """
-        Safely get audio features for a track, handling potential 403 errors.
-        If audio features are disabled, returns generated data without API call.
+        Safely get audio features for a track, using AI-based extraction when possible.
         
         Args:
             track_id: Spotify track ID
@@ -43,14 +45,30 @@ class SpotifyAPI:
         Returns:
             Audio features dictionary or generated fallback data
         """
-        # If audio features are disabled, just return fallback data
-        if not self.audio_features_enabled:
-            return self._generate_fallback_audio_features()
-            
         if not track_id:
             return self._generate_fallback_audio_features()
             
         try:
+            # If using AI-based extraction, try to get the preview URL and analyze it
+            if self.use_ai_audio_features:
+                try:
+                    # Get track info to get the preview URL
+                    track_info = self.sp.track(track_id)
+                    preview_url = track_info.get('preview_url')
+                    
+                    # If we have a preview URL, use AI to extract features
+                    if preview_url:
+                        features = get_track_audio_features(track_id, preview_url)
+                        return features
+                    else:
+                        # No preview URL available, use fallback
+                        print(f"No preview URL available for track {track_id}")
+                        return self._generate_fallback_audio_features()
+                except Exception as e:
+                    print(f"Error using AI audio features for track {track_id}: {e}")
+                    # Fall back to Spotify API if AI fails
+            
+            # If not using AI or AI failed, try Spotify API
             # Add retry mechanism with backoff
             max_retries = 3
             retry_count = 0
@@ -466,10 +484,6 @@ class SpotifyAPI:
         if not self.sp:
             return self._generate_sample_audio_features(limit)
             
-        # If audio features are disabled, just return sample data
-        if not self.audio_features_enabled:
-            return self._generate_sample_audio_features(limit)
-            
         try:
             top_tracks = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
             track_ids = [track['id'] for track in top_tracks['items']]
@@ -485,6 +499,7 @@ class SpotifyAPI:
                     continue
                     
                 track = top_tracks['items'][i]
+                preview_url = track.get('preview_url')
                 features = self.get_audio_features_safely(track_id)
                 
                 features_data.append({
