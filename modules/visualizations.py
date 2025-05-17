@@ -8,8 +8,8 @@ import dash_bootstrap_components as dbc
 import plotly.io as pio
 import colorsys
 import random
-import manim
-from manim import *
+from manim import Scene, Text, UP, DOWN, LEFT, RIGHT, ORIGIN, Write, FadeIn, Circle, Rectangle, VGroup
+
 
 # Set Spotify-themed colors
 SPOTIFY_GREEN = '#1DB954'
@@ -32,42 +32,85 @@ SPOTIFY_PALETTE = [
 # Set default template for all plotly figures
 pio.templates.default = "plotly_dark"
 
-class SpotifyVisualizations:
+class SpotifyAnimations:
+    """Class for creating Spotify Wrapped style animations."""
     def __init__(self):
-        """Initialize visualizations with Spotify theme."""
+        pass
+    
+    # Animation methods will be implemented here
+
+def create_stat_card(title, value, icon="fa-music", color=SPOTIFY_GREEN):
+    """Create a stat card for displaying metrics."""
+    return html.Div([
+        html.Div([
+            html.I(className=f"fas {icon}", style={
+                'fontSize': '24px',
+                'color': color
+            })
+        ], style={
+            'textAlign': 'center',
+            'marginBottom': '10px'
+        }),
+        html.H4(value, style={
+            'textAlign': 'center',
+            'color': SPOTIFY_WHITE,
+            'fontSize': '28px',
+            'fontWeight': 'bold',
+            'marginBottom': '5px'
+        }),
+        html.P(title, style={
+            'textAlign': 'center',
+            'color': SPOTIFY_GRAY,
+            'fontSize': '14px'
+        })
+    ], style={
+        'backgroundColor': '#181818',
+        'padding': '20px',
+        'borderRadius': '10px',
+        'boxShadow': '0 4px 8px rgba(0,0,0,0.3)',
+        'height': '100%'
+    })
+
+class SpotifyVisualizations:
+    """Class for creating Spotify data visualizations."""
+    
+    def __init__(self):
+        """Initialize with Spotify-themed colors."""
         self.theme = {
             'background_color': SPOTIFY_BLACK,
+            'paper_color': '#121212',
             'text_color': SPOTIFY_WHITE,
-            'accent_color': SPOTIFY_GREEN,
             'secondary_color': SPOTIFY_GRAY,
-            'font_family': 'Gotham, Helvetica Neue, Helvetica, Arial, sans-serif'
-        }
-        
-        # Default layout settings for all charts
-        self.layout_defaults = {
-            'plot_bgcolor': self.theme['background_color'],
-            'paper_bgcolor': self.theme['background_color'],
-            'font': {
-                'color': self.theme['text_color'],
-                'family': self.theme['font_family']
-            },
-            'title': {
-                'font': {
-                    'color': self.theme['accent_color'],
-                    'family': self.theme['font_family'],
-                    'size': 24
-                }
-            },
-            'margin': {'t': 50, 'b': 50, 'l': 50, 'r': 50}
+            'accent_color': SPOTIFY_GREEN
         }
     
     def _apply_theme(self, fig):
         """Apply Spotify theme to a plotly figure."""
-        fig.update_layout(**self.layout_defaults)
+        fig.update_layout(
+            plot_bgcolor=self.theme['background_color'],
+            paper_bgcolor=self.theme['paper_color'],
+            font_color=self.theme['text_color'],
+            title_font_color=self.theme['accent_color'],
+            legend_title_font_color=self.theme['accent_color'],
+            coloraxis_colorbar=dict(
+                tickfont=dict(color=self.theme['text_color'])
+            )
+        )
+        
+        # Update axes
+        fig.update_xaxes(
+            gridcolor=self.theme['secondary_color'],
+            zerolinecolor=self.theme['secondary_color']
+        )
+        fig.update_yaxes(
+            gridcolor=self.theme['secondary_color'],
+            zerolinecolor=self.theme['secondary_color']
+        )
+        
         return fig
     
     def create_top_tracks_chart(self, df):
-        """Create a bar chart of top tracks with popularity scores."""
+        """Create a bar chart of top tracks."""
         if df.empty or 'track' not in df.columns:
             # Return empty figure with message
             fig = go.Figure()
@@ -93,8 +136,8 @@ class SpotifyVisualizations:
             df,
             y='track',
             x='popularity' if 'popularity' in df.columns else [1] * len(df),
-            color='artist',
             orientation='h',
+            color='artist',
             color_discrete_sequence=SPOTIFY_PALETTE,
             labels={
                 'track': '',
@@ -104,7 +147,7 @@ class SpotifyVisualizations:
             title='Your Top Tracks'
         )
         
-        # Add track rank if available
+        # Add rank numbers if available
         if 'rank' in df.columns:
             for i, row in df.iterrows():
                 fig.add_annotation(
@@ -162,7 +205,7 @@ class SpotifyVisualizations:
     
     def create_saved_tracks_timeline(self, df):
         """Create a timeline of saved tracks."""
-        if df.empty or 'added_at' not in df.columns or 'end_date' not in df.columns:
+        if df.empty or 'added_at' not in df.columns:
             # Return empty figure with message
             fig = go.Figure()
             fig.add_annotation(
@@ -173,37 +216,33 @@ class SpotifyVisualizations:
             )
             return self._apply_theme(fig)
         
-        # Ensure datetime format
+        # Convert added_at to datetime
         df['added_at'] = pd.to_datetime(df['added_at'])
-        df['end_date'] = pd.to_datetime(df['end_date'])
         
-        # Sort by added_at date
+        # Sort by added_at
         df = df.sort_values('added_at', ascending=False)
+        
+        # Limit to most recent 10 tracks
+        df = df.head(10)
         
         # Create timeline
         fig = px.timeline(
             df,
             x_start='added_at',
-            x_end='end_date',
+            x_end='end_date' if 'end_date' in df.columns else 'added_at',
             y='track',
             color='artist',
             color_discrete_sequence=SPOTIFY_PALETTE,
             labels={
+                'added_at': 'Date Added',
                 'track': '',
-                'artist': 'Artist',
-                'added_at': 'Date Added'
+                'artist': 'Artist'
             },
             title='Recently Saved Tracks'
         )
         
-        # Update layout for better appearance
-        fig.update_layout(
-            height=600,
-            xaxis_title="Date Added",
-            yaxis_title="",
-            legend_title_text="",
-            yaxis={'categoryorder': 'array', 'categoryarray': df['track'].tolist()[::-1]}
-        )
+        # Reverse y-axis to show most recent at the top
+        fig.update_yaxes(autorange="reversed")
         
         # Add hover template with more info
         hover_template = (
@@ -223,6 +262,13 @@ class SpotifyVisualizations:
             customdata=custom_data
         )
         
+        # Update layout for better appearance
+        fig.update_layout(
+            height=500,
+            xaxis_title="",
+            yaxis_title=""
+        )
+        
         return self._apply_theme(fig)
     
     def create_playlists_chart(self, df):
@@ -239,23 +285,25 @@ class SpotifyVisualizations:
             return self._apply_theme(fig)
         
         # Sort by track count
-        df = df.sort_values('total_tracks', ascending=False)
+        if 'total_tracks' in df.columns:
+            df = df.sort_values('total_tracks', ascending=False)
         
-        # Create visibility column for color coding
-        if 'public' in df.columns and 'collaborative' in df.columns:
+        # Limit to top 10 playlists
+        df = df.head(10)
+        
+        # Create color column based on playlist visibility
+        if 'public' in df.columns:
             df['visibility'] = df.apply(
-                lambda x: 'Collaborative' if x['collaborative'] else ('Public' if x['public'] else 'Private'), 
+                lambda x: 'Collaborative' if x.get('collaborative', False) else ('Public' if x.get('public', False) else 'Private'), 
                 axis=1
             )
-        else:
-            df['visibility'] = 'Unknown'
         
         # Create bar chart
         fig = px.bar(
             df,
             x='playlist',
             y='total_tracks',
-            color='visibility',
+            color='visibility' if 'visibility' in df.columns else None,
             color_discrete_sequence=SPOTIFY_PALETTE,
             labels={
                 'playlist': 'Playlist',
@@ -269,32 +317,17 @@ class SpotifyVisualizations:
         fig.update_layout(
             height=500,
             xaxis_title="",
-            yaxis_title="Number of Tracks",
-            legend_title_text="",
-            xaxis={'tickangle': 45}
+            yaxis_title="Number of Tracks"
         )
         
-        # Add hover template with more info
-        hover_template = (
-            "<b>%{x}</b><br>" +
-            "Tracks: %{y}<br>" +
-            "Type: %{marker.color}<br>"
-        )
-        
-        if 'owner' in df.columns:
-            hover_template += "Owner: %{customdata}<br>"
-            custom_data = df[['owner']].values
-            
-            fig.update_traces(
-                hovertemplate=hover_template,
-                customdata=custom_data
-            )
+        # Rotate x-axis labels for better readability
+        fig.update_xaxes(tickangle=45)
         
         return self._apply_theme(fig)
     
     def create_audio_features_radar(self, df):
-        """Create a radar chart of audio features for top tracks."""
-        if df.empty or not all(col in df.columns for col in ['track', 'feature', 'value']):
+        """Create a radar chart of audio features."""
+        if df.empty or not all(col in df.columns for col in ['track', 'danceability', 'energy', 'valence']):
             # Return empty figure with message
             fig = go.Figure()
             fig.add_annotation(
@@ -305,34 +338,24 @@ class SpotifyVisualizations:
             )
             return self._apply_theme(fig)
         
-        # Get unique tracks
-        tracks = df['track'].unique()
+        # Select features for radar chart
+        features = ['danceability', 'energy', 'speechiness', 'acousticness', 'instrumentalness', 'liveness', 'valence']
         
         # Create radar chart
         fig = go.Figure()
         
         # Add a trace for each track
-        for i, track in enumerate(tracks):
-            track_data = df[df['track'] == track]
-            
-            # Sort features in a consistent order
-            features = track_data['feature'].tolist()
-            values = track_data['value'].tolist()
-            
-            # Add the first value at the end to close the polygon
-            features.append(features[0])
+        for i, row in df.iterrows():
+            values = [row[feature] for feature in features]
+            # Add the first value again to close the loop
             values.append(values[0])
-            
-            # Get color from palette
-            color = SPOTIFY_PALETTE[i % len(SPOTIFY_PALETTE)]
             
             fig.add_trace(go.Scatterpolar(
                 r=values,
-                theta=features,
+                theta=features + [features[0]],  # Add the first feature again to close the loop
                 fill='toself',
-                name=track,
-                line_color=color,
-                fillcolor=color + '50'  # Add transparency
+                name=row['track'],
+                line=dict(color=SPOTIFY_PALETTE[i % len(SPOTIFY_PALETTE)])
             ))
         
         # Update layout
@@ -385,7 +408,8 @@ class SpotifyVisualizations:
         fig.update_traces(
             textposition='inside',
             textinfo='percent+label',
-            hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}'
+            hoverinfo='label+percent+value',
+            marker=dict(line=dict(color=self.theme['background_color'], width=2))
         )
         
         return self._apply_theme(fig)
@@ -403,39 +427,70 @@ class SpotifyVisualizations:
             )
             return self._apply_theme(fig)
         
-        # Create pivot table for heatmap
-        pivot_df = df.pivot_table(
-            index='day_of_week', 
-            columns='hour_of_day', 
-            aggfunc='size', 
-            fill_value=0
-        )
-        
-        # Reorder days of week
-        days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        pivot_df = pivot_df.reindex(days_order)
-        
-        # Create heatmap
-        fig = px.imshow(
-            pivot_df,
-            labels=dict(x="Hour of Day", y="Day of Week", color="Play Count"),
-            x=[str(hour) for hour in range(24)],
-            y=days_order,
-            color_continuous_scale=px.colors.sequential.Viridis,
-            title='Your Listening Patterns'
-        )
-        
-        # Update layout for better appearance
-        fig.update_layout(
-            height=500,
-            coloraxis_colorbar=dict(
-                title="Play Count",
-                tickvals=[pivot_df.values.min(), pivot_df.values.max()],
-                ticktext=["Low", "High"]
+        try:
+            # Create pivot table for heatmap
+            pivot_df = df.pivot_table(
+                index='day_of_week', 
+                columns='hour_of_day', 
+                aggfunc='size', 
+                fill_value=0
             )
-        )
-        
-        return self._apply_theme(fig)
+            
+            # Reorder days of week
+            days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            
+            # Make sure all days are in the pivot table
+            for day in days_order:
+                if day not in pivot_df.index:
+                    pivot_df.loc[day] = [0] * len(pivot_df.columns)
+            
+            pivot_df = pivot_df.reindex(days_order)
+            
+            # Make sure all hours are in the pivot table
+            all_hours = list(range(24))
+            for hour in all_hours:
+                if hour not in pivot_df.columns:
+                    pivot_df[hour] = 0
+            
+            # Sort columns (hours)
+            pivot_df = pivot_df.reindex(columns=sorted(pivot_df.columns))
+            
+            # Create heatmap using go.Heatmap instead of px.imshow for more control
+            fig = go.Figure(data=go.Heatmap(
+                z=pivot_df.values,
+                x=[str(hour) for hour in pivot_df.columns],
+                y=pivot_df.index,
+                colorscale='Viridis',
+                hoverongaps=False,
+                hovertemplate='Day: %{y}<br>Hour: %{x}<br>Play Count: %{z}<extra></extra>'
+            ))
+            
+            # Update layout for better appearance
+            fig.update_layout(
+                title='Your Listening Patterns',
+                xaxis_title='Hour of Day',
+                yaxis_title='Day of Week',
+                height=500,
+                xaxis=dict(
+                    tickmode='array',
+                    tickvals=[str(hour) for hour in range(24)],
+                    ticktext=[f"{hour}:00" for hour in range(24)]
+                )
+            )
+            
+            return self._apply_theme(fig)
+            
+        except Exception as e:
+            # If pivot table creation fails, return empty figure with error message
+            print(f"Error creating listening patterns heatmap: {e}")
+            fig = go.Figure()
+            fig.add_annotation(
+                text=f"Error creating listening patterns visualization: {str(e)}",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(color=self.theme['text_color'], size=16)
+            )
+            return self._apply_theme(fig)
     
     def create_top_artists_chart(self, df):
         """Create a bar chart of top artists."""
@@ -450,7 +505,7 @@ class SpotifyVisualizations:
             )
             return self._apply_theme(fig)
         
-        # Sort by rank if available, otherwise by popularity
+        # Sort by rank or popularity
         if 'rank' in df.columns:
             df = df.sort_values('rank')
         elif 'popularity' in df.columns:
@@ -474,7 +529,7 @@ class SpotifyVisualizations:
             title='Your Top Artists'
         )
         
-        # Add artist rank if available
+        # Add rank numbers if available
         if 'rank' in df.columns:
             for i, row in df.iterrows():
                 fig.add_annotation(
@@ -487,7 +542,7 @@ class SpotifyVisualizations:
                     font=dict(color=self.theme['accent_color'], size=14)
                 )
         
-        # Add artist images if image_url is available
+        # Add artist images if available
         if 'image_url' in df.columns:
             for i, row in df.iterrows():
                 if pd.notna(row.get('image_url')):
@@ -546,12 +601,12 @@ class SpotifyVisualizations:
         
         # Create component
         return html.Div([
-            # Header
+            # Title
             html.H3("Now Playing", style={'color': self.theme['accent_color'], 'marginBottom': '20px'}),
             
-            # Track info with image
+            # Track info
             html.Div([
-                # Album cover
+                # Album art
                 html.Div([
                     html.Img(
                         src=track_data.get('image_url', ''),
@@ -591,7 +646,7 @@ class SpotifyVisualizations:
                         'margin': '8px 0'
                     }),
                     
-                    # Duration
+                    # Duration time
                     html.Span(duration_str, style={
                         'color': self.theme['secondary_color'], 
                         'fontSize': '12px',
@@ -600,7 +655,7 @@ class SpotifyVisualizations:
                 ])
             ])
         ], style={
-            'backgroundColor': '#121212',
+            'backgroundColor': '#181818',
             'padding': '20px',
             'borderRadius': '10px',
             'boxShadow': '0 4px 12px rgba(0,0,0,0.5)'
@@ -616,7 +671,7 @@ class SpotifyVisualizations:
         
         # Create component
         return html.Div([
-            # Header
+            # Title
             html.H2("Your 2023 Wrapped", style={
                 'color': self.theme['accent_color'],
                 'textAlign': 'center',
@@ -640,7 +695,7 @@ class SpotifyVisualizations:
                         'fontWeight': 'normal'
                     })
                 ], style={
-                    'backgroundColor': '#121212',
+                    'backgroundColor': '#181818',
                     'padding': '30px',
                     'borderRadius': '10px',
                     'margin': '20px 0'
@@ -663,7 +718,7 @@ class SpotifyVisualizations:
                         'fontWeight': 'normal'
                     })
                 ], style={
-                    'backgroundColor': '#121212',
+                    'backgroundColor': '#181818',
                     'padding': '30px',
                     'borderRadius': '10px',
                     'margin': '20px 0'
@@ -717,14 +772,14 @@ class SpotifyVisualizations:
                         ])
                     ])
                 ], style={
-                    'backgroundColor': '#121212',
+                    'backgroundColor': '#181818',
                     'padding': '30px',
                     'borderRadius': '10px',
                     'margin': '20px 0'
                 })
             ]),
             
-            # Genre highlight section
+            # Top genre section
             html.Div([
                 html.H3("Your Top Genre", style={'color': self.theme['text_color'], 'textAlign': 'center'}),
                 html.Div([
@@ -735,300 +790,18 @@ class SpotifyVisualizations:
                         'margin': '10px 0'
                     })
                 ], style={
-                    'backgroundColor': '#121212',
+                    'backgroundColor': '#181818',
                     'padding': '30px',
                     'borderRadius': '10px',
                     'margin': '20px 0'
                 })
             ])
         ], style={
-            'backgroundColor': '#191414',
+                        'backgroundColor': '#121212',
             'padding': '30px',
             'borderRadius': '15px',
-            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)',
-            'margin': '20px 0'
+            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
         })
-
-# Manim animations for Spotify Wrapped
-class SpotifyAnimations:
-    """Class for creating Manim animations for Spotify Wrapped."""
-    
-    @staticmethod
-    def create_top_track_animation(track_name, artist_name, output_file="top_track_animation.mp4"):
-        """Create an animation revealing the top track."""
-        class TopTrackScene(Scene):
-            def construct(self):
-                # Set background color to Spotify black
-                self.camera.background_color = "#191414"
-                
-                # Create text objects
-                header = Text("Your Top Track of 2023", font="Arial", color="#1DB954")
-                track = Text(track_name, font="Arial", color="#FFFFFF")
-                artist = Text(f"by {artist_name}", font="Arial", color="#AAAAAA")
-                
-                # Position text
-                header.to_edge(UP, buff=1)
-                track.scale(1.5)
-                artist.next_to(track, DOWN, buff=0.5)
-                
-                # Create animation sequence
-                self.play(Write(header), run_time=1)
-                self.wait(0.5)
-                
-                # Reveal track name with typewriter effect
-                self.play(AddTextLetterByLetter(track), run_time=2)
-                self.wait(0.5)
-                
-                # Fade in artist name
-                self.play(FadeIn(artist), run_time=1)
-                self.wait(2)
-                
-                # Final flourish - pulse effect
-                self.play(
-                    track.animate.scale(1.1),
-                    rate_func=there_and_back,
-                    run_time=1
-                )
-                self.wait(1)
-        
-        # Render the animation
-        scene = TopTrackScene()
-        scene.render()
-        
-        return output_file
-    
-    @staticmethod
-    def create_genre_animation(genres, output_file="genre_animation.mp4"):
-        """Create an animation showing top genres."""
-        class GenreScene(Scene):
-            def construct(self):
-                # Set background color to Spotify black
-                self.camera.background_color = "#191414"
-                
-                # Create header
-                header = Text("Your Top Genres", font="Arial", color="#1DB954")
-                header.to_edge(UP, buff=1)
-                
-                # Create genre text objects
-                genre_texts = []
-                colors = ["#1DB954", "#1ED760", "#2D46B9", "#F037A5", "#FFFF00"]
-                
-                for i, genre in enumerate(genres[:5]):  # Show top 5 genres
-                    color = colors[i % len(colors)]
-                    text = Text(genre, font="Arial", color=color)
-                    text.scale(1.5 - (i * 0.2))  # Decreasing size
-                    genre_texts.append(text)
-                
-                # Position genre texts in a vertical stack
-                VGroup(*genre_texts).arrange(DOWN, buff=0.4).center()
-                
-                # Create animation sequence
-                self.play(Write(header), run_time=1)
-                self.wait(0.5)
-                
-                # Reveal genres one by one
-                for text in genre_texts:
-                    self.play(FadeIn(text, shift=UP*0.5), run_time=0.7)
-                
-                self.wait(1)
-                
-                # Final flourish - shuffle effect
-                self.play(
-                    *[text.animate.shift(0.2 * UP * ((-1) ** i)) for i, text in enumerate(genre_texts)],
-                    rate_func=wiggle,
-                    run_time=1.5
-                )
-                self.wait(1)
-        
-        # Render the animation
-        scene = GenreScene()
-        scene.render()
-        
-        return output_file
-    
-    @staticmethod
-    def create_listening_stats_animation(minutes_listened, output_file="listening_stats_animation.mp4"):
-        """Create an animation showing listening statistics."""
-        class ListeningStatsScene(Scene):
-            def construct(self):
-                # Set background color to Spotify black
-                self.camera.background_color = "#191414"
-                
-                # Create text objects
-                header = Text("Your Listening Time", font="Arial", color="#1DB954")
-                
-                # Format minutes into hours and minutes
-                hours = minutes_listened // 60
-                mins = minutes_listened % 60
-                time_str = f"{hours:,} hours {mins} minutes"
-                
-                time_text = Text(time_str, font="Arial", color="#FFFFFF")
-                subtext = Text("of music in 2023", font="Arial", color="#AAAAAA")
-                
-                # Position text
-                header.to_edge(UP, buff=1)
-                time_text.scale(1.5)
-                subtext.next_to(time_text, DOWN, buff=0.5)
-                
-                # Create animation sequence
-                self.play(Write(header), run_time=1)
-                self.wait(0.5)
-                
-                # Counting animation for time
-                counter = Integer(0)
-                counter.scale(1.5)
-                counter.set_color("#FFFFFF")
-                
-                self.play(FadeIn(counter))
-                self.play(
-                    ChangeDecimalToValue(counter, minutes_listened),
-                    run_time=3,
-                    rate_func=smooth
-                )
-                self.play(FadeOut(counter))
-                
-                # Show formatted time
-                self.play(FadeIn(time_text), run_time=1)
-                self.wait(0.5)
-                
-                # Show subtext
-                self.play(Write(subtext), run_time=1)
-                self.wait(1)
-                
-                # Final flourish
-                self.play(
-                    time_text.animate.set_color("#1DB954"),
-                    run_time=1
-                )
-                self.wait(1)
-        
-        # Render the animation
-        scene = ListeningStatsScene()
-        scene.render()
-        
-        return output_file
-    
-    @staticmethod
-    def create_mood_animation(mood, valence, energy, output_file="mood_animation.mp4"):
-        """Create an animation showing the user's music mood."""
-        class MoodScene(Scene):
-            def construct(self):
-                # Set background color to Spotify black
-                self.camera.background_color = "#191414"
-                
-                # Create text objects
-                header = Text("Your Music Mood", font="Arial", color="#1DB954")
-                mood_text = Text(mood, font="Arial", color="#FFFFFF")
-                
-                # Create mood visualization
-                mood_circle = Circle(radius=2, color="#1DB954", fill_opacity=0.5)
-                
-                # Position elements
-                header.to_edge(UP, buff=1)
-                mood_text.next_to(header, DOWN, buff=1)
-                mood_text.scale(1.5)
-                
-                # Create animation sequence
-                self.play(Write(header), run_time=1)
-                self.wait(0.5)
-                
-                # Reveal mood text
-                self.play(AddTextLetterByLetter(mood_text), run_time=1.5)
-                self.wait(0.5)
-                
-                # Show mood circle
-                self.play(
-                    FadeIn(mood_circle),
-                    mood_text.animate.scale(0.8).to_edge(UP, buff=2),
-                    run_time=1.5
-                )
-                
-                # Create and animate valence and energy bars
-                valence_label = Text("Valence", font="Arial", color="#AAAAAA").scale(0.7)
-                energy_label = Text("Energy", font="Arial", color="#AAAAAA").scale(0.7)
-                
-                valence_bar = Rectangle(height=0.3, width=4, fill_opacity=1, color="#1DB954")
-                energy_bar = Rectangle(height=0.3, width=4, fill_opacity=1, color="#1DB954")
-                
-                valence_bg = Rectangle(height=0.3, width=4, fill_opacity=0.3, color="#AAAAAA")
-                energy_bg = Rectangle(height=0.3, width=4, fill_opacity=0.3, color="#AAAAAA")
-                
-                # Position bars
-                valence_group = VGroup(valence_label, valence_bg)
-                energy_group = VGroup(energy_label, energy_bg)
-                
-                valence_group.arrange(DOWN, buff=0.2)
-                energy_group.arrange(DOWN, buff=0.2)
-                
-                VGroup(valence_group, energy_group).arrange(DOWN, buff=0.7).to_edge(DOWN, buff=1)
-                
-                # Align bars
-                valence_bar.move_to(valence_bg)
-                energy_bar.move_to(energy_bg)
-                
-                # Set initial width to 0
-                valence_bar.stretch(0.01, 0)
-                energy_bar.stretch(0.01, 0)
-                
-                # Align to left
-                valence_bar.align_to(valence_bg, LEFT)
-                energy_bar.align_to(energy_bg, LEFT)
-                
-                # Show labels and backgrounds
-                self.play(
-                    FadeIn(valence_group),
-                    FadeIn(energy_group),
-                    run_time=1
-                )
-                
-                # Add bars and animate to correct width
-                self.play(FadeIn(valence_bar), FadeIn(energy_bar))
-                self.play(
-                    valence_bar.animate.stretch(valence, 0),
-                    energy_bar.animate.stretch(energy, 0),
-                    run_time=2,
-                    rate_func=smooth
-                )
-                
-                self.wait(1)
-                
-                # Final flourish - pulse the mood circle
-                self.play(
-                    mood_circle.animate.scale(1.2),
-                    rate_func=there_and_back,
-                    run_time=1
-                )
-                self.wait(1)
-        
-        # Render the animation
-        scene = MoodScene()
-        scene.render()
-        
-        return output_file
-
-# Helper functions for creating interactive components
-def create_spotify_card(title, content, icon=None):
-    """Create a styled card component for the dashboard."""
-    header = html.Div([
-        html.I(className=f"fas {icon}", style={'marginRight': '10px'}) if icon else None,
-        html.H3(title, style={'margin': '0', 'display': 'inline'})
-    ], style={
-        'borderBottom': f'1px solid {SPOTIFY_GRAY}',
-        'paddingBottom': '10px',
-        'marginBottom': '15px',
-        'color': SPOTIFY_GREEN
-    })
-    
-    return html.Div([
-        header,
-        html.Div(content)
-    ], style={
-        'backgroundColor': '#121212',
-        'padding': '20px',
-        'borderRadius': '10px',
-        'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
-        'margin': '15px 0'
-    })
 
 def create_track_list_item(track_data):
     """Create a styled list item for a track."""
@@ -1086,21 +859,27 @@ def create_artist_list_item(artist_data):
         }
     })
 
-def create_stat_card(title, value, icon=None, color=SPOTIFY_GREEN):
-    """Create a simple stat card."""
+def create_spotify_card(title, content, icon=None):
+    """Create a styled card component for the dashboard."""
+    header = html.Div([
+        html.I(className=f"fas {icon}", style={'marginRight': '10px'}) if icon else None,
+        html.H3(title, style={'margin': '0', 'display': 'inline'})
+    ], style={
+        'borderBottom': f'1px solid {SPOTIFY_GRAY}',
+        'paddingBottom': '10px',
+        'marginBottom': '15px',
+        'color': SPOTIFY_GREEN
+    })
+    
     return html.Div([
-        html.Div([
-            html.I(className=f"fas {icon}", style={'fontSize': '24px'}) if icon else None,
-        ], style={'marginBottom': '10px', 'color': color}),
-        html.Div(title, style={'color': SPOTIFY_GRAY, 'fontSize': '0.9em', 'marginBottom': '5px'}),
-        html.Div(value, style={'color': SPOTIFY_WHITE, 'fontSize': '1.8em', 'fontWeight': 'bold'})
+        header,
+        html.Div(content)
     ], style={
         'backgroundColor': '#121212',
         'padding': '20px',
         'borderRadius': '10px',
-        'textAlign': 'center',
         'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
-        'height': '100%'
+        'margin': '15px 0'
     })
 
 def create_progress_bar(value, max_value=100, label=None, color=SPOTIFY_GREEN):
@@ -1145,9 +924,308 @@ def create_spotify_button(text, id=None, color=SPOTIFY_GREEN):
         }
     })
 
-# Export the main visualization class
+class SpotifyAnimations:
+    """Class for creating Spotify Wrapped style animations using Manim."""
+    
+    @staticmethod
+    def create_top_tracks_animation(tracks, output_file="top_tracks_animation.mp4"):
+        """Create an animation showing top tracks."""
+        from manim import Scene, Text, UP, DOWN, LEFT, RIGHT, ORIGIN, Write, FadeIn, Create, VGroup
+        
+        class TopTracksScene(Scene):
+            def construct(self):
+                # Set background color to Spotify black
+                self.camera.background_color = "#191414"
+                
+                # Create title
+                title = Text("Your Top Tracks", font="Arial", color="#1DB954")
+                title.to_edge(UP, buff=1)
+                
+                # Create track texts
+                track_texts = []
+                for i, track in enumerate(tracks[:5]):  # Show top 5 tracks
+                    text = Text(f"{i+1}. {track['track']} - {track['artist']}", 
+                               font="Arial", color="#FFFFFF")
+                    text.scale(0.8)
+                    track_texts.append(text)
+                
+                # Position track texts in a vertical stack
+                VGroup(*track_texts).arrange(DOWN, buff=0.5).center()
+                
+                # Create animation sequence
+                self.play(Write(title), run_time=1)
+                self.wait(0.5)
+                
+                # Reveal tracks one by one
+                for text in track_texts:
+                    self.play(FadeIn(text, shift=UP*0.5), run_time=0.7)
+                
+                self.wait(2)
+        
+        # Render the animation
+        scene = TopTracksScene()
+        scene.render()
+        
+        return output_file
+    
+    @staticmethod
+    def create_top_artists_animation(artists, output_file="top_artists_animation.mp4"):
+        """Create an animation showing top artists."""
+        from manim import Scene, Text, UP, DOWN, LEFT, RIGHT, ORIGIN, Write, FadeIn, Create, VGroup
+        
+        class TopArtistsScene(Scene):
+            def construct(self):
+                # Set background color to Spotify black
+                self.camera.background_color = "#191414"
+                
+                # Create title
+                title = Text("Your Top Artists", font="Arial", color="#1DB954")
+                title.to_edge(UP, buff=1)
+                
+                # Create artist texts
+                artist_texts = []
+                for i, artist in enumerate(artists[:5]):  # Show top 5 artists
+                    text = Text(f"{i+1}. {artist['artist']}", 
+                               font="Arial", color="#FFFFFF")
+                    text.scale(0.8)
+                    artist_texts.append(text)
+                
+                # Position artist texts in a vertical stack
+                VGroup(*artist_texts).arrange(DOWN, buff=0.5).center()
+                
+                # Create animation sequence
+                self.play(Write(title), run_time=1)
+                self.wait(0.5)
+                
+                # Reveal artists one by one
+                for text in artist_texts:
+                    self.play(FadeIn(text, shift=UP*0.5), run_time=0.7)
+                
+                self.wait(2)
+        
+        # Render the animation
+        scene = TopArtistsScene()
+        scene.render()
+        
+        return output_file
+    
+    @staticmethod
+    def create_genre_animation(genres, output_file="genre_animation.mp4"):
+        """Create an animation showing top genres."""
+        from manim import Scene, Text, UP, DOWN, LEFT, RIGHT, ORIGIN, Write, FadeIn, VGroup
+        
+        class GenreScene(Scene):
+            def construct(self):
+                # Set background color to Spotify black
+                self.camera.background_color = "#191414"
+                
+                # Create title
+                header = Text("Your Top Genres", font="Arial", color="#1DB954")
+                header.to_edge(UP, buff=1)
+                
+                # Create genre text objects
+                genre_texts = []
+                colors = ["#1DB954", "#1ED760", "#2D46B9", "#F037A5", "#FFFF00"]
+                
+                for i, genre in enumerate(genres[:5]):  # Show top 5 genres
+                    color = colors[i % len(colors)]
+                    text = Text(genre, font="Arial", color=color)
+                    text.scale(1.5 - (i * 0.2))  # Decreasing size
+                    genre_texts.append(text)
+                
+                # Position genre texts in a vertical stack
+                VGroup(*genre_texts).arrange(DOWN, buff=0.4).center()
+                
+                # Create animation sequence
+                self.play(Write(header), run_time=1)
+                self.wait(0.5)
+                
+                # Reveal genres one by one
+                for text in genre_texts:
+                    self.play(FadeIn(text, shift=UP*0.5), run_time=0.7)
+                
+                self.wait(1)
+                
+                # Final flourish - shuffle effect
+                self.play(
+                    *[text.animate.shift(0.2 * UP * ((-1) ** i)) for i, text in enumerate(genre_texts)],
+                    rate_func=lambda t: np.sin(t * np.pi * 2),
+                    run_time=1.5
+                )
+                self.wait(1)
+        
+        # Render the animation
+        scene = GenreScene()
+        scene.render()
+        
+        return output_file
+    
+    @staticmethod
+    def create_listening_stats_animation(minutes_listened, output_file="listening_stats_animation.mp4"):
+        """Create an animation showing listening statistics."""
+        from manim import Scene, Text, UP, DOWN, LEFT, RIGHT, ORIGIN, Write, FadeIn, FadeOut, Integer
+        
+        class ListeningStatsScene(Scene):
+            def construct(self):
+                # Set background color to Spotify black
+                self.camera.background_color = "#191414"
+                
+                # Create text objects
+                header = Text("Your Listening Time", font="Arial", color="#1DB954")
+                
+                # Format minutes into hours and minutes
+                hours = minutes_listened // 60
+                mins = minutes_listened % 60
+                time_str = f"{hours:,} hours {mins} minutes"
+                
+                time_text = Text(time_str, font="Arial", color="#FFFFFF")
+                subtext = Text("of music in 2023", font="Arial", color="#AAAAAA")
+                
+                # Position text
+                header.to_edge(UP, buff=1)
+                time_text.scale(1.5)
+                subtext.next_to(time_text, DOWN, buff=0.5)
+                
+                # Create animation sequence
+                self.play(Write(header), run_time=1)
+                self.wait(0.5)
+                
+                # Counting animation for time
+                counter = Integer(0)
+                counter.scale(1.5)
+                counter.set_color("#FFFFFF")
+                
+                self.play(FadeIn(counter))
+                self.play(
+                    counter.animate.set_value(minutes_listened),
+                    run_time=3,
+                    rate_func=lambda t: t
+                )
+                self.play(FadeOut(counter))
+                
+                # Show formatted time
+                self.play(FadeIn(time_text), run_time=1)
+                self.wait(0.5)
+                
+                # Show subtext
+                self.play(Write(subtext), run_time=1)
+                self.wait(1)
+                
+                # Final flourish
+                self.play(
+                    time_text.animate.set_color("#1DB954"),
+                    run_time=1
+                )
+                self.wait(1)
+        
+        # Render the animation
+        scene = ListeningStatsScene()
+        scene.render()
+        
+        return output_file
+    
+    @staticmethod
+    def create_mood_animation(mood, valence, energy, output_file="mood_animation.mp4"):
+        """Create an animation showing the user's music mood."""
+        
+        class MoodScene(Scene):
+            def construct(self):
+                # Set background color to Spotify black
+                self.camera.background_color = "#191414"
+                
+                # Create text objects
+                header = Text("Your Music Mood", font="Arial", color="#1DB954")
+                mood_text = Text(mood, font="Arial", color="#FFFFFF")
+                
+                # Create mood visualization
+                mood_circle = Circle(radius=2, color="#1DB954", fill_opacity=0.5)
+                
+                # Position elements
+                header.to_edge(UP, buff=1)
+                mood_text.next_to(header, DOWN, buff=1)
+                mood_text.scale(1.5)
+                
+                # Create animation sequence
+                self.play(Write(header), run_time=1)
+                self.wait(0.5)
+                
+                # Reveal mood text
+                self.play(Write(mood_text), run_time=1.5)
+                self.wait(0.5)
+                
+                # Show mood circle
+                self.play(
+                    FadeIn(mood_circle),
+                    mood_text.animate.scale(0.8).to_edge(UP, buff=2),
+                    run_time=1.5
+                )
+                
+                # Create and animate valence and energy bars
+                valence_label = Text("Valence", font="Arial", color="#AAAAAA").scale(0.7)
+                energy_label = Text("Energy", font="Arial", color="#AAAAAA").scale(0.7)
+                
+                valence_bar = Rectangle(height=0.3, width=4, fill_opacity=1, color="#1DB954")
+                energy_bar = Rectangle(height=0.3, width=4, fill_opacity=1, color="#1DB954")
+                
+                valence_bg = Rectangle(height=0.3, width=4, fill_opacity=0.3, color="#AAAAAA")
+                energy_bg = Rectangle(height=0.3, width=4, fill_opacity=0.3, color="#AAAAAA")
+                
+                # Position bars
+                valence_group = VGroup(valence_label, valence_bg)
+                energy_group = VGroup(energy_label, energy_bg)
+                
+                valence_group.arrange(DOWN, buff=0.2)
+                energy_group.arrange(DOWN, buff=0.2)
+                
+                VGroup(valence_group, energy_group).arrange(DOWN, buff=0.7).to_edge(DOWN, buff=1)
+                
+                # Align bars
+                valence_bar.move_to(valence_bg)
+                energy_bar.move_to(energy_bg)
+                
+                # Set initial width to 0
+                valence_bar.stretch(0.01, 0)
+                energy_bar.stretch(0.01, 0)
+                
+                # Align to left
+                valence_bar.align_to(valence_bg, LEFT)
+                energy_bar.align_to(energy_bg, LEFT)
+                
+                # Show labels and backgrounds
+                self.play(
+                    FadeIn(valence_group),
+                    FadeIn(energy_group),
+                    run_time=1
+                )
+                
+                # Add bars and animate to correct width
+                self.play(FadeIn(valence_bar), FadeIn(energy_bar))
+                self.play(
+                    valence_bar.animate.stretch(valence, 0),
+                    energy_bar.animate.stretch(energy, 0),
+                    run_time=2,
+                    rate_func=lambda t: t
+                )
+                
+                self.wait(1)
+                
+                # Final flourish - pulse the mood circle
+                self.play(
+                    mood_circle.animate.scale(1.2),
+                    rate_func=lambda t: np.sin(t * np.pi),
+                    run_time=1
+                )
+                self.wait(1)
+        
+        # Render the animation
+        scene = MoodScene()
+        scene.render()
+        
+        return output_file
+
+# Export the main visualization classes and helper functions
 __all__ = ['SpotifyVisualizations', 'SpotifyAnimations', 'create_spotify_card', 
            'create_track_list_item', 'create_artist_list_item', 'create_stat_card',
            'create_progress_bar', 'create_spotify_button']
-                
-                
+            
+            
