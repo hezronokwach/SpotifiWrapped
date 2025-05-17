@@ -5,6 +5,8 @@ from modules.visualizations import (
     create_spotify_card, create_track_list_item, 
     create_artist_list_item, create_stat_card,
     create_progress_bar, create_spotify_button,
+    create_album_card, create_personality_card,
+    create_dj_mode_card, create_album_listening_style_card,
     SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY
 )
 
@@ -188,6 +190,44 @@ class DashboardLayout:
             }
         )
     
+    def create_top_albums_section(self):
+        """Create the top albums section."""
+        return create_spotify_card(
+            title="Your Top Albums",
+            content=html.Div(
+                id='top-albums-container',
+                className="album-grid-container"
+            ),
+            icon="fa-compact-disc"
+        )
+    
+    def create_personality_section(self):
+        """Create the personality analysis section."""
+        return html.Div(
+            id='personality-container',
+            style={
+                'margin': '30px 0'
+            }
+        )
+    
+    def create_dj_mode_section(self):
+        """Create the DJ mode stats section."""
+        return html.Div(
+            id='dj-mode-container',
+            style={
+                'margin': '30px 0'
+            }
+        )
+    
+    def create_album_listening_patterns_section(self):
+        """Create the album listening patterns section."""
+        return html.Div(
+            id='album-listening-patterns-container',
+            style={
+                'margin': '30px 0'
+            }
+        )
+    
     def create_stats_row(self):
         """Create a row of stat cards."""
         return dbc.Row([
@@ -253,7 +293,7 @@ class DashboardLayout:
     
     def create_layout(self):
         """Create the complete dashboard layout."""
-        return html.Div([
+        layout = html.Div([
             # Auto-refresh component
             dcc.Interval(
                 id='interval-component',
@@ -265,6 +305,7 @@ class DashboardLayout:
             dcc.Store(id='user-data-store'),
             dcc.Store(id='current-track-store'),
             dcc.Store(id='wrapped-summary-store'),
+            dcc.Store(id='personality-data-store'),
             
             # Error message
             self.create_error_message(),
@@ -280,10 +321,22 @@ class DashboardLayout:
                 # Currently playing section
                 self.create_currently_playing_section(),
                 
+                # Personality analysis section
+                self.create_personality_section(),
+                
                 # Top content row
                 dbc.Row([
                     dbc.Col(self.create_top_tracks_section(), md=6),
                     dbc.Col(self.create_top_artists_section(), md=6)
+                ], className='mb-4'),
+                
+                # Top albums section
+                self.create_top_albums_section(),
+                
+                # Album listening patterns and DJ mode row
+                dbc.Row([
+                    dbc.Col(self.create_album_listening_patterns_section(), md=6),
+                    dbc.Col(self.create_dj_mode_section(), md=6)
                 ], className='mb-4'),
                 
                 # Audio analysis row
@@ -317,3 +370,15 @@ class DashboardLayout:
             'minHeight': '100vh',
             'padding': '20px'
         })
+        
+        # Add custom CSS
+        return html.Div([
+            self.add_custom_css(),
+            layout
+        ])
+    
+    def add_custom_css(self):
+        """Add custom CSS to the dashboard."""
+        # Since we're using the assets folder for CSS, we don't need to add inline styles
+        # This is just a placeholder that returns an empty div
+        return html.Div(id="css-container", style={"display": "none"})

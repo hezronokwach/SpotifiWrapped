@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import os
 import pandas as pd
 import time
+from datetime import datetime
 
 # Import custom modules
 from modules.api import SpotifyAPI
@@ -13,8 +14,13 @@ from modules.data_processing import DataProcessor
 from modules.layout import DashboardLayout
 from modules.visualizations import (
     SpotifyVisualizations, SpotifyAnimations,
-    SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY
+    SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY,
+    create_album_card, create_personality_card
 )
+
+# Import new modules
+from modules.top_albums import get_top_albums, get_album_listening_patterns
+from modules.analyzer import ListeningPersonalityAnalyzer
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +31,9 @@ data_processor = DataProcessor()
 dashboard_layout = DashboardLayout()
 visualizations = SpotifyVisualizations()
 animations = SpotifyAnimations()
+
+# Initialize personality analyzer
+personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
 
 # Initialize Dash app
 app = dash.Dash(
@@ -272,6 +281,7 @@ def update_listening_patterns_chart(n_intervals, n_clicks):
     """Update the listening patterns chart."""
     # Fetch new data if refresh button clicked
     if n_clicks is not None and n_clicks > 0:
+        # Respect the 50 track limit for recently played
         recently_played_data = spotify_api.get_recently_played(limit=50)
         data_processor.process_recently_played(recently_played_data)
     
@@ -280,6 +290,209 @@ def update_listening_patterns_chart(n_intervals, n_clicks):
     
     # Create visualization
     return visualizations.create_listening_patterns_heatmap(recently_played_df)
+
+# New callback for top albums section
+@app.callback(
+    Output('top-albums-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_top_albums(n_intervals, n_clicks):
+    """Update the top albums section."""
+    try:
+        # Fetch new data if refresh button clicked
+        if n_clicks is not None and n_clicks > 0:
+            top_albums_data = get_top_albums(spotify_api, limit=10)
+            data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
+        
+        # Load data from file
+        top_albums_df = data_processor.load_data('top_albums.csv')
+        
+        if top_albums_df.empty:
+            return html.Div("No album data available", 
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        
+        # Create album cards
+        album_cards = []
+        for i, (_, album) in enumerate(top_albums_df.iterrows()):
+            album_card = create_album_card(
+                album_name=album.get('album', 'Unknown Album'),
+                artist_name=album.get('artist', 'Unknown Artist'),
+                rank=i+1,
+                image_url=album.get('image_url', ''),
+                score=album.get('total_count', 0)
+            )
+            album_cards.append(album_card)
+        
+        return html.Div(album_cards, style={
+            'display': 'grid',
+            'gridTemplateColumns': 'repeat(auto-fill, minmax(200px, 1fr))',
+            'gap': '20px',
+            'padding': '20px'
+        })
+    
+    except Exception as e:
+        print(f"Error updating top albums: {e}")
+        return html.Div("Error loading album data", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+# New callback for album listening patterns
+@app.callback(
+    Output('album-listening-patterns-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_album_listening_patterns(n_intervals, n_clicks):
+    """Update the album listening patterns section."""
+    try:
+        # Fetch new data if refresh button clicked
+        if n_clicks is not None and n_clicks > 0:
+            patterns = get_album_listening_patterns(spotify_api)
+            data_processor.save_data([patterns], 'album_patterns.csv')
+        
+        # Load data from file
+        patterns_df = data_processor.load_data('album_patterns.csv')
+        
+        if patterns_df.empty:
+            return html.Div("No album listening patterns available", 
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        
+        patterns = patterns_df.iloc[0].to_dict()
+        
+        # Create stats cards
+        from modules.visualizations import create_stat_card
+        
+        stats_cards = [
+            create_stat_card(
+                "Album Completion",
+                f"{patterns.get('album_completion_rate', 0)}%",
+                icon="fa-compact-disc",
+                color=SPOTIFY_GREEN
+            ),
+            create_stat_card(
+                "Sequential Listening",
+                f"{patterns.get('sequential_listening_score', 0)}%",
+                icon="fa-list-ol",
+                color="#1ED760"
+            ),
+            create_stat_card(
+                "Listening Style",
+                patterns.get('listening_style', 'Unknown'),
+                icon="fa-headphones",
+                color="#2D46B9"
+            )
+        ]
+        
+        return html.Div(stats_cards, style={
+            'display': 'flex',
+            'flexWrap': 'wrap',
+            'justifyContent': 'space-around',
+            'padding': '20px'
+        })
+    
+    except Exception as e:
+        print(f"Error updating album listening patterns: {e}")
+        return html.Div("Error loading album listening patterns", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+# New callback for personality analysis
+@app.callback(
+    Output('personality-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_personality_analysis(n_intervals, n_clicks):
+    """Update the personality analysis section."""
+    try:
+        # Fetch new data if refresh button clicked
+        if n_clicks is not None and n_clicks > 0:
+            personality_data = personality_analyzer.analyze()
+            data_processor.save_data([personality_data], 'personality.csv')
+        
+        # Load data from file
+        personality_df = data_processor.load_data('personality.csv')
+        
+        if personality_df.empty:
+            return html.Div("No personality analysis available", 
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        
+        personality_data = personality_df.iloc[0].to_dict()
+        
+        # Create personality card
+        personality_card = create_personality_card(
+            primary_type=personality_data.get('primary_type', 'Unknown'),
+            secondary_type=personality_data.get('secondary_type', 'Unknown'),
+            description=personality_data.get('description', 'No description available'),
+            recommendations=personality_data.get('recommendations', []),
+            metrics=personality_data.get('metrics', {})
+        )
+        
+        return personality_card
+    
+    except Exception as e:
+        print(f"Error updating personality analysis: {e}")
+        return html.Div("Error loading personality analysis", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+# New callback for DJ mode stats
+@app.callback(
+    Output('dj-mode-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_dj_mode_stats(n_intervals, n_clicks):
+    """Update the DJ mode stats section."""
+    try:
+        # Fetch new data if refresh button clicked
+        if n_clicks is not None and n_clicks > 0:
+            recently_played = spotify_api.get_recently_played(limit=50)
+            dj_stats = personality_analyzer._estimate_dj_mode_usage(recently_played)
+            data_processor.save_data([dj_stats], 'dj_stats.csv')
+        
+        # Load data from file
+        dj_stats_df = data_processor.load_data('dj_stats.csv')
+        
+        if dj_stats_df.empty:
+            return html.Div("No DJ mode statistics available", 
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        
+        dj_stats = dj_stats_df.iloc[0].to_dict()
+        
+        # Create stats cards
+        from modules.visualizations import create_stat_card
+        
+        stats_cards = [
+            create_stat_card(
+                "DJ Mode Minutes",
+                f"{dj_stats.get('estimated_minutes', 0)}",
+                icon="fa-robot",
+                color=SPOTIFY_GREEN
+            ),
+            create_stat_card(
+                "DJ Mode Usage",
+                f"{dj_stats.get('percentage_of_listening', 0)}%",
+                icon="fa-percentage",
+                color="#1ED760"
+            ),
+            create_stat_card(
+                "DJ Mode Status",
+                "Active User" if dj_stats.get('dj_mode_user', False) else "Occasional User",
+                icon="fa-user-check",
+                color="#2D46B9"
+            )
+        ]
+        
+        return html.Div(stats_cards, style={
+            'display': 'flex',
+            'flexWrap': 'wrap',
+            'justifyContent': 'space-around',
+            'padding': '20px'
+        })
+    
+    except Exception as e:
+        print(f"Error updating DJ mode stats: {e}")
+        return html.Div("Error loading DJ mode statistics", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
 # Update wrapped summary
 @app.callback(
@@ -534,28 +747,45 @@ if __name__ == '__main__':
             data_processor.save_data([user_data], 'user_profile.csv')
         
         # Fetch top tracks
-        top_tracks_data = spotify_api.get_top_tracks(limit=10)
+        top_tracks_data = spotify_api.get_top_tracks(limit=50)
         data_processor.process_top_tracks(top_tracks_data)
         
         # Fetch saved tracks
-        saved_tracks_data = spotify_api.get_saved_tracks(limit=10)
+        saved_tracks_data = spotify_api.get_saved_tracks(limit=50)
         data_processor.process_saved_tracks(saved_tracks_data)
         
         # Fetch playlists
-        playlists_data = spotify_api.get_playlists(limit=10)
+        playlists_data = spotify_api.get_playlists(limit=20)
         data_processor.save_data(playlists_data, 'playlists.csv')
         
         # Fetch audio features
-        audio_features_data = spotify_api.get_audio_features_for_top_tracks(limit=5)
+        audio_features_data = spotify_api.get_audio_features_for_top_tracks(limit=50)
         data_processor.process_audio_features(audio_features_data)
         
         # Fetch top artists
-        top_artists_data = spotify_api.get_top_artists(limit=10)
+        top_artists_data = spotify_api.get_top_artists(limit=20)
         data_processor.process_top_artists(top_artists_data)
         
-        # Fetch recently played
+        # Fetch recently played - respect the 50 track limit
         recently_played_data = spotify_api.get_recently_played(limit=50)
         data_processor.process_recently_played(recently_played_data)
+        
+        # Fetch top albums (new)
+        top_albums_data = get_top_albums(spotify_api, limit=10)
+        data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
+        
+        # Get album listening patterns (new)
+        album_patterns = get_album_listening_patterns(spotify_api)
+        data_processor.save_data([album_patterns], 'album_patterns.csv')
+        
+        # Generate personality analysis (new)
+        personality_data = personality_analyzer.analyze()
+        data_processor.save_data([personality_data], 'personality.csv')
+        
+        # Get DJ mode stats (new) - respect the 50 track limit
+        recently_played = spotify_api.get_recently_played(limit=50)
+        dj_stats = personality_analyzer._estimate_dj_mode_usage(recently_played)
+        data_processor.save_data([dj_stats], 'dj_stats.csv')
         
         # Generate wrapped summary
         data_processor.generate_spotify_wrapped_summary()

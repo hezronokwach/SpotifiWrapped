@@ -1,12 +1,21 @@
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import os
 import time
 import pandas as pd
 import random
+import logging
+from functools import lru_cache
+from typing import Dict, List, Optional, Union, Any
 
 # Import the AI audio feature extractor
 from modules.ai_audio_features import get_track_audio_features
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, 
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('spotify_api')
 
 class SpotifyAPI:
     def __init__(self):
@@ -18,6 +27,8 @@ class SpotifyAPI:
         self.sp = None
         # Flag to enable AI-based audio features instead of Spotify API
         self.use_ai_audio_features = True
+        # Cache for audio features to reduce API calls
+        self.audio_features_cache = {}
         self.initialize_connection()
         
     def initialize_connection(self):
@@ -30,14 +41,16 @@ class SpotifyAPI:
                 scope=self.scopes,
                 open_browser=False
             ))
-            print("Successfully connected to Spotify API")
+            logger.info("Successfully connected to Spotify API")
         except Exception as e:
-            print(f"Error connecting to Spotify API: {e}")
+            logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
     
-    def get_audio_features_safely(self, track_id):
+    @lru_cache(maxsize=100)
+    def get_audio_features_safely(self, track_id: str) -> Dict[str, Any]:
         """
         Safely get audio features for a track, using AI-based extraction when possible.
+        Uses caching to reduce API calls for the same track.
         
         Args:
             track_id: Spotify track ID
@@ -47,6 +60,10 @@ class SpotifyAPI:
         """
         if not track_id:
             return self._generate_fallback_audio_features()
+            
+        # Check cache first
+        if track_id in self.audio_features_cache:
+            return self.audio_features_cache[track_id]
             
         try:
             # If using AI-based extraction, try to get the preview URL and analyze it
@@ -59,13 +76,16 @@ class SpotifyAPI:
                     # If we have a preview URL, use AI to extract features
                     if preview_url:
                         features = get_track_audio_features(track_id, preview_url)
+                        # Cache the result
+                        self.audio_features_cache[track_id] = features
                         return features
                     else:
-                        # No preview URL available, use fallback
-                        print(f"No preview URL available for track {track_id}")
-                        return self._generate_fallback_audio_features()
+                        logger.info(f"No preview URL available for track {track_id}")
+                        fallback = self._generate_fallback_audio_features()
+                        self.audio_features_cache[track_id] = fallback
+                        return fallback
                 except Exception as e:
-                    print(f"Error using AI audio features for track {track_id}: {e}")
+                    logger.warning(f"Error using AI audio features for track {track_id}: {e}")
                     # Fall back to Spotify API if AI fails
             
             # If not using AI or AI failed, try Spotify API
@@ -77,27 +97,86 @@ class SpotifyAPI:
                 try:
                     features = self.sp.audio_features(track_id)
                     if features and features[0]:
+                        # Cache the result
+                        self.audio_features_cache[track_id] = features[0]
                         return features[0]
-                    return self._generate_fallback_audio_features()
+                    
+                    fallback = self._generate_fallback_audio_features()
+                    self.audio_features_cache[track_id] = fallback
+                    return fallback
                 except Exception as e:
                     # Check if it's a 403 error
                     if "403" in str(e):
                         # For 403 errors, return fallback data rather than retrying
-                        return self._generate_fallback_audio_features()
+                        fallback = self._generate_fallback_audio_features()
+                        self.audio_features_cache[track_id] = fallback
+                        return fallback
                     
                     retry_count += 1
                     if retry_count < max_retries:
                         # Exponential backoff
-                        time.sleep(2 ** retry_count)
+                        wait_time = 2 ** retry_count
+                        logger.info(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                        time.sleep(wait_time)
                     else:
+                        logger.error(f"Max retries reached for track {track_id}")
                         raise
             
-            return self._generate_fallback_audio_features()
+            fallback = self._generate_fallback_audio_features()
+            self.audio_features_cache[track_id] = fallback
+            return fallback
         except Exception as e:
-            print(f"Error fetching audio features for track {track_id}: {e}")
-            return self._generate_fallback_audio_features()
+            logger.error(f"Error fetching audio features for track {track_id}: {e}")
+            fallback = self._generate_fallback_audio_features()
+            self.audio_features_cache[track_id] = fallback
+            return fallback
     
-    def _generate_fallback_audio_features(self):
+    def get_audio_features_batch(self, track_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Get audio features for multiple tracks efficiently.
+        
+        Args:
+            track_ids: List of Spotify track IDs
+            
+        Returns:
+            Dictionary mapping track IDs to their audio features
+        """
+        if not track_ids:
+            return {}
+            
+        # Filter out IDs that are already in cache
+        uncached_ids = [tid for tid in track_ids if tid not in self.audio_features_cache]
+        
+        # If all IDs are cached, return from cache
+        if not uncached_ids:
+            return {tid: self.audio_features_cache[tid] for tid in track_ids}
+        
+        # If using AI features, we need to process one by one
+        if self.use_ai_audio_features:
+            for track_id in uncached_ids:
+                self.get_audio_features_safely(track_id)
+        else:
+            # Process in batches of 100 (Spotify API limit)
+            for i in range(0, len(uncached_ids), 100):
+                batch = uncached_ids[i:i+100]
+                try:
+                    features_batch = self.sp.audio_features(batch)
+                    for j, features in enumerate(features_batch):
+                        if features:
+                            self.audio_features_cache[batch[j]] = features
+                        else:
+                            self.audio_features_cache[batch[j]] = self._generate_fallback_audio_features()
+                except Exception as e:
+                    logger.error(f"Error fetching batch audio features: {e}")
+                    # If batch request fails, fall back to individual requests
+                    for track_id in batch:
+                        self.get_audio_features_safely(track_id)
+        
+        # Return all requested features from cache
+        return {tid: self.audio_features_cache.get(tid, self._generate_fallback_audio_features()) 
+                for tid in track_ids}
+    
+    def _generate_fallback_audio_features(self) -> Dict[str, Any]:
         """
         Generate realistic fallback audio features when API fails.
         
@@ -120,7 +199,7 @@ class SpotifyAPI:
             'duration_ms': random.randint(180000, 240000)
         }
     
-    def get_top_tracks(self, limit=10, time_range='short_term'):
+    def get_top_tracks(self, limit: int = 10, time_range: str = 'short_term') -> List[Dict[str, Any]]:
         """
         Fetch user's top tracks.
         
@@ -138,9 +217,15 @@ class SpotifyAPI:
             results = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
             tracks_data = []
             
+            # Get all track IDs for batch processing
+            track_ids = [track['id'] for track in results['items']]
+            
+            # Get audio features in batch
+            audio_features_map = self.get_audio_features_batch(track_ids)
+            
             for idx, track in enumerate(results['items'], 1):
-                # Get audio features for each track - using the safe method
-                audio_features = self.get_audio_features_safely(track['id'])
+                # Get audio features from the batch results
+                audio_features = audio_features_map.get(track['id'], self._generate_fallback_audio_features())
                 
                 tracks_data.append({
                     'track': track['name'],
@@ -163,7 +248,7 @@ class SpotifyAPI:
             
             return tracks_data
         except Exception as e:
-            print(f"Error fetching top tracks: {e}")
+            logger.error(f"Error fetching top tracks: {e}")
             return self._generate_sample_top_tracks(limit)
     
     def _generate_sample_top_tracks(self, limit=10):

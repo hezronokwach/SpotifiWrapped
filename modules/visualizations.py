@@ -70,6 +70,350 @@ def create_stat_card(title, value, icon="fa-music", color=SPOTIFY_GREEN):
         'boxShadow': '0 4px 8px rgba(0,0,0,0.3)',
         'height': '100%'
     })
+def create_album_card(album_name, artist_name, rank, image_url="", score=0):
+    """
+    Create a card for displaying album information.
+    
+    Args:
+        album_name: Name of the album
+        artist_name: Name of the artist
+        rank: Rank of the album in the top albums list
+        image_url: URL to the album cover image
+        score: Listening score for the album
+        
+    Returns:
+        A dbc.Card component
+    """
+    # Use a default image if none provided
+    if not image_url:
+        image_url = "https://via.placeholder.com/300?text=No+Image"
+    
+    return dbc.Card(
+        [
+            dbc.CardImg(src=image_url, top=True, className="album-img"),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        f"#{rank}",
+                        className="album-rank",
+                        style={
+                            "position": "absolute",
+                            "top": "10px",
+                            "left": "10px",
+                            "background-color": SPOTIFY_BLACK,
+                            "color": SPOTIFY_WHITE,
+                            "padding": "5px 10px",
+                            "border-radius": "15px",
+                            "font-weight": "bold"
+                        }
+                    ),
+                    html.H5(album_name, className="card-title text-truncate"),
+                    html.P(artist_name, className="card-text text-muted text-truncate"),
+                    html.Div(
+                        [
+                            html.Span("Listening Score: "),
+                            html.Span(
+                                f"{score}",
+                                style={"color": SPOTIFY_GREEN, "font-weight": "bold"}
+                            )
+                        ],
+                        className="mt-2"
+                    )
+                ]
+            )
+        ],
+        className="album-card h-100 shadow-sm",
+        style={"max-width": "200px", "margin": "10px"}
+    )
+
+def create_personality_card(primary_type, secondary_type, description, recommendations, metrics):
+    """
+    Create a card for displaying personality analysis.
+    
+    Args:
+        primary_type: Primary personality type
+        secondary_type: Secondary personality type
+        description: Description of the primary personality type
+        recommendations: List of recommendations
+        metrics: Dictionary of metrics
+        
+    Returns:
+        A dbc.Card component
+    """
+    # Create radar chart for metrics
+    radar_metrics = {
+        'Variety': metrics.get('variety_score', 0),
+        'Discovery': metrics.get('discovery_score', 0),
+        'Consistency': metrics.get('consistency_score', 0),
+        'Mood': metrics.get('mood_score', 0),
+        'Time Pattern': metrics.get('time_pattern_score', 0)
+    }
+    
+    # Create radar chart
+    categories = list(radar_metrics.keys())
+    values = list(radar_metrics.values())
+    
+    # Add the first value at the end to close the polygon
+    categories.append(categories[0])
+    values.append(values[0])
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatterpolar(
+        r=values,
+        theta=categories,
+        fill='toself',
+        fillcolor=f'rgba(29, 185, 84, 0.3)',  # Spotify green with transparency
+        line=dict(color=SPOTIFY_GREEN, width=2),
+        name='Your Metrics'
+    ))
+    
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )
+        ),
+        showlegend=False,
+        margin=dict(l=70, r=70, t=20, b=20),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    
+    # Create recommendations list
+    recommendations_list = [
+        html.Li(rec, className="mb-2") for rec in recommendations
+    ]
+    
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.H4("Your Music Personality", className="text-center"),
+                style={"background-color": SPOTIFY_BLACK, "color": SPOTIFY_WHITE}
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.H2(
+                                        primary_type,
+                                        className="mb-1",
+                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold"}
+                                    ),
+                                    html.P(
+                                        f"with a touch of {secondary_type}",
+                                        className="text-muted"
+                                    ),
+                                    html.P(description, className="mt-3"),
+                                ],
+                                className="col-md-7"
+                            ),
+                            html.Div(
+                                dcc.Graph(
+                                    figure=fig,
+                                    config={'displayModeBar': False},
+                                    style={"height": "300px"}
+                                ),
+                                className="col-md-5"
+                            )
+                        ],
+                        className="row mb-4"
+                    ),
+                    html.Hr(),
+                    html.Div(
+                        [
+                            html.H5("Recommendations for You", className="mb-3"),
+                            html.Ul(recommendations_list, className="recommendations-list")
+                        ]
+                    ),
+                    html.Hr(),
+                    html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.H6("Album Listening Style"),
+                                    html.P(
+                                        metrics.get('listening_style', 'Unknown'),
+                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold", "font-size": "1.2rem"}
+                                    ),
+                                    html.P(
+                                        f"Album Completion: {metrics.get('album_completion_rate', 0)}%",
+                                        className="mb-0 small"
+                                    )
+                                ],
+                                className="col-md-6"
+                            ),
+                            html.Div(
+                                [
+                                    html.H6("DJ Mode Usage"),
+                                    html.P(
+                                        f"{metrics.get('percentage_of_listening', 0)}% of your listening",
+                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold", "font-size": "1.2rem"}
+                                    ),
+                                    html.P(
+                                        f"Estimated minutes: {metrics.get('estimated_minutes', 0)}",
+                                        className="mb-0 small"
+                                    )
+                                ],
+                                className="col-md-6"
+                            )
+                        ],
+                        className="row mt-3"
+                    )
+                ]
+            )
+        ],
+        className="mb-4 shadow"
+    )
+
+def create_dj_mode_card(dj_stats):
+    """
+    Create a card for displaying DJ mode statistics.
+    
+    Args:
+        dj_stats: Dictionary with DJ mode statistics
+        
+    Returns:
+        A dbc.Card component
+    """
+    # Calculate percentage for progress bar
+    percentage = min(100, dj_stats.get('percentage_of_listening', 0))
+    
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.H4("Spotify DJ Usage", className="text-center"),
+                style={"background-color": SPOTIFY_BLACK, "color": SPOTIFY_WHITE}
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.H2(
+                                f"{dj_stats.get('estimated_minutes', 0)} minutes",
+                                className="text-center mb-3",
+                                style={"color": SPOTIFY_GREEN}
+                            ),
+                            html.P(
+                                "Estimated time spent using Spotify DJ",
+                                className="text-center text-muted"
+                            ),
+                            html.Div(
+                                [
+                                    html.Span("Usage Level: "),
+                                    html.Span(
+                                        "Active User" if dj_stats.get('dj_mode_user', False) else "Occasional User",
+                                        style={"font-weight": "bold"}
+                                    )
+                                ],
+                                className="text-center mb-3"
+                            ),
+                            html.P(
+                                f"Percentage of your listening time: {percentage}%",
+                                className="mb-2"
+                            ),
+                            dbc.Progress(
+                                value=percentage,
+                                color="success",
+                                className="mb-3",
+                                style={"height": "10px"}
+                            ),
+                            html.P(
+                                "Spotify DJ uses AI to curate a personalized soundtrack just for you, "
+                                "with commentary about the music and artists you're listening to.",
+                                className="text-muted small"
+                            )
+                        ]
+                    )
+                ]
+            )
+        ],
+        className="mb-4 shadow"
+    )
+
+def create_album_listening_style_card(patterns):
+    """
+    Create a card for displaying album listening style.
+    
+    Args:
+        patterns: Dictionary with album listening patterns
+        
+    Returns:
+        A dbc.Card component
+    """
+    # Determine style description based on listening style
+    style_descriptions = {
+        "Album Purist": "You appreciate albums as complete works of art, listening to them from start to finish as the artist intended.",
+        "Album Explorer": "You enjoy exploring albums but don't always listen to them in sequence or completion.",
+        "Track Hopper": "You prefer individual tracks over full albums, creating your own unique listening journey.",
+        "Mood Curator": "You select music based on mood and atmosphere, regardless of album structure."
+    }
+    
+    style_description = style_descriptions.get(
+        patterns.get('listening_style', ''), 
+        "Your album listening style is unique and personalized."
+    )
+    
+    # Create progress bars for metrics
+    album_completion = patterns.get('album_completion_rate', 0)
+    sequential_listening = patterns.get('sequential_listening_score', 0)
+    
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                html.H4("Album Listening Style", className="text-center"),
+                style={"background-color": SPOTIFY_BLACK, "color": SPOTIFY_WHITE}
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.H2(
+                                patterns.get('listening_style', 'Unknown'),
+                                className="text-center mb-3",
+                                style={"color": SPOTIFY_GREEN}
+                            ),
+                            html.P(
+                                style_description,
+                                className="text-center mb-4"
+                            ),
+                            html.Div(
+                                [
+                                    html.P("Album Completion Rate", className="mb-1"),
+                                    dbc.Progress(
+                                        value=album_completion,
+                                        color="success",
+                                        className="mb-3",
+                                        style={"height": "10px"}
+                                    ),
+                                    html.P(
+                                        f"{album_completion}% of albums you listen to multiple tracks from",
+                                        className="text-muted small mb-3"
+                                    ),
+                                    
+                                    html.P("Sequential Listening Score", className="mb-1"),
+                                    dbc.Progress(
+                                        value=sequential_listening,
+                                        color="success",
+                                        className="mb-3",
+                                        style={"height": "10px"}
+                                    ),
+                                    html.P(
+                                        f"{sequential_listening}% of the time you listen to tracks from the same album in sequence",
+                                        className="text-muted small"
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ],
+        className="mb-4 shadow"
+    )
 
 class SpotifyVisualizations:
     """Class for creating Spotify data visualizations."""
@@ -108,6 +452,7 @@ class SpotifyVisualizations:
         )
         
         return fig
+    
     
     def create_top_tracks_chart(self, df):
         """Create a bar chart of top tracks."""
@@ -802,6 +1147,8 @@ class SpotifyVisualizations:
             'borderRadius': '15px',
             'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
         })
+    
+        
 
 def create_track_list_item(track_data):
     """Create a styled list item for a track."""
