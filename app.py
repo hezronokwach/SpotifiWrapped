@@ -265,11 +265,106 @@ def update_top_artists_chart(n_intervals, n_clicks):
 )
 def update_genre_chart(n_intervals, n_clicks):
     """Update the genre chart."""
-    # Load data from file
-    genre_df = data_processor.load_data('genre_analysis.csv')
-    
-    # Create visualization
-    return visualizations.create_genre_pie_chart(genre_df)
+    try:
+        print("=== Genre Chart Update Started ===")
+        
+        # Fetch new data if refresh button clicked
+        if n_clicks is not None and n_clicks > 0:
+            print("Fetching new top artists data for genre analysis...")
+            top_artists_data = spotify_api.get_top_artists(limit=20)
+            print(f"Retrieved {len(top_artists_data) if top_artists_data else 0} top artists")
+            
+            # Debug the top artists data
+            if top_artists_data:
+                for i, artist in enumerate(top_artists_data[:3]):  # Show first 3 for brevity
+                    print(f"Artist {i+1}: {artist.get('name', 'Unknown')}")
+                    print(f"  Genres: {artist.get('genres', [])}")
+            else:
+                print("WARNING: No top artists data retrieved from API")
+            
+            # Process the data
+            print("Processing top artists data...")
+            data_processor.process_top_artists(top_artists_data)
+            print("Top artists data processed")
+        
+        # Load data from file
+        print("Loading genre analysis data from file...")
+        genre_df = data_processor.load_data('genre_analysis.csv')
+        
+        # Debug the loaded data
+        print(f"Genre data loaded: {not genre_df.empty}")
+        if not genre_df.empty:
+            print(f"Genre columns: {genre_df.columns.tolist()}")
+            print(f"Genre data rows: {len(genre_df)}")
+            print(f"Genre data sample: {genre_df.head(3).to_dict('records')}")
+        else:
+            print("WARNING: Genre dataframe is empty!")
+            
+            # Check if the file exists
+            import os
+            if os.path.exists('data/genre_analysis.csv'):
+                print("File exists but might be empty or corrupted")
+                # Try to read raw file content
+                with open('data/genre_analysis.csv', 'r') as f:
+                    content = f.read()
+                print(f"Raw file content (first 200 chars): {content[:200]}")
+            else:
+                print("File does not exist!")
+                
+                # Check if we need to create the genre data
+                print("Attempting to create genre data...")
+                # Get top artists
+                top_artists_data = spotify_api.get_top_artists(limit=20)
+                if top_artists_data:
+                    # Extract genres
+                    all_genres = []
+                    for artist in top_artists_data:
+                        genres = artist.get('genres', [])
+                        for genre in genres:
+                            all_genres.append(genre)
+                    
+                    # Count genres
+                    from collections import Counter
+                    genre_counts = Counter(all_genres)
+                    
+                    # Create dataframe
+                    import pandas as pd
+                    genre_df = pd.DataFrame({
+                        'genre': list(genre_counts.keys()),
+                        'count': list(genre_counts.values())
+                    })
+                    
+                    # Save to file
+                    genre_df.to_csv('data/genre_analysis.csv', index=False)
+                    print(f"Created genre data with {len(genre_df)} genres")
+        
+        # Create visualization
+        print("Creating genre pie chart...")
+        fig = visualizations.create_genre_pie_chart(genre_df)
+        print("Genre pie chart created")
+        
+        print("=== Genre Chart Update Completed ===")
+        return fig
+    except Exception as e:
+        print(f"Error updating genre chart: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return empty figure with error message
+        import plotly.graph_objects as go
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Error loading genre data",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(color=SPOTIFY_GRAY, size=16)
+        )
+        fig.update_layout(
+            paper_bgcolor='#121212',
+            plot_bgcolor='#121212',
+            margin=dict(t=0, b=0, l=0, r=0)
+        )
+        return fig
 
 # Update listening patterns chart
 @app.callback(
@@ -401,12 +496,20 @@ def update_album_listening_patterns(n_intervals, n_clicks):
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks')
 )
+
 def update_personality_analysis(n_intervals, n_clicks):
     """Update the personality analysis section."""
     try:
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
             personality_data = personality_analyzer.analyze()
+            
+            # Convert NumPy types to Python native types before saving
+            if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
+                for key, value in personality_data['metrics'].items():
+                    if hasattr(value, 'item'):  # Check if it's a NumPy type
+                        personality_data['metrics'][key] = value.item()  # Convert to Python native type
+            
             data_processor.save_data([personality_data], 'personality.csv')
         
         # Load data from file
@@ -418,21 +521,160 @@ def update_personality_analysis(n_intervals, n_clicks):
         
         personality_data = personality_df.iloc[0].to_dict()
         
-        # Create personality card
-        personality_card = create_personality_card(
-            primary_type=personality_data.get('primary_type', 'Unknown'),
-            secondary_type=personality_data.get('secondary_type', 'Unknown'),
-            description=personality_data.get('description', 'No description available'),
-            recommendations=personality_data.get('recommendations', []),
-            metrics=personality_data.get('metrics', {})
-        )
+        # Ensure recommendations is a list
+        if 'recommendations' in personality_data and isinstance(personality_data['recommendations'], str):
+            try:
+                # Try to safely evaluate the string representation of the list
+                import ast
+                personality_data['recommendations'] = ast.literal_eval(personality_data['recommendations'])
+            except:
+                # Fallback to empty list if parsing fails
+                personality_data['recommendations'] = []
         
-        return personality_card
+        # Ensure metrics is a dictionary
+        if 'metrics' in personality_data and isinstance(personality_data['metrics'], str):
+            try:
+                # Try to safely evaluate the string representation of the dictionary
+                import ast
+                personality_data['metrics'] = ast.literal_eval(personality_data['metrics'])
+            except:
+                # Fallback to empty dict if parsing fails
+                personality_data['metrics'] = {}
+        
+        # Load DJ mode stats to include in metrics
+        dj_stats_df = data_processor.load_data('dj_stats.csv')
+        if not dj_stats_df.empty:
+            dj_stats = dj_stats_df.iloc[0].to_dict()
+            # Add DJ stats to metrics
+            if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
+                personality_data['metrics']['estimated_minutes'] = dj_stats.get('estimated_minutes', 0)
+                personality_data['metrics']['percentage_of_listening'] = dj_stats.get('percentage_of_listening', 0)
+                personality_data['metrics']['dj_mode_user'] = dj_stats.get('dj_mode_user', False)
+        
+        # Load album patterns to include in metrics
+        album_patterns_df = data_processor.load_data('album_patterns.csv')
+        if not album_patterns_df.empty:
+            album_patterns = album_patterns_df.iloc[0].to_dict()
+            # Add album patterns to metrics if not already present
+            if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
+                if 'album_completion_rate' not in personality_data['metrics'] or personality_data['metrics']['album_completion_rate'] == 0:
+                    personality_data['metrics']['album_completion_rate'] = album_patterns.get('album_completion_rate', 0)
+                if 'sequential_listening_score' not in personality_data['metrics'] or personality_data['metrics']['sequential_listening_score'] == 0:
+                    personality_data['metrics']['sequential_listening_score'] = album_patterns.get('sequential_listening_score', 0)
+                if 'listening_style' not in personality_data['metrics'] or personality_data['metrics']['listening_style'] == 'Unknown':
+                    personality_data['metrics']['listening_style'] = album_patterns.get('listening_style', 'Unknown')
+        
+        # Create a modern, visually appealing personality section
+        return html.Div([
+            # Header section
+            html.Div([
+                html.H2("Your Music Personality", 
+                    style={
+                        'color': SPOTIFY_GREEN,
+                        'textAlign': 'center',
+                        'fontSize': '3rem',
+                        'fontWeight': 'bold',
+                        'marginBottom': '20px',
+                        'letterSpacing': '1px',
+                        'textShadow': '2px 2px 4px rgba(0,0,0,0.3)'
+                    }
+                ),
+                html.Div([
+                    html.Span(personality_data.get('primary_type', 'Unknown'), 
+                        style={
+                            'color': SPOTIFY_WHITE,
+                            'fontSize': '1.8rem',
+                            'fontWeight': 'bold'
+                        }
+                    ),
+                    html.Span(" × ", 
+                        style={
+                            'color': SPOTIFY_GRAY,
+                            'fontSize': '1.8rem',
+                            'margin': '0 10px'
+                        }
+                    ),
+                    html.Span(personality_data.get('secondary_type', 'Unknown'),
+                        style={
+                            'color': SPOTIFY_WHITE,
+                            'fontSize': '1.8rem',
+                            'fontWeight': 'bold'
+                        }
+                    )
+                ], style={
+                    'textAlign': 'center',
+                    'marginBottom': '30px'
+                })
+            ]),
+            
+            # Description card
+            html.Div([
+                html.P(personality_data.get('description', 'No description available'),
+                    style={
+                        'color': SPOTIFY_WHITE,
+                        'fontSize': '1.2rem',
+                        'lineHeight': '1.6',
+                        'textAlign': 'center',
+                        'margin': '0 auto',
+                        'maxWidth': '800px'
+                    }
+                )
+            ], style={
+                'backgroundColor': '#181818',
+                'padding': '30px',
+                'borderRadius': '15px',
+                'marginBottom': '30px',
+                'boxShadow': '0 4px 12px rgba(0,0,0,0.3)'
+            }),
+            
+            # Recommendations
+            html.Div([
+                html.H3("Personalized Recommendations", 
+                    style={
+                        'color': SPOTIFY_WHITE,
+                        'textAlign': 'center',
+                        'marginBottom': '20px',
+                        'fontSize': '1.5rem'
+                    }
+                ),
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-lightbulb", 
+                            style={
+                                'color': SPOTIFY_GREEN,
+                                'fontSize': '1.2rem',
+                                'marginRight': '10px'
+                            }
+                        ),
+                        html.Span(recommendation)
+                    ], style={
+                        'color': SPOTIFY_WHITE,
+                        'backgroundColor': '#242424',
+                        'padding': '15px 20px',
+                        'borderRadius': '10px',
+                        'marginBottom': '10px',
+                        'fontSize': '1.1rem'
+                    }) for recommendation in personality_data.get('recommendations', [])
+                ])
+            ], style={
+                'backgroundColor': '#181818',
+                'padding': '30px',
+                'borderRadius': '15px',
+                'boxShadow': '0 4px 12px rgba(0,0,0,0.3)'
+            })
+        ], style={
+            'padding': '40px',
+            'backgroundColor': '#121212',
+            'borderRadius': '20px',
+            'margin': '20px 0',
+            'boxShadow': '0 8px 16px rgba(0,0,0,0.4)'
+        })
     
     except Exception as e:
         print(f"Error updating personality analysis: {e}")
         return html.Div("Error loading personality analysis", 
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
 
 # New callback for DJ mode stats
 @app.callback(
@@ -512,6 +754,98 @@ def update_wrapped_summary(n_clicks):
             return json.load(f)
     except:
         return {}
+
+# New callback for music analysis section
+@app.callback(
+    Output('music-analysis-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_music_analysis(n_intervals, n_clicks):
+    """Update the music analysis section."""
+    try:
+        # Load data from files
+        top_artists_df = data_processor.load_data('top_artists.csv')
+        audio_features_df = data_processor.load_data('audio_features.csv')
+        recently_played_df = data_processor.load_data('recently_played.csv')
+        
+        # Create a modern, visually appealing layout
+        return html.Div([
+            # Main title and subtitle
+            html.H2("Your Sound Story", 
+                style={
+                    'color': SPOTIFY_GREEN,
+                    'textAlign': 'center',
+                    'fontSize': '3rem',
+                    'fontWeight': 'bold',
+                    'marginBottom': '20px',
+                    'letterSpacing': '1px',
+                    'textShadow': '2px 2px 4px rgba(0,0,0,0.3)'
+                }
+            ),
+            html.P("Discover the unique elements that make up your musical identity", 
+                style={
+                    'color': SPOTIFY_WHITE,
+                    'textAlign': 'center',
+                    'fontSize': '1.2rem',
+                    'marginBottom': '40px',
+                    'opacity': '0.9'
+                }
+            ),
+            
+            # Stats Grid
+            html.Div([
+                # Energy Level
+                html.Div([
+                    html.I(className="fas fa-bolt", style={
+                        'fontSize': '2rem',
+                        'color': SPOTIFY_GREEN,
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Energy Level", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
+                    html.H4(f"{int(audio_features_df['energy'].mean() * 100)}%", 
+                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
+                ], style={'textAlign': 'center', 'padding': '20px'}),
+                
+                # Mood
+                html.Div([
+                    html.I(className="fas fa-smile", style={
+                        'fontSize': '2rem',
+                        'color': SPOTIFY_GREEN,
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Mood", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
+                    html.H4(f"{int(audio_features_df['valence'].mean() * 100)}% Positive", 
+                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
+                ], style={'textAlign': 'center', 'padding': '20px'}),
+                
+                # Tempo
+                html.Div([
+                    html.I(className="fas fa-running", style={
+                        'fontSize': '2rem',
+                        'color': SPOTIFY_GREEN,
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Average Tempo", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
+                    html.H4(f"{int(audio_features_df['tempo'].mean())} BPM", 
+                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
+                ], style={'textAlign': 'center', 'padding': '20px'})
+            ], style={
+                'display': 'grid',
+                'gridTemplateColumns': 'repeat(auto-fit, minmax(200px, 1fr))',
+                'gap': '20px',
+                'marginBottom': '40px',
+                'backgroundColor': '#242424',
+                'borderRadius': '15px',
+                'padding': '20px',
+                'boxShadow': '0 4px 12px rgba(0,0,0,0.2)'
+            })
+        ])
+        
+    except Exception as e:
+        print(f"Error updating music analysis: {e}")
+        return html.Div("Error loading music analysis", 
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
 # Update wrapped summary display
 @app.callback(

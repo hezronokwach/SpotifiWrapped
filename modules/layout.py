@@ -228,6 +228,23 @@ class DashboardLayout:
             }
         )
     
+    def create_music_analysis_section(self):
+        """Create the music analysis section."""
+        return create_spotify_card(
+            title="Your Musical Universe",
+            content=html.Div(
+                id='music-analysis-container',
+                style={
+                    'backgroundColor': '#181818',
+                    'borderRadius': '15px',
+                    'padding': '30px',
+                    'boxShadow': '0 8px 16px rgba(0,0,0,0.4)',
+                    'margin': '20px 0'
+                }
+            ),
+            icon="fa-music"
+        )
+    
     def create_stats_row(self):
         """Create a row of stat cards."""
         return dbc.Row([
@@ -339,6 +356,9 @@ class DashboardLayout:
                     dbc.Col(self.create_dj_mode_section(), md=6)
                 ], className='mb-4'),
                 
+                # Music analysis section
+                self.create_music_analysis_section(),
+
                 # Audio analysis row
                 dbc.Row([
                     dbc.Col(self.create_audio_features_section(), md=6),

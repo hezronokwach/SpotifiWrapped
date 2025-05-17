@@ -595,7 +595,7 @@ class ListeningPersonalityAnalyzer:
         
         return insights.get(personality_type, "No insights available.")
 
-    def _get_recommendations(self, personality_type: str) -> str:
+    def _get_recommendations(self, personality_type: str) -> List[str]:
         """
         Get recommendations for a personality type.
         
@@ -603,27 +603,74 @@ class ListeningPersonalityAnalyzer:
             personality_type: The personality type
             
         Returns:
-            Recommendations string
+            List of recommendation strings
         """
         recommendations = {
-            'The Explorer': "Try branching out into genres you're not familiar with. You never know what you might discover.",
+            'The Explorer': [
+                "Try branching out into genres you're not familiar with",
+                "Create a playlist that spans multiple decades and genres",
+                "Follow curated playlists from different countries",
+                "Listen to an album from start to finish from a new artist"
+            ],
 
-            'The Enthusiast': "Don't forget to take a step back and appreciate the music you already love. Sometimes, the best music is the music you already know.",
+            'The Enthusiast': [
+                "Don't forget to revisit music you already love",
+                "Create a playlist of your all-time favorites",
+                "Share your discoveries with friends who have similar tastes",
+                "Try listening to different versions of songs you enjoy"
+            ],
 
-            'The Loyalist': "Challenge yourself to try new artists within your favorite genres. You might discover new favorites you never knew existed.",
+            'The Loyalist': [
+                "Challenge yourself to try new artists within your favorite genres",
+                "Explore the influences of your favorite artists",
+                "Try a 'six degrees of separation' playlist connecting your favorites to new artists",
+                "Ask friends with similar taste for recommendations"
+            ],
 
-            'The Curator': "Don't be afraid to take risks and try new music. Sometimes, the best music is the music you didn't expect.",
+            'The Curator': [
+                "Don't be afraid to take risks and try new music",
+                "Create themed playlists based on moods or activities",
+                "Try the 'Discover Weekly' playlist to find new additions",
+                "Revisit albums you haven't listened to in a while"
+            ],
 
-            'The Time Traveler': "Try creating playlists that aren't tied to specific times or routines. You might discover new music that you love.",
+            'The Time Traveler': [
+                "Try creating playlists that aren't tied to specific routines",
+                "Listen to music at different times than you normally would",
+                "Create a playlist specifically for trying new music",
+                "Set aside time dedicated just to music discovery"
+            ],
 
-            'The Mood Master': "Don't be afraid to try new genres or artists. Sometimes, the best music is the music you didn't expect.",
+            'The Mood Master': [
+                "Try creating playlists for moods you don't usually curate for",
+                "Explore how different genres can evoke similar emotions",
+                "Share your mood playlists with others who might benefit",
+                "Try listening to instrumental versions of songs you enjoy"
+            ],
 
-            'The Analyzer': "Don't forget to appreciate the music you love, regardless of its technical aspects. Sometimes, the best music is the music that resonates with you on a personal level.",
+            'The Analyzer': [
+                "Try listening to music without analyzing it sometimes",
+                "Create playlists that challenge your technical preferences",
+                "Explore music from different cultural traditions",
+                "Try focusing on lyrics rather than production occasionally"
+            ],
 
-            'The Adventurer': "Don't be afraid to try new genres or artists. Sometimes, the best music is the music you didn't expect."
+            'The Adventurer': [
+                "Dive deeper into genres you've only briefly explored",
+                "Try creating playlists that tell a story or follow a theme",
+                "Explore the history of experimental music in different genres",
+                "Share your discoveries with others who appreciate innovation"
+            ]
         }
         
-        return recommendations.get(personality_type, "No recommendations available.") 
+        default_recommendations = [
+            "Try exploring new genres and artists",
+            "Create playlists for different moods and activities",
+            "Listen to full albums from artists you enjoy",
+            "Check out Spotify's personalized recommendations"
+        ]
+        
+        return recommendations.get(personality_type, default_recommendations)
      
      
     

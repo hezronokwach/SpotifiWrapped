@@ -732,6 +732,12 @@ class SpotifyVisualizations:
             return self._apply_theme(fig)
         
         # Sort by count and take top 10
+        if 'count' not in df.columns:
+            # If count column doesn't exist, create it by counting occurrences
+            genre_counts = df['genre'].value_counts().reset_index()
+            genre_counts.columns = ['genre', 'count']
+            df = genre_counts
+        
         df = df.sort_values('count', ascending=False).head(10)
         
         # Create pie chart
@@ -740,13 +746,24 @@ class SpotifyVisualizations:
             values='count',
             names='genre',
             color_discrete_sequence=SPOTIFY_PALETTE,
-            title='Your Top Genres'
+            title='Your Top Genres',
+            hole=0.4,  # Create a donut chart for better appearance
+            labels={'count': 'Number of Tracks', 'genre': 'Genre'}
         )
         
         # Update layout for better appearance
         fig.update_layout(
             height=500,
-            legend_title_text=""
+            legend_title_text="",
+            margin=dict(t=50, b=50, l=20, r=20),
+            title={
+                'text': 'Your Top Genres',
+                'y': 0.95,
+                'x': 0.5,
+                'xanchor': 'center',
+                'yanchor': 'top',
+                'font': {'size': 24, 'color': self.theme['accent_color']}
+            }
         )
         
         # Update traces for better hover info
@@ -754,7 +771,12 @@ class SpotifyVisualizations:
             textposition='inside',
             textinfo='percent+label',
             hoverinfo='label+percent+value',
-            marker=dict(line=dict(color=self.theme['background_color'], width=2))
+            hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}',
+            marker=dict(
+                line=dict(color=self.theme['background_color'], width=2),
+                colors=SPOTIFY_PALETTE
+            ),
+            pull=[0.05 if i == 0 else 0 for i in range(len(df))]  # Pull out the first slice
         )
         
         return self._apply_theme(fig)
