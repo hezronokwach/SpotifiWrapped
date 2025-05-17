@@ -72,10 +72,12 @@ class DashboardLayout:
                         'margin': '0 0 10px 0'
                     }),
                     html.P([
-                        f"Followers: {user_data.get('followers', 0)} | ",
-                        f"Country: {user_data.get('country', 'Unknown')} | ",
-                        f"Plan: {user_data.get('product', 'Free').capitalize()}"
-                    ], style={'color': self.theme['secondary_color']})
+                        f"{user_data.get('followers', 0)} followers"
+                    ], style={
+                        'color': self.theme['secondary_color'],
+                        'fontSize': '1.1rem',
+                        'fontWeight': '500'
+                    })
                 ], style={
                     'display': 'inline-block',
                     'verticalAlign': 'middle',
