@@ -27,6 +27,8 @@ from modules.data_collector import SpotifyDataCollector
 # Import new modules
 from modules.top_albums import get_top_albums, get_album_listening_patterns
 from modules.analyzer import ListeningPersonalityAnalyzer
+from modules.recent_tracks_collector import RecentTracksCollector
+from modules.genre_extractor import GenreExtractor
 
 # Load environment variables
 load_dotenv()
@@ -44,6 +46,10 @@ data_collector = SpotifyDataCollector(spotify_api, db)
 
 # Initialize personality analyzer
 personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
+
+# Initialize recent tracks collector and genre extractor
+recent_tracks_collector = RecentTracksCollector(spotify_api, db)
+genre_extractor = GenreExtractor(spotify_api, db)
 
 # Initialize Dash app
 app = dash.Dash(
@@ -350,8 +356,8 @@ def update_top_tracks_chart(n_intervals, n_clicks):
         # Add rank column
         top_tracks_df['rank'] = range(1, len(top_tracks_df) + 1)
     else:
-        # Fallback to CSV if no data in database
-        top_tracks_df = data_processor.load_data('top_tracks.csv')
+        # Create empty DataFrame with the right columns
+        top_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'popularity', 'rank'])
 
     # Create visualization
     return visualizations.create_top_tracks_chart(top_tracks_df)
@@ -430,8 +436,8 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     if saved_tracks_data:
         saved_tracks_df = pd.DataFrame(saved_tracks_data)
     else:
-        # Fallback to CSV if no data in database
-        saved_tracks_df = data_processor.load_data('saved_tracks.csv')
+        # Create empty DataFrame with the right columns
+        saved_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'added_at'])
 
     # Create visualization
     return visualizations.create_saved_tracks_timeline(saved_tracks_df)
@@ -556,8 +562,12 @@ def update_audio_features_chart(n_intervals, n_clicks):
     if audio_features_data:
         audio_features_df = pd.DataFrame(audio_features_data)
     else:
-        # Fallback to CSV if no data in database
-        audio_features_df = data_processor.load_data('audio_features.csv')
+        # Create empty DataFrame with the right columns
+        audio_features_df = pd.DataFrame(columns=[
+            'track', 'artist', 'id', 'danceability', 'energy', 'key', 'loudness',
+            'mode', 'speechiness', 'acousticness', 'instrumentalness', 'liveness',
+            'valence', 'tempo'
+        ])
 
     # Create visualization
     return visualizations.create_audio_features_radar(audio_features_df)
@@ -630,8 +640,8 @@ def update_top_artists_chart(n_intervals, n_clicks):
         # Add rank column
         top_artists_df['rank'] = range(1, len(top_artists_df) + 1)
     else:
-        # Fallback to CSV if no data in database
-        top_artists_df = data_processor.load_data('top_artists.csv')
+        # Create empty DataFrame with the right columns
+        top_artists_df = pd.DataFrame(columns=['artist', 'popularity', 'image_url', 'rank'])
 
     # Create visualization
     return visualizations.create_top_artists_chart(top_artists_df)
@@ -649,7 +659,7 @@ def update_genre_chart(n_intervals, n_clicks):
 
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
-            print("Fetching genre data from all tracks in listening history...")
+            print("Fetching genre data from recently played tracks...")
             user_data = spotify_api.get_user_profile()
             if user_data:
                 print(f"User ID: {user_data['id']}")
@@ -684,81 +694,167 @@ def update_genre_chart(n_intervals, n_clicks):
                     conn.close()
                     print(f"User {user_data['id']} created manually")
 
-                # Get all unique artists from listening history
-                print("Getting all unique artists from listening history...")
-                all_artists = db.get_all_listening_history_artists()
-                print(f"Found {len(all_artists)} unique artists in listening history")
+                # Fetch up to 200 recently played tracks using pagination
+                print("Fetching up to 200 recently played tracks...")
+                all_tracks = []
+                before_timestamp = None
+
+                # Spotify API has a limit of 50 tracks per call, so we need to paginate
+                # We'll make up to 4 calls to get up to 200 tracks
+                for i in range(4):  # 4 calls * 50 tracks = 200 tracks max
+                    try:
+                        # Get recently played tracks
+                        tracks = spotify_api.get_recently_played(limit=50, before=before_timestamp)
+
+                        if not tracks or len(tracks) == 0:
+                            print("No more tracks available")
+                            break
+
+                        print(f"Retrieved {len(tracks)} tracks in batch {i+1}")
+                        all_tracks.extend(tracks)
+
+                        # Save tracks to database
+                        for track in tracks:
+                            db.save_track(track)
+
+                            # Normalize the timestamp
+                            played_at = track.get('played_at')
+                            if played_at:
+                                try:
+                                    # Parse the timestamp
+                                    if 'Z' in played_at:
+                                        dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
+                                    elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
+                                        dt = datetime.fromisoformat(played_at)
+                                    else:
+                                        dt = datetime.fromisoformat(played_at)
+
+                                    # Convert to naive datetime in ISO format
+                                    played_at = dt.replace(tzinfo=None).isoformat()
+                                except ValueError:
+                                    # If parsing fails, use the original timestamp
+                                    pass
+                            else:
+                                # If no timestamp, use current time
+                                played_at = datetime.now().isoformat()
+
+                            # Save listening history
+                            db.save_listening_history(
+                                user_id=user_data['id'],
+                                track_id=track['id'],
+                                played_at=played_at,
+                                source='played'
+                            )
+
+                        # Update the timestamp for the next request
+                        # We use the played_at time of the last track as the 'before' parameter
+                        last_track = tracks[-1]
+                        played_at = last_track.get('played_at')
+
+                        if played_at:
+                            try:
+                                # Parse the timestamp
+                                if 'Z' in played_at:
+                                    dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
+                                elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
+                                    dt = datetime.fromisoformat(played_at)
+                                else:
+                                    dt = datetime.fromisoformat(played_at)
+
+                                # Convert to timestamp for the next request
+                                # Subtract 1 millisecond to avoid getting the same track again
+                                before_timestamp = int(dt.timestamp() * 1000) - 1
+                                print(f"Next request will fetch tracks before {dt}")
+                            except ValueError as e:
+                                print(f"Error parsing timestamp: {e}")
+                                break
+                        else:
+                            print("Last track has no played_at timestamp")
+                            break
+
+                        # Add a delay to avoid rate limiting
+                        time.sleep(1)
+
+                    except Exception as e:
+                        print(f"Error fetching recently played tracks: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        break
+
+                print(f"Total tracks fetched: {len(all_tracks)}")
+
+                # Extract unique artists from the tracks
+                artists = set()
+                for track in all_tracks:
+                    artist_name = track.get('artist')
+                    if artist_name:
+                        artists.add(artist_name)
+
+                print(f"Found {len(artists)} unique artists in recently played tracks")
 
                 # Process each artist to get their genres
-                for artist_name in all_artists:
+                for artist_name in artists:
                     print(f"Processing genres for artist: {artist_name}")
 
-                    # Try to get artist details from Spotify API
-                    try:
-                        artist_data = spotify_api.sp.search(q=f'artist:{artist_name}', type='artist', limit=1)
+                    # Use our new function to get genres
+                    genres = spotify_api.get_artist_genres(artist_name)
 
-                        if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
-                            artist_info = artist_data['artists']['items'][0]
-                            genres = artist_info.get('genres', [])
+                    if genres:
+                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
 
-                            print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
-
-                            # Save each genre to the database
-                            for genre in genres:
-                                if genre:  # Skip empty genres
-                                    success = db.save_genre(genre, artist_name)
-                                    if success:
-                                        print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
-                                    else:
-                                        print(f"Failed to save genre '{genre}' to database")
-                        else:
-                            print(f"No artist data found for {artist_name}")
-                    except Exception as e:
-                        print(f"Error getting genres for artist {artist_name}: {e}")
+                        # Save each genre to the database
+                        for genre in genres:
+                            if genre:  # Skip empty genres
+                                success = db.save_genre(genre, artist_name)
+                                if success:
+                                    print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
+                                else:
+                                    print(f"Failed to save genre '{genre}' to database")
+                    else:
+                        print(f"No genres found for artist {artist_name}")
 
                     # Add a small delay to avoid rate limiting
                     time.sleep(0.5)
 
-                # Also get top artists for additional genre data
-                try:
-                    top_artists_data = spotify_api.get_top_artists(limit=20)
-                    print(f"Retrieved {len(top_artists_data) if top_artists_data else 0} top artists")
+        # Process all artists in the database to ensure we have genres for all of them
+        print("Processing genres for all artists in the database...")
 
-                    # Process and save genres from top artists
-                    if top_artists_data:
-                        for artist in top_artists_data:
-                            artist_name = artist.get('name', 'Unknown Artist')
-                            print(f"Processing genres for top artist: {artist_name}")
+        # Get all artists from the database
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT artist FROM tracks")
+        all_artists = [row[0] for row in cursor.fetchall()]
+        conn.close()
 
-                            # Extract genres
-                            genres = artist.get('genres', [])
-                            print(f"Raw genres data: {genres} (type: {type(genres)})")
+        print(f"Found {len(all_artists)} unique artists in the database")
 
-                            if isinstance(genres, str):
-                                # If genres is a string (comma-separated), convert to list
-                                genres = [g.strip() for g in genres.split(',') if g.strip()]
-                                print(f"Converted string genres to list: {genres}")
+        # Process each artist to get their genres
+        for artist_name in all_artists:
+            # Check if we already have genres for this artist
+            conn = sqlite3.connect(db.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM genres WHERE artist_name = ?", (artist_name,))
+            genre_count = cursor.fetchone()[0]
+            conn.close()
 
-                            # Save each genre to the genres table
-                            if genres:
-                                print(f"Found {len(genres)} genres for {artist_name}")
-                                for genre in genres:
-                                    if genre:  # Skip empty genres
-                                        print(f"Saving genre '{genre}' for artist '{artist_name}'")
+            # If we don't have genres for this artist, get them
+            if genre_count == 0:
+                print(f"Getting genres for artist: {artist_name}")
 
-                                        # Save to the simplified genres table
-                                        success = db.save_genre(genre, artist_name)
+                # Get genres for this artist
+                genres = spotify_api.get_artist_genres(artist_name)
 
-                                        if success:
-                                            print(f"Successfully saved genre '{genre}' to database")
-                                        else:
-                                            print(f"Failed to save genre '{genre}' to database")
-                            else:
-                                print(f"No genres found for artist: {artist_name}")
-                except Exception as e:
-                    print(f"ERROR getting top artists: {e}")
-                    import traceback
-                    traceback.print_exc()
+                # Save each genre to the database
+                for genre in genres:
+                    if genre:  # Skip empty genres
+                        success = db.save_genre(genre, artist_name)
+                        if success:
+                            print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
+
+                # Add a small delay to avoid rate limiting
+                time.sleep(0.5)
+            else:
+                print(f"Already have {genre_count} genres for artist: {artist_name}")
 
         # Get user data if not already available
         if 'user_data' not in locals() or user_data is None:
@@ -772,17 +868,9 @@ def update_genre_chart(n_intervals, n_clicks):
             genre_df = pd.DataFrame(genre_data)
             print(f"Genre data loaded from database: {len(genre_df)} genres")
         else:
-            print("No genre data in database, falling back to CSV")
-            # Load data from file as fallback
-            genre_df = data_processor.load_data('genre_analysis.csv')
-
-            # If still no data, create sample data
-            if genre_df.empty:
-                print("Creating sample genre data")
-                genre_df = pd.DataFrame({
-                    'genre': ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Electronic', 'Jazz', 'Classical', 'Country', 'Folk', 'Reggae'],
-                    'count': [25, 20, 18, 15, 12, 10, 8, 7, 5, 3]
-                })
+            print("No genre data in database")
+            # Create an empty DataFrame
+            genre_df = pd.DataFrame(columns=['genre', 'count'])
 
         # Create visualization
         print("Creating genre pie chart...")
@@ -910,9 +998,9 @@ def update_listening_patterns_chart(n_intervals):
             patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
             return visualizations.create_listening_patterns_heatmap(patterns_df)
 
-    # Last resort fallback to CSV data
-    recently_played_df = data_processor.load_data('recently_played.csv')
-    return visualizations.create_listening_patterns_heatmap(recently_played_df)
+    # Create empty DataFrame with the right columns
+    patterns_df = pd.DataFrame(columns=['day_of_week', 'hour_of_day', 'play_count', 'day_name'])
+    return visualizations.create_listening_patterns_heatmap(patterns_df)
 
 # New callback for top albums section
 @app.callback(
@@ -1430,10 +1518,39 @@ def update_wrapped_summary(n_clicks):
 def update_music_analysis(n_intervals, n_clicks):
     """Update the music analysis section."""
     try:
-        # Load data from files
-        top_artists_df = data_processor.load_data('top_artists.csv')
-        audio_features_df = data_processor.load_data('audio_features.csv')
-        recently_played_df = data_processor.load_data('recently_played.csv')
+        # Get audio features from database
+        conn = sqlite3.connect(db.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # Query for tracks with audio features
+        cursor.execute('''
+            SELECT
+                AVG(danceability) as energy,
+                AVG(energy) as energy,
+                AVG(valence) as valence,
+                AVG(tempo) as tempo
+            FROM tracks
+            WHERE danceability IS NOT NULL
+        ''')
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            # Create a DataFrame with the average values
+            audio_features_df = pd.DataFrame([{
+                'energy': result['energy'] or 0.5,
+                'valence': result['valence'] or 0.5,
+                'tempo': result['tempo'] or 120
+            }])
+        else:
+            # Create default values if no data
+            audio_features_df = pd.DataFrame([{
+                'energy': 0.5,
+                'valence': 0.5,
+                'tempo': 120
+            }])
 
         # Create a modern, visually appealing layout
         return html.Div([
@@ -1520,7 +1637,8 @@ def update_music_analysis(n_intervals, n_clicks):
 )
 def update_wrapped_summary_display(summary):
     """Update the Wrapped summary display."""
-    if not summary:
+    # Handle the case when summary is None or empty
+    if summary is None or not summary:
         return html.Div([
             html.H3("Your Spotify Wrapped", style={'color': SPOTIFY_GREEN, 'textAlign': 'center'}),
             html.P("Click 'Refresh Data' to generate your Spotify Wrapped summary",
@@ -1533,6 +1651,19 @@ def update_wrapped_summary_display(summary):
             'margin': '20px 0',
             'textAlign': 'center'
         })
+
+    # Initialize default values for all required fields to prevent NoneType errors
+    if 'top_track' not in summary or summary['top_track'] is None:
+        summary['top_track'] = {'name': 'Start listening to discover your top track', 'artist': 'Unknown'}
+
+    if 'top_artist' not in summary or summary['top_artist'] is None:
+        summary['top_artist'] = {'name': 'Start listening to discover your top artist', 'genres': 'Exploring genres'}
+
+    if 'music_mood' not in summary or summary['music_mood'] is None:
+        summary['music_mood'] = {'mood': 'Discovering Your Sound', 'valence': 0.5, 'energy': 0.5}
+
+    if 'genre_highlight' not in summary or summary['genre_highlight'] is None:
+        summary['genre_highlight'] = {'name': 'Exploring New Genres', 'count': 0}
 
     # Create a Wrapped-style summary display
     return html.Div([
@@ -1762,11 +1893,10 @@ def generate_wrapped_summary_from_db():
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.user_id = ? AND h.source LIKE 'top_%'
         GROUP BY t.track_id
         ORDER BY play_count DESC
         LIMIT 1
-    ''', (user_data['id'],))
+    ''')
 
     top_track_row = cursor.fetchone()
     if top_track_row:
@@ -1775,19 +1905,24 @@ def generate_wrapped_summary_from_db():
             'name': top_track['track'],
             'artist': top_track['artist']
         }
+    else:
+        # Default top track if none found
+        summary['top_track'] = {
+            'name': 'Start listening to discover your top track',
+            'artist': 'Unknown'
+        }
 
     # Get top artist
     cursor.execute('''
         SELECT
-            t.name as artist,
+            t.artist as artist,
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.user_id = ? AND h.source = 'top_artist'
-        GROUP BY t.name
+        GROUP BY t.artist
         ORDER BY play_count DESC
         LIMIT 1
-    ''', (user_data['id'],))
+    ''')
 
     top_artist_row = cursor.fetchone()
     if top_artist_row:
@@ -1798,17 +1933,23 @@ def generate_wrapped_summary_from_db():
             SELECT
                 genre_name as genre
             FROM genres
-            WHERE user_id = ? AND artist_name = ?
+            WHERE artist_name = ?
             GROUP BY genre_name
             ORDER BY count DESC
             LIMIT 5
-        ''', (user_data['id'], top_artist['artist']))
+        ''', (top_artist['artist'],))
 
         genres = [dict(row)['genre'] for row in cursor.fetchall()]
 
         summary['top_artist'] = {
             'name': top_artist['artist'],
-            'genres': ', '.join(genres) if genres else 'Unknown'
+            'genres': ', '.join(genres) if genres else 'Exploring genres'
+        }
+    else:
+        # Default top artist if none found
+        summary['top_artist'] = {
+            'name': 'Start listening to discover your top artist',
+            'genres': 'Exploring genres'
         }
 
     # Get audio features for mood
@@ -1819,8 +1960,8 @@ def generate_wrapped_summary_from_db():
             AVG(t.valence) as avg_valence
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.user_id = ? AND t.danceability IS NOT NULL
-    ''', (user_data['id'],))
+        WHERE t.danceability IS NOT NULL
+    ''')
 
     audio_features_row = cursor.fetchone()
     if audio_features_row:
@@ -1843,6 +1984,13 @@ def generate_wrapped_summary_from_db():
             'valence': avg_valence,
             'energy': avg_energy
         }
+    else:
+        # Default mood if no audio features found
+        summary['music_mood'] = {
+            'mood': "Discovering Your Sound",
+            'valence': 0.5,
+            'energy': 0.5
+        }
 
     # Get top genre from the dedicated genres table
     cursor.execute('''
@@ -1850,11 +1998,10 @@ def generate_wrapped_summary_from_db():
             genre_name as genre,
             SUM(count) as count
         FROM genres
-        WHERE user_id = ?
         GROUP BY genre_name
         ORDER BY count DESC
         LIMIT 1
-    ''', (user_data['id'],))
+    ''')
 
     top_genre_row = cursor.fetchone()
     if top_genre_row:
@@ -1862,6 +2009,12 @@ def generate_wrapped_summary_from_db():
         summary['genre_highlight'] = {
             'name': top_genre['genre'],
             'count': top_genre['count']
+        }
+    else:
+        # Default genre highlight if none found
+        summary['genre_highlight'] = {
+            'name': 'Exploring New Genres',
+            'count': 0
         }
 
     conn.close()
@@ -1893,7 +2046,7 @@ def update_error_message(n_intervals):
         return [
             "Error connecting to Spotify API. Please check your credentials and internet connection.",
             html.Br(),
-            "The dashboard will display sample data until connection is restored."
+            "The dashboard will display limited data until connection is restored."
         ], error_style
 
     # No error, hide the message

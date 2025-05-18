@@ -721,14 +721,30 @@ class SpotifyVisualizations:
     def create_genre_pie_chart(self, df):
         """Create a pie chart of top genres."""
         if df.empty or 'genre' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No genre data available",
+                text="Listening to music to gather genre data...",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="Your genre preferences will appear here as you listen",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder circle
+            fig.add_shape(
+                type="circle",
+                xref="paper", yref="paper",
+                x0=0.3, y0=0.3, x1=0.7, y1=0.7,
+                line=dict(color=self.theme['accent_color'], width=2),
+                fillcolor="rgba(29, 185, 84, 0.1)"
+            )
+
             return self._apply_theme(fig)
 
         # Sort by count and take top 10
@@ -739,6 +755,14 @@ class SpotifyVisualizations:
             df = genre_counts
 
         df = df.sort_values('count', ascending=False).head(10)
+
+        # If we have very few genres, still create a chart
+        if len(df) == 1:
+            # Add a "Other" category to make the pie chart more meaningful
+            df = pd.concat([
+                df,
+                pd.DataFrame([{'genre': 'Exploring more genres...', 'count': df['count'].iloc[0] * 0.2}])
+            ])
 
         # Create pie chart
         fig = px.pie(
