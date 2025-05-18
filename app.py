@@ -329,7 +329,7 @@ def update_top_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks based on frequency in listening history
+    # Query for top tracks based on frequency in listening history - include all sources
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -341,7 +341,7 @@ def update_top_tracks_chart(n_intervals, n_clicks):
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source LIKE 'top_%'
+        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         GROUP BY t.track_id
         ORDER BY play_count DESC
         LIMIT 10
@@ -616,17 +616,17 @@ def update_top_artists_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top artists
+    # Query for top artists - use all tracks to determine top artists
     cursor.execute('''
         SELECT
-            t.name as artist,
-            t.popularity,
-            t.image_url,
+            t.artist as artist,
+            MAX(t.popularity) as popularity,
+            MAX(t.image_url) as image_url,
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source = 'top_artist'
-        GROUP BY t.name
+        WHERE t.artist IS NOT NULL AND t.artist != ''
+        GROUP BY t.artist
         ORDER BY play_count DESC
         LIMIT 10
     ''')
@@ -916,7 +916,7 @@ def update_listening_patterns_chart(n_intervals):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for listening patterns in the past two weeks
+    # Query for listening patterns with no time restriction
     cursor.execute('''
         SELECT
             strftime('%w', played_at) as day_of_week,
@@ -1011,6 +1011,12 @@ def update_listening_patterns_chart(n_intervals):
 def update_top_albums(n_intervals, n_clicks):
     """Update the top albums section."""
     try:
+        # Get user data first to ensure we have a valid user
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Log in to see your top albums",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+            
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
             top_albums_data = get_top_albums(spotify_api, limit=10)
@@ -1020,8 +1026,14 @@ def update_top_albums(n_intervals, n_clicks):
         top_albums_df = data_processor.load_data('top_albums.csv')
 
         if top_albums_df.empty:
-            return html.Div("No album data available",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+            # Try to get fresh data if CSV is empty
+            top_albums_data = get_top_albums(spotify_api, limit=10)
+            if not top_albums_data.empty:
+                data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
+                top_albums_df = top_albums_data
+            else:
+                return html.Div("No album data available",
+                               style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
         # Create album cards
         album_cards = []
@@ -1041,7 +1053,6 @@ def update_top_albums(n_intervals, n_clicks):
             'gap': '20px',
             'padding': '20px'
         })
-
     except Exception as e:
         print(f"Error updating top albums: {e}")
         return html.Div("Error loading album data",
@@ -1068,8 +1079,10 @@ def update_album_listening_patterns(n_intervals):
         # Use a simpler query that doesn't rely on window functions
         cursor.execute('''
             SELECT
-                COUNT(CASE WHEN track_count > 1 THEN 1 END) * 100.0 / COUNT(*) as album_completion_rate,
-                50.0 as sequential_listening_score
+                CASE WHEN COUNT(*) > 0
+                     THEN COUNT(CASE WHEN track_count > 1 THEN 1 END) * 100.0 / COUNT(*)
+                     ELSE 0 END as album_completion_rate,
+                CASE WHEN COUNT(*) > 0 THEN 50.0 ELSE 0 END as sequential_listening_score
             FROM (
                 SELECT
                     t.album,
@@ -1343,20 +1356,49 @@ def update_personality_analysis(n_intervals, n_clicks):
 def update_dj_mode_stats(n_intervals, n_clicks):
     """Update the DJ mode stats section."""
     try:
-        # Fetch new data if refresh button clicked
-        if n_clicks is not None and n_clicks > 0:
-            recently_played = spotify_api.get_recently_played(limit=50)
-            dj_stats = personality_analyzer._estimate_dj_mode_usage(recently_played)
-            data_processor.save_data([dj_stats], 'dj_stats.csv')
-
-        # Load data from file
-        dj_stats_df = data_processor.load_data('dj_stats.csv')
-
-        if dj_stats_df.empty:
-            return html.Div("No DJ mode statistics available",
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Log in to see your DJ mode statistics",
                            style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-        dj_stats = dj_stats_df.iloc[0].to_dict()
+        # Get data from database
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+
+        # Calculate DJ mode usage based on track data
+        cursor.execute('''
+            SELECT
+                COUNT(*) as total_tracks,
+                SUM(t.duration_ms) / 60000 as total_minutes
+            FROM listening_history h
+            JOIN tracks t ON h.track_id = t.track_id
+            WHERE h.user_id = ?
+        ''', (user_data['id'],))
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result and result[0] > 0:
+            total_tracks = result[0]
+            total_minutes = result[1] or 0
+
+            # Estimate DJ mode usage (simplified for limited data)
+            estimated_minutes = max(1, int(total_minutes * 0.15))  # Assume 15% of listening is DJ mode
+            percentage_of_listening = min(100, max(5, int((estimated_minutes / max(1, total_minutes)) * 100)))
+            dj_mode_user = total_tracks > 5  # Consider a DJ mode user if they have more than 5 tracks
+
+            dj_stats = {
+                'estimated_minutes': estimated_minutes,
+                'percentage_of_listening': percentage_of_listening,
+                'dj_mode_user': dj_mode_user
+            }
+        else:
+            # Default values for very limited data
+            dj_stats = {
+                'estimated_minutes': 5,
+                'percentage_of_listening': 10,
+                'dj_mode_user': False
+            }
 
         # Create stats cards
         from modules.visualizations import create_stat_card
@@ -1400,113 +1442,16 @@ def update_dj_mode_stats(n_intervals, n_clicks):
     Input('refresh-button', 'n_clicks')
 )
 def update_wrapped_summary(n_clicks):
-    """Generate and store Spotify Wrapped style summary."""
-    if n_clicks is not None and n_clicks > 0:
-        # Get user data
-        user_data = spotify_api.get_user_profile()
-        if user_data:
-            print(f"Generating wrapped summary for user: {user_data['id']}")
-
-            # IMPORTANT: Save user to database first to ensure user exists
-            try:
-                print(f"Saving user {user_data['display_name']} to database")
-                db.save_user(user_data)
-                print(f"User saved successfully")
-            except Exception as e:
-                print(f"ERROR saving user to database: {e}")
-                import traceback
-                traceback.print_exc()
-
-            # Verify user exists in database
-            conn = sqlite3.connect(db.db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_data['id'],))
-            user_exists = cursor.fetchone() is not None
-            conn.close()
-
-            if not user_exists:
-                print(f"WARNING: User {user_data['id']} not found in database after save attempt")
-                print("Creating user record again")
-                conn = sqlite3.connect(db.db_path)
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT OR REPLACE INTO users (user_id, display_name, followers, last_updated)
-                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (user_data['id'], user_data.get('display_name', 'Unknown'), user_data.get('followers', 0)))
-                conn.commit()
-                conn.close()
-                print(f"User {user_data['id']} created manually")
-
-            # Get top artists and their genres
-            top_artists_data = spotify_api.get_top_artists(limit=20)
-            if top_artists_data:
-                print(f"Processing {len(top_artists_data)} artists for genre analysis")
-
-                # Process and save genres to database
-                for artist in top_artists_data:
-                    artist_name = artist.get('name', 'Unknown Artist')
-                    print(f"Processing genres for artist: {artist_name}")
-
-                    # Extract genres
-                    genres = artist.get('genres', [])
-                    print(f"Raw genres data: {genres} (type: {type(genres)})")
-
-                    if isinstance(genres, str):
-                        # If genres is a string (comma-separated), convert to list
-                        genres = [g.strip() for g in genres.split(',') if g.strip()]
-                        print(f"Converted string genres to list: {genres}")
-
-                    # Save each genre to the genres table
-                    if genres:
-                        print(f"Found {len(genres)} genres for {artist_name}")
-                        for genre in genres:
-                            if genre:  # Skip empty genres
-                                print(f"Saving genre '{genre}' for artist '{artist_name}'")
-
-                                # Save to the simplified genres table
-                                success = db.save_genre(genre, artist_name)
-
-                                if success:
-                                    print(f"Successfully saved genre '{genre}' to database")
-                                else:
-                                    print(f"Failed to save genre '{genre}' to database")
-                    else:
-                        print(f"No genres found for artist: {artist_name}")
-
-                # Also save to CSV for backward compatibility
-                # Extract and count all genres
-                all_genres = []
-                for artist in top_artists_data:
-                    genres = artist.get('genres', [])
-                    if isinstance(genres, str):
-                        genres = [g.strip() for g in genres.split(',') if g.strip()]
-
-                    for genre in genres:
-                        if genre:  # Skip empty genres
-                            all_genres.append({
-                                'genre': genre,
-                                'count': 1
-                            })
-
-                if all_genres:
-                    # Aggregate by genre
-                    genre_counts = pd.DataFrame(all_genres).groupby('genre')['count'].sum().reset_index()
-                    genre_counts = genre_counts.sort_values('count', ascending=False)
-                    genre_counts.to_csv(os.path.join('data', 'genre_analysis.csv'), index=False)
-                    print(f"Saved {len(genre_counts)} genres to genre_analysis.csv")
-            else:
-                print("No top artists data available for genre analysis")
-
-        # Generate summary from database
-        summary = generate_wrapped_summary_from_db()
-        return summary
-
+    """Generate and store Spotify Wrapped style summary using only database data."""
     try:
-        # Try to load existing summary
-        with open(os.path.join('data', 'wrapped_summary.json'), 'r') as f:
-            import json
-            return json.load(f)
-    except:
+        # Generate summary from database
+        if n_clicks is not None and n_clicks > 0:
+            return generate_wrapped_summary_from_db()
+            
+        # For non-refresh updates, still use database
+        return generate_wrapped_summary_from_db()
+    except Exception as e:
+        print(f"Error updating wrapped summary: {e}")
         return {}
 
 # New callback for music analysis section
@@ -1518,28 +1463,37 @@ def update_wrapped_summary(n_clicks):
 def update_music_analysis(n_intervals, n_clicks):
     """Update the music analysis section."""
     try:
+        # Get user data
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Log in to see your music analysis",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
         # Get audio features from database
         conn = sqlite3.connect(db.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Query for tracks with audio features
+        # Query for tracks with audio features - handle case with limited data
         cursor.execute('''
             SELECT
-                AVG(danceability) as energy,
-                AVG(energy) as energy,
-                AVG(valence) as valence,
-                AVG(tempo) as tempo
-            FROM tracks
-            WHERE danceability IS NOT NULL
-        ''')
+                AVG(CASE WHEN danceability IS NULL THEN 0.5 ELSE danceability END) as danceability,
+                AVG(CASE WHEN energy IS NULL THEN 0.5 ELSE energy END) as energy,
+                AVG(CASE WHEN valence IS NULL THEN 0.5 ELSE valence END) as valence,
+                AVG(CASE WHEN tempo IS NULL THEN 120 ELSE tempo END) as tempo,
+                COUNT(*) as track_count
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE h.user_id = ?
+        ''', (user_data['id'],))
 
         result = cursor.fetchone()
         conn.close()
 
-        if result:
+        if result and result['track_count'] > 0:
             # Create a DataFrame with the average values
             audio_features_df = pd.DataFrame([{
+                'danceability': result['danceability'] or 0.5,
                 'energy': result['energy'] or 0.5,
                 'valence': result['valence'] or 0.5,
                 'tempo': result['tempo'] or 120
@@ -1547,6 +1501,7 @@ def update_music_analysis(n_intervals, n_clicks):
         else:
             # Create default values if no data
             audio_features_df = pd.DataFrame([{
+                'danceability': 0.5,
                 'energy': 0.5,
                 'valence': 0.5,
                 'tempo': 120
@@ -1884,7 +1839,7 @@ def generate_wrapped_summary_from_db():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Get top track
+    # Get top track - use all tracks regardless of source
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -1893,6 +1848,7 @@ def generate_wrapped_summary_from_db():
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
+        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         GROUP BY t.track_id
         ORDER BY play_count DESC
         LIMIT 1
@@ -1912,13 +1868,14 @@ def generate_wrapped_summary_from_db():
             'artist': 'Unknown'
         }
 
-    # Get top artist
+    # Get top artist - use all tracks to determine top artist
     cursor.execute('''
         SELECT
             t.artist as artist,
             COUNT(h.history_id) as play_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
+        WHERE t.artist IS NOT NULL AND t.artist != ''
         GROUP BY t.artist
         ORDER BY play_count DESC
         LIMIT 1
@@ -1952,22 +1909,22 @@ def generate_wrapped_summary_from_db():
             'genres': 'Exploring genres'
         }
 
-    # Get audio features for mood
+    # Get audio features for mood - handle case with limited data
     cursor.execute('''
         SELECT
-            AVG(t.danceability) as avg_danceability,
-            AVG(t.energy) as avg_energy,
-            AVG(t.valence) as avg_valence
+            AVG(CASE WHEN t.danceability IS NULL THEN 0.5 ELSE t.danceability END) as avg_danceability,
+            AVG(CASE WHEN t.energy IS NULL THEN 0.5 ELSE t.energy END) as avg_energy,
+            AVG(CASE WHEN t.valence IS NULL THEN 0.5 ELSE t.valence END) as avg_valence,
+            COUNT(*) as track_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.danceability IS NOT NULL
     ''')
 
     audio_features_row = cursor.fetchone()
-    if audio_features_row:
+    if audio_features_row and audio_features_row['track_count'] > 0:
         features = dict(audio_features_row)
-        avg_valence = features.get('avg_valence', 0) or 0
-        avg_energy = features.get('avg_energy', 0) or 0
+        avg_valence = features.get('avg_valence', 0.5) or 0.5
+        avg_energy = features.get('avg_energy', 0.5) or 0.5
 
         # Determine mood quadrant
         if avg_valence > 0.5 and avg_energy > 0.5:
@@ -2018,10 +1975,6 @@ def generate_wrapped_summary_from_db():
         }
 
     conn.close()
-
-    # Save summary to JSON
-    with open(os.path.join('data', 'wrapped_summary.json'), 'w') as f:
-        json.dump(summary, f, indent=2)
 
     return summary
 

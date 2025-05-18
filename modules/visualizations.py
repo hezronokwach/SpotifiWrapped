@@ -453,18 +453,64 @@ class SpotifyVisualizations:
 
         return fig
 
+    def create_empty_chart(self, message="No data available"):
+        """Create an empty chart with a message."""
+        fig = go.Figure()
+        fig.add_annotation(
+            text=message,
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(color=self.theme['text_color'], size=16)
+        )
+
+        # Add a subtle Spotify logo-like circle
+        fig.add_shape(
+            type="circle",
+            xref="paper", yref="paper",
+            x0=0.4, y0=0.4, x1=0.6, y1=0.6,
+            line=dict(color=self.theme['accent_color'], width=2),
+            fillcolor="rgba(29, 185, 84, 0.1)"
+        )
+
+        # Add a helpful message about data collection
+        fig.add_annotation(
+            text="Data will appear as you listen to more music",
+            xref="paper", yref="paper",
+            x=0.5, y=0.4, showarrow=False,
+            font=dict(color=self.theme['secondary_color'], size=14)
+        )
+
+        return self._apply_theme(fig)
+
 
     def create_top_tracks_chart(self, df):
         """Create a bar chart of top tracks."""
         if df.empty or 'track' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No top tracks data available",
+                text="Your top tracks will appear here as you listen to more music",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This chart shows your most frequently played tracks",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder visualization
+            for i in range(3):
+                fig.add_shape(
+                    type="rect",
+                    xref="paper", yref="paper",
+                    x0=0.3, y0=0.2 + (i * 0.05), x1=0.5 + (i * 0.1), y1=0.25 + (i * 0.05),
+                    line=dict(color=self.theme['accent_color'], width=2),
+                    fillcolor=f"rgba({29 + (i * 20)}, {185 - (i * 20)}, 84, 0.1)"
+                )
+
             return self._apply_theme(fig)
 
         # Sort by rank if available, otherwise by popularity
@@ -551,14 +597,47 @@ class SpotifyVisualizations:
     def create_saved_tracks_timeline(self, df):
         """Create a timeline of saved tracks."""
         if df.empty or 'added_at' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No saved tracks data available",
+                text="Your saved tracks will appear here as you save more music",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This timeline shows when you saved tracks to your library",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder timeline
+            from datetime import datetime, timedelta
+            now = datetime.now()
+
+            # Create placeholder data
+            dates = [(now - timedelta(days=i*3)) for i in range(3)]
+
+            for i, date in enumerate(dates):
+                fig.add_shape(
+                    type="line",
+                    xref="paper", yref="paper",
+                    x0=0.3, y0=0.2 + (i * 0.05),
+                    x1=0.7 - (i * 0.1), y1=0.2 + (i * 0.05),
+                    line=dict(color=SPOTIFY_PALETTE[i], width=3)
+                )
+
+                # Add a dot at the end of each line
+                fig.add_shape(
+                    type="circle",
+                    xref="paper", yref="paper",
+                    x0=0.7 - (i * 0.1) - 0.01, y0=0.2 + (i * 0.05) - 0.01,
+                    x1=0.7 - (i * 0.1) + 0.01, y1=0.2 + (i * 0.05) + 0.01,
+                    fillcolor=SPOTIFY_PALETTE[i],
+                    line=dict(color=SPOTIFY_PALETTE[i])
+                )
+
             return self._apply_theme(fig)
 
         # Convert added_at to datetime
@@ -619,14 +698,32 @@ class SpotifyVisualizations:
     def create_playlists_chart(self, df):
         """Create a bar chart of playlists by track count."""
         if df.empty or 'playlist' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No playlists data available",
+                text="Your playlists will appear here when data is available",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This chart shows your playlists and their track counts",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder bar chart
+            for i in range(3):
+                fig.add_shape(
+                    type="rect",
+                    xref="paper", yref="paper",
+                    x0=0.3 + (i * 0.1), y0=0.2,
+                    x1=0.35 + (i * 0.1), y1=0.2 + (0.1 * (i+1)),
+                    line=dict(color=SPOTIFY_PALETTE[i], width=2),
+                    fillcolor=SPOTIFY_PALETTE[i]
+                )
+
             return self._apply_theme(fig)
 
         # Sort by track count
@@ -673,14 +770,48 @@ class SpotifyVisualizations:
     def create_audio_features_radar(self, df):
         """Create a radar chart of audio features."""
         if df.empty or not all(col in df.columns for col in ['track', 'danceability', 'energy', 'valence']):
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No audio features data available",
+                text="Audio features will appear here as you listen to more music",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This chart shows the musical characteristics of your tracks",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Create a simple placeholder radar chart
+            categories = ['Danceability', 'Energy', 'Valence', 'Acousticness', 'Instrumentalness']
+            # Add the first value at the end to close the polygon
+            categories.append(categories[0])
+
+            # Create placeholder values
+            values = [0.5, 0.6, 0.4, 0.7, 0.3, 0.5]  # Last value repeats first to close the polygon
+
+            fig.add_trace(go.Scatterpolar(
+                r=values,
+                theta=categories,
+                fill='toself',
+                fillcolor=f'rgba(29, 185, 84, 0.2)',  # Spotify green with transparency
+                line=dict(color=SPOTIFY_GREEN, width=1, dash='dot'),
+                name='Sample Features'
+            ))
+
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 1]
+                    )
+                ),
+                showlegend=False
+            )
+
             return self._apply_theme(fig)
 
         # Select features for radar chart
@@ -808,14 +939,30 @@ class SpotifyVisualizations:
     def create_listening_patterns_heatmap(self, df):
         """Create a heatmap of listening patterns by day and hour."""
         if df.empty or 'day_of_week' not in df.columns or 'hour_of_day' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No listening pattern data available",
+                text="Listening patterns will appear here as you listen to more music",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This visualization shows when you listen to music most frequently",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder visualization
+            fig.add_shape(
+                type="rect",
+                xref="paper", yref="paper",
+                x0=0.3, y0=0.2, x1=0.7, y1=0.3,
+                line=dict(color=self.theme['accent_color'], width=2),
+                fillcolor="rgba(29, 185, 84, 0.1)"
+            )
+
             return self._apply_theme(fig)
 
         try:
@@ -901,14 +1048,32 @@ class SpotifyVisualizations:
     def create_top_artists_chart(self, df):
         """Create a bar chart of top artists."""
         if df.empty or 'artist' not in df.columns:
-            # Return empty figure with message
+            # Return empty figure with a more user-friendly message
             fig = go.Figure()
             fig.add_annotation(
-                text="No top artists data available",
+                text="Your top artists will appear here as you listen to more music",
                 xref="paper", yref="paper",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(color=self.theme['text_color'], size=16)
             )
+            fig.add_annotation(
+                text="This chart shows the artists you listen to most frequently",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+
+            # Add a simple placeholder visualization
+            for i in range(3):
+                fig.add_shape(
+                    type="circle",
+                    xref="paper", yref="paper",
+                    x0=0.4 - (i * 0.05), y0=0.2 + (i * 0.05),
+                    x1=0.6 - (i * 0.05), y1=0.3 + (i * 0.05),
+                    line=dict(color=SPOTIFY_PALETTE[i], width=2),
+                    fillcolor=f"rgba({29 + (i * 20)}, {185 - (i * 20)}, 84, 0.1)"
+                )
+
             return self._apply_theme(fig)
 
         # Sort by rank or popularity
