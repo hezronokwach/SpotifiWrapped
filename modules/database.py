@@ -12,89 +12,132 @@ class SpotifyDatabase:
         # Ensure data directory exists
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
-        # If database exists, delete it for fresh start
-        if os.path.exists(db_path):
-            os.remove(db_path)
-
+        # Don't delete the database if it exists - we want to keep our data
         self.db_path = db_path
-        self.initialize_db()
 
-    def initialize_db(self):
-        """Create all necessary database tables."""
+        # Initialize the database if it doesn't exist
+        if not os.path.exists(db_path):
+            self.initialize_db()
+        else:
+            # Make sure all tables exist
+            self.ensure_tables_exist()
+
+    def ensure_tables_exist(self):
+        """Make sure all necessary tables exist in the database."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         try:
-            # Users table - minimal info as requested
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id TEXT PRIMARY KEY,
-                    display_name TEXT NOT NULL,
-                    followers INTEGER DEFAULT 0,
-                    last_updated TIMESTAMP
-                )
-            ''')
-
-            # Tracks table - store track information
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS tracks (
-                    track_id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    artist TEXT NOT NULL,
-                    album TEXT,
-                    duration_ms INTEGER,
-                    popularity INTEGER,
-                    preview_url TEXT,
-                    image_url TEXT,
-                    added_at TIMESTAMP,
-                    last_seen TIMESTAMP,
-                    danceability REAL,
-                    energy REAL,
-                    key INTEGER,
-                    loudness REAL,
-                    mode INTEGER,
-                    speechiness REAL,
-                    acousticness REAL,
-                    instrumentalness REAL,
-                    liveness REAL,
-                    valence REAL,
-                    tempo REAL
-                )
-            ''')
-
-            # Listening history table - track play history
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS listening_history (
-                    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    track_id TEXT NOT NULL,
-                    played_at TIMESTAMP NOT NULL,
-                    source TEXT NOT NULL,  -- 'saved', 'played', 'top_track'
-                    FOREIGN KEY (user_id) REFERENCES users (user_id),
-                    FOREIGN KEY (track_id) REFERENCES tracks (track_id),
-                    UNIQUE (user_id, track_id, played_at)  -- Prevent duplicates
-                )
-            ''')
-
-            # Collection status table - track data collection progress
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS collection_status (
-                    user_id TEXT PRIMARY KEY,
-                    last_collection_timestamp TIMESTAMP,
-                    earliest_known_timestamp TIMESTAMP,
-                    latest_known_timestamp TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users (user_id)
-                )
-            ''')
-
-            # Create indexes for better query performance
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_user_time ON listening_history (user_id, played_at)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_track ON listening_history (track_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks (artist)')
+            # Check if the genres table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genres'")
+            if cursor.fetchone() is None:
+                # Create the genres table if it doesn't exist
+                self._create_tables(conn)
+                logger.info("Created missing tables in database")
+            else:
+                logger.info("All tables exist in database")
 
             conn.commit()
-            logger.info("Database initialized successfully")
+        except sqlite3.Error as e:
+            logger.error(f"Error ensuring tables exist: {e}")
+            raise
+        finally:
+            conn.close()
 
+    def _create_tables(self, conn):
+        """Create all database tables."""
+        cursor = conn.cursor()
+
+        # Users table - minimal info as requested
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                display_name TEXT NOT NULL,
+                followers INTEGER DEFAULT 0,
+                last_updated TIMESTAMP
+            )
+        ''')
+
+        # Tracks table - store track information
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tracks (
+                track_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                artist TEXT NOT NULL,
+                album TEXT,
+                duration_ms INTEGER,
+                popularity INTEGER,
+                preview_url TEXT,
+                image_url TEXT,
+                added_at TIMESTAMP,
+                last_seen TIMESTAMP,
+                danceability REAL,
+                energy REAL,
+                key INTEGER,
+                loudness REAL,
+                mode INTEGER,
+                speechiness REAL,
+                acousticness REAL,
+                instrumentalness REAL,
+                liveness REAL,
+                valence REAL,
+                tempo REAL
+            )
+        ''')
+
+        # Listening history table - track play history
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS listening_history (
+                history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                track_id TEXT NOT NULL,
+                played_at TIMESTAMP NOT NULL,
+                source TEXT NOT NULL,  -- 'saved', 'played', 'top_track'
+                FOREIGN KEY (user_id) REFERENCES users (user_id),
+                FOREIGN KEY (track_id) REFERENCES tracks (track_id),
+                UNIQUE (user_id, track_id, played_at)  -- Prevent duplicates
+            )
+        ''')
+
+        # Genres table - simplified with no user dependency
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS genres (
+                genre_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                genre_name TEXT NOT NULL,
+                artist_name TEXT,
+                count INTEGER DEFAULT 1,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(genre_name, artist_name)
+            )
+        ''')
+
+        # Collection status table - track data collection progress
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS collection_status (
+                user_id TEXT PRIMARY KEY,
+                last_collection_timestamp TIMESTAMP,
+                earliest_known_timestamp TIMESTAMP,
+                latest_known_timestamp TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            )
+        ''')
+
+        # Create indexes for better query performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_user_time ON listening_history (user_id, played_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_track ON listening_history (track_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks (artist)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_genres_name ON genres (genre_name)')
+
+        logger.info("Created all database tables")
+
+    def initialize_db(self):
+        """Create all necessary database tables."""
+        conn = sqlite3.connect(self.db_path)
+
+        try:
+            self._create_tables(conn)
+            conn.commit()
+            logger.info("Database initialized successfully")
         except sqlite3.Error as e:
             logger.error(f"Error initializing database: {e}")
             raise
@@ -321,5 +364,88 @@ class SpotifyDatabase:
             cursor.execute(query, params)
             return [dict(zip(['played_at', 'name', 'artist', 'album', 'source'], row))
                    for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def save_genre(self, genre_name: str, artist_name: str = None):
+        """Save a genre to the database, incrementing count if it already exists."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            # Check if this genre already exists for this artist
+            cursor.execute('''
+                SELECT genre_id, count FROM genres
+                WHERE genre_name = ? AND (artist_name = ? OR (artist_name IS NULL AND ? IS NULL))
+            ''', (genre_name, artist_name, artist_name))
+
+            existing = cursor.fetchone()
+
+            if existing:
+                # Increment count for existing genre
+                genre_id, count = existing
+                cursor.execute('''
+                    UPDATE genres
+                    SET count = count + 1, added_at = CURRENT_TIMESTAMP
+                    WHERE genre_id = ?
+                ''', (genre_id,))
+                print(f"DATABASE: Incremented count for genre '{genre_name}' to {count + 1}")
+            else:
+                # Insert new genre
+                cursor.execute('''
+                    INSERT INTO genres (genre_name, artist_name, count)
+                    VALUES (?, ?, 1)
+                ''', (genre_name, artist_name))
+                print(f"DATABASE: Added new genre '{genre_name}'")
+
+            conn.commit()
+            return True
+
+        except sqlite3.Error as e:
+            logger.error(f"Error saving genre data: {e}")
+            print(f"DATABASE ERROR saving genre '{genre_name}': {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+
+    def get_top_genres(self, limit: int = 10):
+        """Get top genres from the database."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                SELECT genre_name as genre, SUM(count) as count
+                FROM genres
+                GROUP BY genre_name
+                ORDER BY count DESC
+                LIMIT ?
+            ''', (limit,))
+
+            return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Error getting top genres: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def get_all_listening_history_artists(self):
+        """Get all unique artists from the listening history."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                SELECT DISTINCT t.artist
+                FROM listening_history h
+                JOIN tracks t ON h.track_id = t.track_id
+            ''')
+
+            return [row[0] for row in cursor.fetchall()]
+        except sqlite3.Error as e:
+            logger.error(f"Error getting listening history artists: {e}")
+            return []
         finally:
             conn.close()

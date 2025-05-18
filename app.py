@@ -649,91 +649,123 @@ def update_genre_chart(n_intervals, n_clicks):
 
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
-            print("Fetching new top artists data for genre analysis...")
+            print("Fetching genre data from all tracks in listening history...")
             user_data = spotify_api.get_user_profile()
             if user_data:
                 print(f"User ID: {user_data['id']}")
-                top_artists_data = spotify_api.get_top_artists(limit=20)
-                print(f"Retrieved {len(top_artists_data) if top_artists_data else 0} top artists")
 
-                # Debug the top artists data
-                if top_artists_data:
-                    for i, artist in enumerate(top_artists_data[:3]):  # Show first 3 for brevity
-                        print(f"Artist {i+1}: {artist.get('name', 'Unknown')}")
-                        print(f"  Genres: {artist.get('genres', [])}")
+                # IMPORTANT: Save user to database first to ensure user exists
+                try:
+                    print(f"Saving user {user_data['display_name']} to database")
+                    db.save_user(user_data)
+                    print(f"User saved successfully")
+                except Exception as e:
+                    print(f"ERROR saving user to database: {e}")
+                    import traceback
+                    traceback.print_exc()
 
-                    # Save artists to database
-                    for artist in top_artists_data:
-                        # Extract genres
-                        genres = artist.get('genres', [])
-                        if isinstance(genres, str):
-                            # If genres is a string (comma-separated), convert to list
-                            genres = [g.strip() for g in genres.split(',') if g.strip()]
-                            print(f"Converted string genres to list: {genres}")
+                # Verify user exists in database
+                conn = sqlite3.connect(db.db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_data['id'],))
+                user_exists = cursor.fetchone() is not None
+                conn.close()
 
-                        # Save each genre to database
-                        for genre in genres:
-                            # Create a track-like entry for the genre
-                            genre_id = f"genre-{genre.replace(' ', '-').replace(',', '').replace('/', '-')}"
-                            genre_data = {
-                                'id': genre_id,
-                                'name': genre,
-                                'artist': artist.get('name', 'Unknown Artist'),
-                                'added_at': datetime.now().replace(microsecond=0).isoformat()
-                            }
+                if not user_exists:
+                    print(f"WARNING: User {user_data['id']} not found in database after save attempt")
+                    print("Creating user record again")
+                    conn = sqlite3.connect(db.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO users (user_id, display_name, followers, last_updated)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                    ''', (user_data['id'], user_data.get('display_name', 'Unknown'), user_data.get('followers', 0)))
+                    conn.commit()
+                    conn.close()
+                    print(f"User {user_data['id']} created manually")
 
-                            # Save to database with detailed error logging
-                            try:
-                                print(f"Saving genre: {genre} (ID: {genre_id}) from artist: {genre_data['artist']}")
-                                db.save_track(genre_data)
+                # Get all unique artists from listening history
+                print("Getting all unique artists from listening history...")
+                all_artists = db.get_all_listening_history_artists()
+                print(f"Found {len(all_artists)} unique artists in listening history")
 
-                                # Verify the track was saved
-                                conn = sqlite3.connect(db.db_path)
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT track_id FROM tracks WHERE track_id = ?", (genre_id,))
-                                track_exists = cursor.fetchone() is not None
-                                conn.close()
+                # Process each artist to get their genres
+                for artist_name in all_artists:
+                    print(f"Processing genres for artist: {artist_name}")
 
-                                if track_exists:
-                                    print(f"Successfully saved genre track: {genre_id}")
+                    # Try to get artist details from Spotify API
+                    try:
+                        artist_data = spotify_api.sp.search(q=f'artist:{artist_name}', type='artist', limit=1)
 
-                                    # Now save the listening history entry
-                                    db.save_listening_history(
-                                        user_id=user_data['id'],
-                                        track_id=genre_id,
-                                        played_at=datetime.now().replace(microsecond=0).isoformat(),
-                                        source='genre'
-                                    )
-                                    print(f"Successfully saved listening history for genre: {genre}")
-                                else:
-                                    print(f"WARNING: Genre track {genre_id} was not found in database after save attempt")
-                            except Exception as e:
-                                print(f"Error saving genre {genre}: {e}")
-                                import traceback
-                                traceback.print_exc()
-                else:
-                    print("WARNING: No top artists data retrieved from API")
+                        if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
+                            artist_info = artist_data['artists']['items'][0]
+                            genres = artist_info.get('genres', [])
 
-        # Get genre data from database
-        conn = sqlite3.connect(db.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+                            print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
 
-        # Query for genres
-        cursor.execute('''
-            SELECT
-                t.name as genre,
-                COUNT(h.history_id) as count
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE h.source = 'genre'
-            GROUP BY t.name
-            ORDER BY count DESC
-            LIMIT 10
-        ''')
+                            # Save each genre to the database
+                            for genre in genres:
+                                if genre:  # Skip empty genres
+                                    success = db.save_genre(genre, artist_name)
+                                    if success:
+                                        print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
+                                    else:
+                                        print(f"Failed to save genre '{genre}' to database")
+                        else:
+                            print(f"No artist data found for {artist_name}")
+                    except Exception as e:
+                        print(f"Error getting genres for artist {artist_name}: {e}")
 
-        genre_data = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+                    # Add a small delay to avoid rate limiting
+                    time.sleep(0.5)
+
+                # Also get top artists for additional genre data
+                try:
+                    top_artists_data = spotify_api.get_top_artists(limit=20)
+                    print(f"Retrieved {len(top_artists_data) if top_artists_data else 0} top artists")
+
+                    # Process and save genres from top artists
+                    if top_artists_data:
+                        for artist in top_artists_data:
+                            artist_name = artist.get('name', 'Unknown Artist')
+                            print(f"Processing genres for top artist: {artist_name}")
+
+                            # Extract genres
+                            genres = artist.get('genres', [])
+                            print(f"Raw genres data: {genres} (type: {type(genres)})")
+
+                            if isinstance(genres, str):
+                                # If genres is a string (comma-separated), convert to list
+                                genres = [g.strip() for g in genres.split(',') if g.strip()]
+                                print(f"Converted string genres to list: {genres}")
+
+                            # Save each genre to the genres table
+                            if genres:
+                                print(f"Found {len(genres)} genres for {artist_name}")
+                                for genre in genres:
+                                    if genre:  # Skip empty genres
+                                        print(f"Saving genre '{genre}' for artist '{artist_name}'")
+
+                                        # Save to the simplified genres table
+                                        success = db.save_genre(genre, artist_name)
+
+                                        if success:
+                                            print(f"Successfully saved genre '{genre}' to database")
+                                        else:
+                                            print(f"Failed to save genre '{genre}' to database")
+                            else:
+                                print(f"No genres found for artist: {artist_name}")
+                except Exception as e:
+                    print(f"ERROR getting top artists: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+        # Get user data if not already available
+        if 'user_data' not in locals() or user_data is None:
+            user_data = spotify_api.get_user_profile()
+
+        # Get genre data from the genres table
+        genre_data = db.get_top_genres(limit=10)
 
         # Convert to DataFrame
         if genre_data:
@@ -1286,59 +1318,94 @@ def update_wrapped_summary(n_clicks):
         user_data = spotify_api.get_user_profile()
         if user_data:
             print(f"Generating wrapped summary for user: {user_data['id']}")
+
+            # IMPORTANT: Save user to database first to ensure user exists
+            try:
+                print(f"Saving user {user_data['display_name']} to database")
+                db.save_user(user_data)
+                print(f"User saved successfully")
+            except Exception as e:
+                print(f"ERROR saving user to database: {e}")
+                import traceback
+                traceback.print_exc()
+
+            # Verify user exists in database
+            conn = sqlite3.connect(db.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_data['id'],))
+            user_exists = cursor.fetchone() is not None
+            conn.close()
+
+            if not user_exists:
+                print(f"WARNING: User {user_data['id']} not found in database after save attempt")
+                print("Creating user record again")
+                conn = sqlite3.connect(db.db_path)
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO users (user_id, display_name, followers, last_updated)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (user_data['id'], user_data.get('display_name', 'Unknown'), user_data.get('followers', 0)))
+                conn.commit()
+                conn.close()
+                print(f"User {user_data['id']} created manually")
+
             # Get top artists and their genres
             top_artists_data = spotify_api.get_top_artists(limit=20)
             if top_artists_data:
                 print(f"Processing {len(top_artists_data)} artists for genre analysis")
-                # Save genres to database
+
+                # Process and save genres to database
                 for artist in top_artists_data:
+                    artist_name = artist.get('name', 'Unknown Artist')
+                    print(f"Processing genres for artist: {artist_name}")
+
                     # Extract genres
                     genres = artist.get('genres', [])
+                    print(f"Raw genres data: {genres} (type: {type(genres)})")
+
                     if isinstance(genres, str):
                         # If genres is a string (comma-separated), convert to list
                         genres = [g.strip() for g in genres.split(',') if g.strip()]
                         print(f"Converted string genres to list: {genres}")
 
-                    # Save each genre to database
+                    # Save each genre to the genres table
+                    if genres:
+                        print(f"Found {len(genres)} genres for {artist_name}")
+                        for genre in genres:
+                            if genre:  # Skip empty genres
+                                print(f"Saving genre '{genre}' for artist '{artist_name}'")
+
+                                # Save to the simplified genres table
+                                success = db.save_genre(genre, artist_name)
+
+                                if success:
+                                    print(f"Successfully saved genre '{genre}' to database")
+                                else:
+                                    print(f"Failed to save genre '{genre}' to database")
+                    else:
+                        print(f"No genres found for artist: {artist_name}")
+
+                # Also save to CSV for backward compatibility
+                # Extract and count all genres
+                all_genres = []
+                for artist in top_artists_data:
+                    genres = artist.get('genres', [])
+                    if isinstance(genres, str):
+                        genres = [g.strip() for g in genres.split(',') if g.strip()]
+
                     for genre in genres:
-                        # Create a track-like entry for the genre
-                        genre_id = f"genre-{genre.replace(' ', '-').replace(',', '').replace('/', '-')}"
-                        genre_data = {
-                            'id': genre_id,
-                            'name': genre,
-                            'artist': artist.get('name', 'Unknown Artist'),
-                            'added_at': datetime.now().replace(microsecond=0).isoformat()
-                        }
+                        if genre:  # Skip empty genres
+                            all_genres.append({
+                                'genre': genre,
+                                'count': 1
+                            })
 
-                        # Save to database with detailed error logging
-                        try:
-                            print(f"Saving genre: {genre} (ID: {genre_id}) from artist: {genre_data['artist']}")
-                            db.save_track(genre_data)
-
-                            # Verify the track was saved
-                            conn = sqlite3.connect(db.db_path)
-                            cursor = conn.cursor()
-                            cursor.execute("SELECT track_id FROM tracks WHERE track_id = ?", (genre_id,))
-                            track_exists = cursor.fetchone() is not None
-                            conn.close()
-
-                            if track_exists:
-                                print(f"Successfully saved genre track: {genre_id}")
-
-                                # Now save the listening history entry
-                                db.save_listening_history(
-                                    user_id=user_data['id'],
-                                    track_id=genre_id,
-                                    played_at=datetime.now().replace(microsecond=0).isoformat(),
-                                    source='genre'
-                                )
-                                print(f"Successfully saved listening history for genre: {genre}")
-                            else:
-                                print(f"WARNING: Genre track {genre_id} was not found in database after save attempt")
-                        except Exception as e:
-                            print(f"Error saving genre {genre}: {e}")
-                            import traceback
-                            traceback.print_exc()
+                if all_genres:
+                    # Aggregate by genre
+                    genre_counts = pd.DataFrame(all_genres).groupby('genre')['count'].sum().reset_index()
+                    genre_counts = genre_counts.sort_values('count', ascending=False)
+                    genre_counts.to_csv(os.path.join('data', 'genre_analysis.csv'), index=False)
+                    print(f"Saved {len(genre_counts)} genres to genre_analysis.csv")
             else:
                 print("No top artists data available for genre analysis")
 
@@ -1726,14 +1793,14 @@ def generate_wrapped_summary_from_db():
     if top_artist_row:
         top_artist = dict(top_artist_row)
 
-        # Get genres for this artist
+        # Get genres for this artist from the dedicated genres table
         cursor.execute('''
             SELECT
-                t.name as genre
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE h.user_id = ? AND h.source = 'genre' AND t.artist = ?
-            GROUP BY t.name
+                genre_name as genre
+            FROM genres
+            WHERE user_id = ? AND artist_name = ?
+            GROUP BY genre_name
+            ORDER BY count DESC
             LIMIT 5
         ''', (user_data['id'], top_artist['artist']))
 
@@ -1777,15 +1844,14 @@ def generate_wrapped_summary_from_db():
             'energy': avg_energy
         }
 
-    # Get top genre
+    # Get top genre from the dedicated genres table
     cursor.execute('''
         SELECT
-            t.name as genre,
-            COUNT(h.history_id) as count
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.user_id = ? AND h.source = 'genre'
-        GROUP BY t.name
+            genre_name as genre,
+            SUM(count) as count
+        FROM genres
+        WHERE user_id = ?
+        GROUP BY genre_name
         ORDER BY count DESC
         LIMIT 1
     ''', (user_data['id'],))
