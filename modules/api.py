@@ -324,7 +324,7 @@ class SpotifyAPI:
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
                 # Calculate end date for timeline (added_at + 1 day)
-                added_at = pd.to_datetime(item['added_at'])
+                added_at = pd.to_datetime(item['added_at'], format='ISO8601')
                 end_date = added_at + pd.Timedelta(days=1)
 
                 tracks_data.append({
@@ -528,7 +528,7 @@ class SpotifyAPI:
 
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
-                played_at = pd.to_datetime(item['played_at'])
+                played_at = pd.to_datetime(item['played_at'], format='ISO8601')
                 # Estimate end time (played_at + track duration)
                 end_time = played_at + pd.Timedelta(milliseconds=track['duration_ms'])
 

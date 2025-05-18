@@ -189,7 +189,7 @@ class ListeningPersonalityAnalyzer:
             
             # Add datetime column if not already present
             if 'played_at_dt' not in df.columns:
-                df['played_at_dt'] = pd.to_datetime(df['played_at'])
+                df['played_at_dt'] = pd.to_datetime(df['played_at'], format='ISO8601')
             
             # Extract day of week and hour of day
             df['day_of_week'] = df['played_at_dt'].dt.day_name()
@@ -267,7 +267,7 @@ class ListeningPersonalityAnalyzer:
             
             # Add datetime column if not already present
             if 'played_at_dt' not in df.columns:
-                df['played_at_dt'] = pd.to_datetime(df['played_at'])
+                df['played_at_dt'] = pd.to_datetime(df['played_at'], format='ISO8601')
             
             # Extract hour of day
             df['hour_of_day'] = df['played_at_dt'].dt.hour
@@ -331,7 +331,7 @@ class ListeningPersonalityAnalyzer:
             
             # Add datetime column if not already present
             if 'played_at_dt' not in df.columns:
-                df['played_at_dt'] = pd.to_datetime(df['played_at'])
+                df['played_at_dt'] = pd.to_datetime(df['played_at'], format='ISO8601')
             
             # Sort by played_at
             df = df.sort_values('played_at_dt')
@@ -412,7 +412,7 @@ class ListeningPersonalityAnalyzer:
             
             # Add datetime column if not already present
             if 'played_at_dt' not in df.columns and 'played_at' in df.columns:
-                df['played_at_dt'] = pd.to_datetime(df['played_at'])
+                df['played_at_dt'] = pd.to_datetime(df['played_at'], format='ISO8601')
             
             # Check if we have the necessary columns
             if 'played_at_dt' not in df.columns or 'artist' not in df.columns:
@@ -671,7 +671,7 @@ class ListeningPersonalityAnalyzer:
         ]
         
         return recommendations.get(personality_type, default_recommendations)
-     
-     
-    
-    
+
+
+
+

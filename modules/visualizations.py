@@ -641,7 +641,7 @@ class SpotifyVisualizations:
             return self._apply_theme(fig)
 
         # Convert added_at to datetime
-        df['added_at'] = pd.to_datetime(df['added_at'])
+        df['added_at'] = pd.to_datetime(df['added_at'], format='ISO8601')
 
         # Sort by added_at
         df = df.sort_values('added_at', ascending=False)
