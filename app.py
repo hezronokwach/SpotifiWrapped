@@ -349,7 +349,8 @@ def update_top_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks based on frequency in listening history - include all sources
+    # Query for top tracks based on frequency in listening history - only count actual listening events
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -362,10 +363,12 @@ def update_top_tracks_chart(n_intervals, n_clicks):
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.track_id
         ORDER BY play_count DESC
         LIMIT 10
-    ''')
+    ''', (current_date,))
 
     top_tracks_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -636,7 +639,8 @@ def update_top_artists_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top artists - use all tracks to determine top artists
+    # Query for top artists - only count actual listening events
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
             t.artist as artist,
@@ -646,10 +650,12 @@ def update_top_artists_chart(n_intervals, n_clicks):
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.artist
         ORDER BY play_count DESC
         LIMIT 10
-    ''')
+    ''', (current_date,))
 
     artists_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -1866,7 +1872,8 @@ def generate_wrapped_summary_from_db():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Get top track - use all tracks regardless of source
+    # Get top track - only count actual listening events
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -1876,10 +1883,12 @@ def generate_wrapped_summary_from_db():
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.track_id
         ORDER BY play_count DESC
         LIMIT 1
-    ''')
+    ''', (current_date,))
 
     top_track_row = cursor.fetchone()
     if top_track_row:
@@ -1895,7 +1904,7 @@ def generate_wrapped_summary_from_db():
             'artist': 'Unknown'
         }
 
-    # Get top artist - use all tracks to determine top artist
+    # Get top artist - only count actual listening events
     cursor.execute('''
         SELECT
             t.artist as artist,
@@ -1903,10 +1912,12 @@ def generate_wrapped_summary_from_db():
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.artist
         ORDER BY play_count DESC
         LIMIT 1
-    ''')
+    ''', (current_date,))
 
     top_artist_row = cursor.fetchone()
     if top_artist_row:
@@ -1945,7 +1956,9 @@ def generate_wrapped_summary_from_db():
             COUNT(*) as track_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-    ''')
+        WHERE h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+    ''', (current_date,))
 
     audio_features_row = cursor.fetchone()
     if audio_features_row and audio_features_row['track_count'] > 0:
@@ -1977,12 +1990,14 @@ def generate_wrapped_summary_from_db():
         }
 
     # Get top genre from the dedicated genres table, excluding "unknown" placeholder
+    # Since the genres table doesn't have track_id in our schema, we need a different approach
     cursor.execute('''
         SELECT
             genre_name as genre,
             SUM(count) as count
         FROM genres
         WHERE genre_name != 'unknown'
+        AND genre_name != ''
         GROUP BY genre_name
         ORDER BY count DESC
         LIMIT 1

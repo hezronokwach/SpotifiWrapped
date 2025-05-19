@@ -856,3 +856,63 @@ class SpotifyAPI:
                         return []
 
         return []
+
+    def get_artists_by_genre(self, genre_name, limit=10):
+        """
+        Search for artists by genre.
+
+        Args:
+            genre_name: The genre to search for
+            limit: Maximum number of artists to return
+
+        Returns:
+            List of artist dictionaries with name and image_url
+        """
+        if not self.sp:
+            return []
+
+        if not genre_name or genre_name == 'unknown' or genre_name == 'Exploring New Genres':
+            return []
+
+        try:
+            # Search for artists with this genre
+            # Note: Spotify doesn't have a direct genre search, so we search for the genre name
+            # and then filter results that have the genre in their genres list
+            search_results = self.sp.search(q=f'genre:{genre_name}', type='artist', limit=50)
+
+            if not search_results or 'artists' not in search_results or 'items' not in search_results['artists']:
+                return []
+
+            # Filter artists that actually have this genre
+            matching_artists = []
+            for artist in search_results['artists']['items']:
+                if genre_name.lower() in [g.lower() for g in artist.get('genres', [])]:
+                    matching_artists.append({
+                        'name': artist['name'],
+                        'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                        'popularity': artist['popularity'],
+                        'genres': artist['genres']
+                    })
+
+                    if len(matching_artists) >= limit:
+                        break
+
+            # If we didn't find enough artists with exact genre match, add some from the search results
+            if len(matching_artists) < limit:
+                for artist in search_results['artists']['items']:
+                    if artist['name'] not in [a['name'] for a in matching_artists]:
+                        matching_artists.append({
+                            'name': artist['name'],
+                            'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                            'popularity': artist['popularity'],
+                            'genres': artist['genres']
+                        })
+
+                        if len(matching_artists) >= limit:
+                            break
+
+            return matching_artists
+
+        except Exception as e:
+            logger.error(f"Error searching for artists by genre {genre_name}: {e}")
+            return []
