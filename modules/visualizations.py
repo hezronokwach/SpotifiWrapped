@@ -1399,7 +1399,7 @@ class SpotifyVisualizations:
                 }
             ),
 
-            # Main content grid - 3 columns
+            # Main content grid - 4 columns
             html.Div([
                 # Column 1: Music Mood
                 html.Div([
@@ -1459,7 +1459,7 @@ class SpotifyVisualizations:
                     'backgroundColor': '#181818',
                     'borderRadius': '15px',
                     'height': '100%'
-                }, className='col-md-4'),
+                }, className='col-md-3'),
 
                 # Column 2: Top Genre
                 html.Div([
@@ -1484,7 +1484,7 @@ class SpotifyVisualizations:
                     'backgroundColor': '#181818',
                     'borderRadius': '15px',
                     'height': '100%'
-                }, className='col-md-4'),
+                }, className='col-md-3'),
 
                 # Column 3: Listening Style
                 html.Div([
@@ -1547,7 +1547,59 @@ class SpotifyVisualizations:
                     'backgroundColor': '#181818',
                     'borderRadius': '15px',
                     'height': '100%'
-                }, className='col-md-4')
+                }, className='col-md-3'),
+
+                # Column 4: Tempo (New)
+                html.Div([
+                    html.I(className="fas fa-running", style={
+                        'fontSize': '2rem',
+                        'color': self.theme['accent_color'],
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Your Music Tempo", style={'color': self.theme['text_color'], 'marginBottom': '10px'}),
+
+                    # Get tempo from summary data or use default
+                    html.H4(f"{int(summary_data.get('tempo', 120))} BPM",
+                        style={'color': self.theme['accent_color'], 'fontSize': '2rem', 'marginBottom': '15px'}),
+
+                    # Tempo visualization - use a gauge-like display
+                    html.Div([
+                        html.Div(style={
+                            'display': 'flex',
+                            'justifyContent': 'space-between',
+                            'marginBottom': '5px'
+                        }, children=[
+                            html.Span("Slow", style={'color': self.theme['text_color']}),
+                            html.Span("Fast", style={'color': self.theme['text_color']})
+                        ]),
+                        html.Div([
+                            html.Div(style={
+                                'width': f"{min(100, max(0, (int(summary_data.get('tempo', 120)) - 60) / 1.8))}%",
+                                'backgroundColor': self.theme['accent_color'],
+                                'height': '8px',
+                                'borderRadius': '4px'
+                            })
+                        ], style={
+                            'width': '100%',
+                            'backgroundColor': self.theme['secondary_color'],
+                            'height': '8px',
+                            'borderRadius': '4px',
+                            'margin': '5px 0 15px 0'
+                        })
+                    ]),
+
+                    # Tempo description
+                    html.P(
+                        self._get_tempo_description(int(summary_data.get('tempo', 120))),
+                        style={'color': self.theme['secondary_color'], 'fontSize': '0.9rem', 'marginTop': '15px'}
+                    )
+                ], style={
+                    'textAlign': 'center',
+                    'padding': '25px',
+                    'backgroundColor': '#181818',
+                    'borderRadius': '15px',
+                    'height': '100%'
+                }, className='col-md-3')
             ], className='row')
         ], style={
             'backgroundColor': '#121212',
@@ -1702,6 +1754,21 @@ class SpotifyVisualizations:
             "Nostalgic Soul": "You have a special connection to music from specific eras that hold personal significance."
         }
         return descriptions.get(style, "Your listening habits create a unique musical fingerprint that reflects your personality.")
+
+    def _get_tempo_description(self, tempo):
+        """Get a description for a given tempo value in BPM."""
+        if tempo < 70:
+            return "You gravitate toward slower, more relaxed music. These tempos are common in ballads, ambient music, and some jazz and blues."
+        elif tempo < 90:
+            return "Your music tends to have a moderate, relaxed pace. This tempo range is common in R&B, slow rock, and some hip-hop tracks."
+        elif tempo < 110:
+            return "Your preferred music has a moderate tempo, similar to a walking pace. This range is common in pop, rock, and reggae."
+        elif tempo < 130:
+            return "You enjoy music with an energetic tempo. This range is common in dance music, upbeat pop, and many rock songs."
+        elif tempo < 150:
+            return "Your music tends to be fast-paced and energetic. This tempo range is common in dance, techno, and some rock genres."
+        else:
+            return "You're drawn to very fast-paced, high-energy music. These tempos are common in EDM, drum and bass, metal, and some hip-hop."
 
 
 

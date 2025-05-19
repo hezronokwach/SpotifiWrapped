@@ -1593,116 +1593,8 @@ def update_music_analysis(n_intervals, n_clicks):
             return html.Div("Log in to see your music analysis",
                            style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-        # Get audio features from database
-        conn = sqlite3.connect(db.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-
-        # Query for tracks with audio features - handle case with limited data
-        cursor.execute('''
-            SELECT
-                AVG(CASE WHEN danceability IS NULL THEN 0.5 ELSE danceability END) as danceability,
-                AVG(CASE WHEN energy IS NULL THEN 0.5 ELSE energy END) as energy,
-                AVG(CASE WHEN valence IS NULL THEN 0.5 ELSE valence END) as valence,
-                AVG(CASE WHEN tempo IS NULL THEN 120 ELSE tempo END) as tempo,
-                COUNT(*) as track_count
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE h.user_id = ?
-        ''', (user_data['id'],))
-
-        result = cursor.fetchone()
-        conn.close()
-
-        if result and result['track_count'] > 0:
-            # Create a DataFrame with the average values
-            audio_features_df = pd.DataFrame([{
-                'danceability': result['danceability'] or 0.5,
-                'energy': result['energy'] or 0.5,
-                'valence': result['valence'] or 0.5,
-                'tempo': result['tempo'] or 120
-            }])
-        else:
-            # Create default values if no data
-            audio_features_df = pd.DataFrame([{
-                'danceability': 0.5,
-                'energy': 0.5,
-                'valence': 0.5,
-                'tempo': 120
-            }])
-
-        # Create a modern, visually appealing layout
-        return html.Div([
-            # Main title and subtitle
-            html.H2("Your Sound Story",
-                style={
-                    'color': SPOTIFY_GREEN,
-                    'textAlign': 'center',
-                    'fontSize': '3rem',
-                    'fontWeight': 'bold',
-                    'marginBottom': '20px',
-                    'letterSpacing': '1px',
-                    'textShadow': '2px 2px 4px rgba(0,0,0,0.3)'
-                }
-            ),
-            html.P("Discover the unique elements that make up your musical identity",
-                style={
-                    'color': SPOTIFY_WHITE,
-                    'textAlign': 'center',
-                    'fontSize': '1.2rem',
-                    'marginBottom': '40px',
-                    'opacity': '0.9'
-                }
-            ),
-
-            # Stats Grid
-            html.Div([
-                # Energy Level
-                html.Div([
-                    html.I(className="fas fa-bolt", style={
-                        'fontSize': '2rem',
-                        'color': SPOTIFY_GREEN,
-                        'marginBottom': '15px'
-                    }),
-                    html.H3("Energy Level", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
-                    html.H4(f"{int(audio_features_df['energy'].mean() * 100)}%",
-                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
-                ], style={'textAlign': 'center', 'padding': '20px'}),
-
-                # Mood
-                html.Div([
-                    html.I(className="fas fa-smile", style={
-                        'fontSize': '2rem',
-                        'color': SPOTIFY_GREEN,
-                        'marginBottom': '15px'
-                    }),
-                    html.H3("Mood", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
-                    html.H4(f"{int(audio_features_df['valence'].mean() * 100)}% Positive",
-                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
-                ], style={'textAlign': 'center', 'padding': '20px'}),
-
-                # Tempo
-                html.Div([
-                    html.I(className="fas fa-running", style={
-                        'fontSize': '2rem',
-                        'color': SPOTIFY_GREEN,
-                        'marginBottom': '15px'
-                    }),
-                    html.H3("Average Tempo", style={'color': SPOTIFY_WHITE, 'marginBottom': '10px'}),
-                    html.H4(f"{int(audio_features_df['tempo'].mean())} BPM",
-                        style={'color': SPOTIFY_GREEN, 'fontSize': '2.5rem', 'marginBottom': '5px'}),
-                ], style={'textAlign': 'center', 'padding': '20px'})
-            ], style={
-                'display': 'grid',
-                'gridTemplateColumns': 'repeat(auto-fit, minmax(200px, 1fr))',
-                'gap': '20px',
-                'marginBottom': '40px',
-                'backgroundColor': '#242424',
-                'borderRadius': '15px',
-                'padding': '20px',
-                'boxShadow': '0 4px 12px rgba(0,0,0,0.2)'
-            })
-        ])
+        # Return an empty div - we've moved this content to the Sound Story section
+        return html.Div()
 
     except Exception as e:
         print(f"Error updating music analysis: {e}")
@@ -1953,6 +1845,7 @@ def generate_wrapped_summary_from_db():
             AVG(CASE WHEN t.danceability IS NULL THEN 0.5 ELSE t.danceability END) as avg_danceability,
             AVG(CASE WHEN t.energy IS NULL THEN 0.5 ELSE t.energy END) as avg_energy,
             AVG(CASE WHEN t.valence IS NULL THEN 0.5 ELSE t.valence END) as avg_valence,
+            AVG(CASE WHEN t.tempo IS NULL THEN 120 ELSE t.tempo END) as avg_tempo,
             COUNT(*) as track_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
@@ -1965,6 +1858,7 @@ def generate_wrapped_summary_from_db():
         features = dict(audio_features_row)
         avg_valence = features.get('avg_valence', 0.5) or 0.5
         avg_energy = features.get('avg_energy', 0.5) or 0.5
+        avg_tempo = features.get('avg_tempo', 120) or 120
 
         # Determine mood quadrant
         if avg_valence > 0.5 and avg_energy > 0.5:
@@ -1981,6 +1875,9 @@ def generate_wrapped_summary_from_db():
             'valence': avg_valence,
             'energy': avg_energy
         }
+
+        # Add tempo to the summary
+        summary['tempo'] = avg_tempo
     else:
         # Default mood if no audio features found
         summary['music_mood'] = {
