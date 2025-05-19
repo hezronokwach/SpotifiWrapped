@@ -485,12 +485,22 @@ class SpotifyAPI:
         try:
             user_profile = self.sp.current_user()
 
+            # Get the number of artists the user is following
+            following_count = 0
+            try:
+                # Get followed artists
+                followed_artists = self.sp.current_user_followed_artists(limit=1)
+                following_count = followed_artists['artists']['total'] if followed_artists and 'artists' in followed_artists else 0
+            except Exception as e:
+                print(f"Error fetching followed artists: {e}")
+                following_count = 0
+
             return {
                 'display_name': user_profile.get('display_name', 'Unknown'),
                 'id': user_profile.get('id', 'Unknown'),
                 'followers': user_profile.get('followers', {}).get('total', 0),
+                'following': following_count,  # Add following count
                 'image_url': user_profile.get('images', [{}])[0].get('url', '') if user_profile.get('images') else '',
-                'country': user_profile.get('country', 'Unknown'),
                 'product': user_profile.get('product', 'Unknown')  # subscription level
             }
         except Exception as e:
@@ -499,6 +509,7 @@ class SpotifyAPI:
                 'display_name': 'Sample User',
                 'id': 'sample-user-id',
                 'followers': 123,
+                'following': 45,  # Add sample following count
                 'image_url': '',
                 'country': 'US',
                 'product': 'premium'
