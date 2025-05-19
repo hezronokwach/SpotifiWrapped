@@ -945,12 +945,54 @@ def update_listening_patterns_chart(n_intervals):
     if not user_data:
         return visualizations.create_empty_chart("Log in to see your listening patterns")
 
+    # First, clean up any problematic data in the database
+    conn = sqlite3.connect(db.db_path)
+    cursor = conn.cursor()
+    current_date = datetime.now().strftime('%Y-%m-%d')
+
+    try:
+        # 1. Update any future timestamps to current time
+        cursor.execute('''
+            UPDATE listening_history
+            SET played_at = datetime('now')
+            WHERE date(played_at) > ?
+        ''', (current_date,))
+
+        if cursor.rowcount > 0:
+            print(f"Fixed {cursor.rowcount} future timestamps in the database")
+
+        # 2. Remove duplicate entries with the same timestamp and track_id
+        # First identify duplicates
+        cursor.execute('''
+            WITH duplicates AS (
+                SELECT history_id, user_id, track_id, played_at, source,
+                       ROW_NUMBER() OVER (PARTITION BY user_id, track_id, played_at ORDER BY history_id) as row_num
+                FROM listening_history
+                WHERE user_id = ?
+            )
+            DELETE FROM listening_history
+            WHERE history_id IN (
+                SELECT history_id FROM duplicates WHERE row_num > 1
+            )
+        ''', (user_data['id'],))
+
+        if cursor.rowcount > 0:
+            print(f"Removed {cursor.rowcount} duplicate entries from the database")
+
+        conn.commit()
+    except Exception as e:
+        print(f"Error cleaning up database: {e}")
+    finally:
+        conn.close()
+
     # Get data from database
     conn = sqlite3.connect(db.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for listening patterns with no time restriction
+    # Query for listening patterns with proper filtering
+    # Only include actual listening events (not top tracks) and ensure dates are valid
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
             strftime('%w', played_at) as day_of_week,
@@ -959,9 +1001,11 @@ def update_listening_patterns_chart(n_intervals):
         FROM listening_history
         WHERE user_id = ?
         AND played_at IS NOT NULL
+        AND source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
-    ''', (user_data['id'],))
+    ''', (user_data['id'], current_date))
 
     patterns_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -1018,10 +1062,13 @@ def update_listening_patterns_chart(n_intervals):
                 strftime('%H', played_at) as hour_of_day,
                 COUNT(*) as play_count
             FROM listening_history
-            WHERE user_id = ? AND played_at IS NOT NULL
+            WHERE user_id = ?
+            AND played_at IS NOT NULL
+            AND source NOT LIKE 'top_%'  -- Exclude top tracks data
+            AND date(played_at) <= ?     -- Ensure dates are not in the future
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        ''', (user_data['id'],))
+        ''', (user_data['id'], current_date))
 
         patterns_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -1399,7 +1446,8 @@ def update_dj_mode_stats(n_intervals, n_clicks):
         conn = sqlite3.connect(db.db_path)
         cursor = conn.cursor()
 
-        # Calculate DJ mode usage based on track data
+        # Calculate DJ mode usage based on track data - only count actual listening events
+        current_date = datetime.now().strftime('%Y-%m-%d')
         cursor.execute('''
             SELECT
                 COUNT(*) as total_tracks,
@@ -1407,7 +1455,9 @@ def update_dj_mode_stats(n_intervals, n_clicks):
             FROM listening_history h
             JOIN tracks t ON h.track_id = t.track_id
             WHERE h.user_id = ?
-        ''', (user_data['id'],))
+            AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+            AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+        ''', (user_data['id'], current_date))
 
         result = cursor.fetchone()
         conn.close()
@@ -1723,7 +1773,8 @@ def update_stat_cards(n_intervals):
     conn = sqlite3.connect(db.db_path)
     cursor = conn.cursor()
 
-    # Calculate total minutes from database
+    # Calculate total minutes from database - only count actual listening events
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT SUM(t.duration_ms) / 60000 as total_minutes,
                COUNT(DISTINCT t.artist) as unique_artists,
@@ -1731,7 +1782,9 @@ def update_stat_cards(n_intervals):
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
         WHERE h.user_id = ?
-    ''', (user_data['id'],))
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+    ''', (user_data['id'], current_date))
 
     db_stats = cursor.fetchone()
     conn.close()

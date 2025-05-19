@@ -259,6 +259,30 @@ class SpotifyDatabase:
         cursor = conn.cursor()
 
         try:
+            # Validate timestamp - ensure it's not in the future
+            try:
+                # Parse the timestamp
+                if 'Z' in played_at:
+                    dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
+                elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
+                    dt = datetime.fromisoformat(played_at)
+                else:
+                    dt = datetime.fromisoformat(played_at)
+
+                # Remove timezone info for comparison
+                dt = dt.replace(tzinfo=None)
+
+                # Check if timestamp is in the future
+                current_time = datetime.now()
+                if dt > current_time:
+                    # If in the future, use current time instead
+                    played_at = current_time.isoformat()
+                    logger.warning(f"Future timestamp detected ({dt}), using current time instead")
+            except ValueError:
+                # If parsing fails, use current time
+                played_at = datetime.now().isoformat()
+                logger.warning(f"Invalid timestamp format ({played_at}), using current time instead")
+
             # Special logging for genre tracks
             if track_id.startswith('genre-') or source == 'genre':
                 print(f"DATABASE: Saving listening history for genre: track_id={track_id}, user_id={user_id}, source={source}")
