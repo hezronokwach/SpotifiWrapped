@@ -46,7 +46,8 @@ class SpotifyAPI:
             # Force token refresh
             auth_manager.get_access_token(as_dict=False)
 
-            self.sp = spotipy.Spotify(auth_manager=auth_manager)
+            # Create Spotify client with increased timeout (default is 5 seconds)
+            self.sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
 
             # Test connection
             user = self.sp.current_user()
@@ -758,19 +759,62 @@ class SpotifyAPI:
         if not self.sp or not artist_name:
             return []
 
-        try:
-            # Search for the artist
-            artist_data = self.sp.search(q=f'artist:{artist_name}', type='artist', limit=1)
+        # Normalize artist name
+        artist_name = artist_name.strip()
+        if not artist_name:
+            return []
 
-            if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
-                artist_info = artist_data['artists']['items'][0]
-                genres = artist_info.get('genres', [])
-                print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
-                return genres
-            else:
+        # Add retry mechanism with backoff
+        max_retries = 3
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                # First try with exact artist name search
+                artist_data = self.sp.search(q=f'artist:"{artist_name}"', type='artist', limit=1)
+
+                # If no results, try a more general search
+                if not artist_data or not artist_data.get('artists', {}).get('items'):
+                    print(f"No exact match for artist '{artist_name}', trying general search")
+                    artist_data = self.sp.search(q=artist_name, type='artist', limit=5)
+
+                # Process results
+                if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
+                    # Try to find an exact or close match
+                    matched_artist = None
+
+                    # First look for exact match
+                    for artist in artist_data['artists']['items']:
+                        if artist['name'].lower() == artist_name.lower():
+                            matched_artist = artist
+                            break
+
+                    # If no exact match, use the first result
+                    if not matched_artist and artist_data['artists']['items']:
+                        matched_artist = artist_data['artists']['items'][0]
+                        print(f"Using closest match: '{matched_artist['name']}' for '{artist_name}'")
+
+                    if matched_artist:
+                        genres = matched_artist.get('genres', [])
+                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
+                        return genres
+
                 print(f"No artist data found for {artist_name}")
                 return []
 
-        except Exception as e:
-            print(f"Error getting genres for artist {artist_name}: {e}")
-            return []
+            except Exception as e:
+                retry_count += 1
+                if "429" in str(e):  # Rate limiting error
+                    wait_time = 2 ** retry_count  # Exponential backoff
+                    print(f"Rate limit hit, retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    print(f"Error getting genres for artist {artist_name}: {e}")
+                    if retry_count < max_retries:
+                        wait_time = 1
+                        print(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                        time.sleep(wait_time)
+                    else:
+                        return []
+
+        return []

@@ -213,11 +213,19 @@ def update_current_track(n_intervals):
 )
 def update_current_track_display(current_track):
     """Update the currently playing track display."""
-    if not current_track:
+    # Check if current_track is None or empty or if is_playing is False
+    if not current_track or current_track.get('is_playing') is False:
         return html.Div([
             html.H3("Not Currently Playing", style={'color': SPOTIFY_WHITE, 'textAlign': 'center'}),
             html.P("Play something on Spotify to see it here", style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
-        ])
+        ], style={
+            'padding': '20px',
+            'borderRadius': '10px',
+            'backgroundColor': '#121212',
+            'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
+            'margin': '20px 0',
+            'textAlign': 'center'
+        })
 
     # Check if we have the required fields
     if 'track' not in current_track:
@@ -228,7 +236,14 @@ def update_current_track_display(current_track):
             return html.Div([
                 html.H3("Track Information Unavailable", style={'color': SPOTIFY_WHITE, 'textAlign': 'center'}),
                 html.P("Unable to retrieve track details", style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
-            ])
+            ], style={
+                'padding': '20px',
+                'borderRadius': '10px',
+                'backgroundColor': '#121212',
+                'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
+                'margin': '20px 0',
+                'textAlign': 'center'
+            })
 
     # Set default values for missing fields
     if 'progress_ms' not in current_track:
@@ -237,7 +252,12 @@ def update_current_track_display(current_track):
     if 'duration_ms' not in current_track:
         current_track['duration_ms'] = 0
 
-    # Calculate progress percentage
+    # Calculate progress percentage - handle None values
+    if current_track.get('duration_ms') is None:
+        current_track['duration_ms'] = 0
+    if current_track.get('progress_ms') is None:
+        current_track['progress_ms'] = 0
+
     progress_percent = (current_track['progress_ms'] / current_track['duration_ms'] * 100) if current_track['duration_ms'] > 0 else 0
 
     # Format duration
@@ -845,14 +865,28 @@ def update_genre_chart(n_intervals, n_clicks):
                 genres = spotify_api.get_artist_genres(artist_name)
 
                 # Save each genre to the database
-                for genre in genres:
-                    if genre:  # Skip empty genres
-                        success = db.save_genre(genre, artist_name)
-                        if success:
-                            print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
+                if genres:
+                    for genre in genres:
+                        if genre:  # Skip empty genres
+                            success = db.save_genre(genre, artist_name)
+                            if success:
+                                print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
+                else:
+                    # If no genres found, save a placeholder to avoid repeated lookups
+                    print(f"No genres found for artist {artist_name}, saving placeholder")
+                    db.save_genre("unknown", artist_name)
 
-                # Add a small delay to avoid rate limiting
-                time.sleep(0.5)
+                # Add a delay to avoid rate limiting - longer delay every 5 artists
+                if hasattr(app, '_genre_artist_count'):
+                    app._genre_artist_count += 1
+                    if app._genre_artist_count % 5 == 0:
+                        print(f"Taking a longer break after processing {app._genre_artist_count} artists...")
+                        time.sleep(2)  # Longer break every 5 artists
+                    else:
+                        time.sleep(0.8)  # Slightly longer standard delay
+                else:
+                    app._genre_artist_count = 1
+                    time.sleep(0.8)
             else:
                 print(f"Already have {genre_count} genres for artist: {artist_name}")
 
@@ -1016,7 +1050,7 @@ def update_top_albums(n_intervals, n_clicks):
         if not user_data:
             return html.Div("Log in to see your top albums",
                            style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-            
+
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
             top_albums_data = get_top_albums(spotify_api, limit=10)
@@ -1382,22 +1416,56 @@ def update_dj_mode_stats(n_intervals, n_clicks):
             total_tracks = result[0]
             total_minutes = result[1] or 0
 
-            # Estimate DJ mode usage (simplified for limited data)
-            estimated_minutes = max(1, int(total_minutes * 0.15))  # Assume 15% of listening is DJ mode
-            percentage_of_listening = min(100, max(5, int((estimated_minutes / max(1, total_minutes)) * 100)))
-            dj_mode_user = total_tracks > 5  # Consider a DJ mode user if they have more than 5 tracks
+            # Spotify DJ is a premium-only feature, so we need to check if the user is premium
+            # Try to get the user's subscription status from the Spotify API
+            is_premium = False  # Default to not premium
+
+            # Try to get the user's subscription type from the API
+            try:
+                user_profile = spotify_api.sp.current_user()
+                product_type = user_profile.get('product', 'free')
+                is_premium = product_type == 'premium'
+                print(f"DEBUG: User subscription type: {product_type}, is_premium: {is_premium}")
+            except Exception as e:
+                print(f"DEBUG: Error getting user subscription type: {e}")
+                is_premium = False
+
+            # If the user is premium, calculate DJ mode usage
+            if is_premium:
+                # Estimate DJ mode usage (simplified for limited data)
+                estimated_minutes = max(1, int(total_minutes * 0.15))  # Assume 15% of listening is DJ mode
+                percentage_of_listening = min(100, max(5, int((estimated_minutes / max(1, total_minutes)) * 100)))
+                dj_mode_user = True  # Premium users can use DJ mode
+            else:
+                # For non-premium users, set default values
+                estimated_minutes = 0
+                percentage_of_listening = 0
+                dj_mode_user = False  # Not a DJ mode user since it's premium-only
 
             dj_stats = {
                 'estimated_minutes': estimated_minutes,
                 'percentage_of_listening': percentage_of_listening,
-                'dj_mode_user': dj_mode_user
+                'dj_mode_user': dj_mode_user,
+                'is_premium': is_premium
             }
         else:
             # Default values for very limited data
+            # Try to get the user's subscription type from the API
+            is_premium = False
+            try:
+                user_profile = spotify_api.sp.current_user()
+                product_type = user_profile.get('product', 'free')
+                is_premium = product_type == 'premium'
+                print(f"DEBUG: User subscription type (no data): {product_type}, is_premium: {is_premium}")
+            except Exception as e:
+                print(f"DEBUG: Error getting user subscription type (no data): {e}")
+                is_premium = False
+
             dj_stats = {
-                'estimated_minutes': 5,
-                'percentage_of_listening': 10,
-                'dj_mode_user': False
+                'estimated_minutes': 5 if is_premium else 0,
+                'percentage_of_listening': 10 if is_premium else 0,
+                'dj_mode_user': is_premium,  # Only premium users can use DJ mode
+                'is_premium': is_premium
             }
 
         # Create stats cards
@@ -1447,7 +1515,7 @@ def update_wrapped_summary(n_clicks):
         # Generate summary from database
         if n_clicks is not None and n_clicks > 0:
             return generate_wrapped_summary_from_db()
-            
+
         # For non-refresh updates, still use database
         return generate_wrapped_summary_from_db()
     except Exception as e:
@@ -1620,114 +1688,20 @@ def update_wrapped_summary_display(summary):
     if 'genre_highlight' not in summary or summary['genre_highlight'] is None:
         summary['genre_highlight'] = {'name': 'Exploring New Genres', 'count': 0}
 
-    # Create a Wrapped-style summary display
+    # Create visualizations instance to use the new components
+    vis = visualizations
+
+    # Create the combined Sound Story component
+    sound_story = vis.create_sound_story_component(summary)
+
+    # Create the wrapped summary component (simplified version)
+    wrapped_summary = vis.create_wrapped_summary_component(summary)
+
+    # Return both components
     return html.Div([
-        html.H2("Your Spotify Wrapped", style={
-            'color': SPOTIFY_GREEN,
-            'textAlign': 'center',
-            'fontSize': '2.5rem',
-            'fontWeight': 'bold',
-            'marginBottom': '30px'
-        }),
-
-        # Top track and artist
-        html.Div([
-            # Top track section
-            html.Div([
-                html.H3("Your Top Track", style={'color': SPOTIFY_WHITE, 'marginBottom': '15px'}),
-                html.Div([
-                    html.H4(summary.get('top_track', {}).get('name', 'Unknown'),
-                           style={'color': SPOTIFY_GREEN, 'fontSize': '1.8rem', 'marginBottom': '5px'}),
-                    html.P(f"by {summary.get('top_track', {}).get('artist', 'Unknown')}",
-                          style={'color': SPOTIFY_GRAY})
-                ], style={
-                    'backgroundColor': '#181818',
-                    'padding': '20px',
-                    'borderRadius': '10px'
-                })
-            ], style={'width': '48%', 'display': 'inline-block'}),
-
-            # Top artist section
-            html.Div([
-                html.H3("Your Top Artist", style={'color': SPOTIFY_WHITE, 'marginBottom': '15px'}),
-                html.Div([
-                    html.H4(summary.get('top_artist', {}).get('name', 'Unknown'),
-                           style={'color': SPOTIFY_GREEN, 'fontSize': '1.8rem', 'marginBottom': '5px'}),
-                    html.P(f"Genres: {summary.get('top_artist', {}).get('genres', 'Unknown')}",
-                          style={'color': SPOTIFY_GRAY})
-                ], style={
-                    'backgroundColor': '#181818',
-                    'padding': '20px',
-                    'borderRadius': '10px'
-                })
-            ], style={'width': '48%', 'display': 'inline-block', 'float': 'right'})
-        ], style={'marginBottom': '30px'}),
-
-        # Music mood
-        html.Div([
-            html.H3("Your Music Mood", style={'color': SPOTIFY_WHITE, 'marginBottom': '15px', 'textAlign': 'center'}),
-            html.Div([
-                html.H4(summary.get('music_mood', {}).get('mood', 'Unknown'),
-                       style={'color': SPOTIFY_GREEN, 'fontSize': '2rem', 'textAlign': 'center', 'marginBottom': '15px'}),
-
-                # Mood visualization
-                html.Div([
-                    html.Div(style={
-                        'width': f"{int(summary.get('music_mood', {}).get('valence', 0) * 100)}%",
-                        'backgroundColor': SPOTIFY_GREEN,
-                        'height': '8px',
-                        'borderRadius': '4px'
-                    })
-                ], style={
-                    'width': '100%',
-                    'backgroundColor': '#333333',
-                    'height': '8px',
-                    'borderRadius': '4px',
-                    'marginBottom': '10px'
-                }),
-                html.P("Happiness", style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'marginBottom': '15px'}),
-
-                html.Div([
-                    html.Div(style={
-                        'width': f"{int(summary.get('music_mood', {}).get('energy', 0) * 100)}%",
-                        'backgroundColor': SPOTIFY_GREEN,
-                        'height': '8px',
-                        'borderRadius': '4px'
-                    })
-                ], style={
-                    'width': '100%',
-                    'backgroundColor': '#333333',
-                    'height': '8px',
-                    'borderRadius': '4px',
-                    'marginBottom': '10px'
-                }),
-                html.P("Energy", style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
-            ], style={
-                'backgroundColor': '#181818',
-                'padding': '20px',
-                'borderRadius': '10px'
-            })
-        ], style={'marginBottom': '30px'}),
-
-        # Genre highlight
-        html.Div([
-            html.H3("Your Top Genre", style={'color': SPOTIFY_WHITE, 'marginBottom': '15px', 'textAlign': 'center'}),
-            html.Div([
-                html.H4(summary.get('genre_highlight', {}).get('name', 'Unknown'),
-                       style={'color': SPOTIFY_GREEN, 'fontSize': '2rem', 'textAlign': 'center'})
-            ], style={
-                'backgroundColor': '#181818',
-                'padding': '20px',
-                'borderRadius': '10px'
-            })
-        ])
-    ], style={
-        'padding': '30px',
-        'borderRadius': '10px',
-        'backgroundColor': '#121212',
-        'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
-        'margin': '20px 0'
-    })
+        wrapped_summary,
+        sound_story
+    ])
 
 # Update stat cards
 @app.callback(

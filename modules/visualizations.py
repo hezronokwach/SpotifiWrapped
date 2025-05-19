@@ -282,6 +282,45 @@ def create_dj_mode_card(dj_stats):
     # Calculate percentage for progress bar
     percentage = min(100, dj_stats.get('percentage_of_listening', 0))
 
+    # Check if user is premium (this should be provided by the app)
+    is_premium = dj_stats.get('is_premium', False)
+
+    if not is_premium:
+        # Show a message for non-premium users
+        return dbc.Card(
+            [
+                dbc.CardHeader(
+                    html.H4("Spotify DJ (Premium Feature)", className="text-center"),
+                    style={"background-color": SPOTIFY_BLACK, "color": SPOTIFY_WHITE}
+                ),
+                dbc.CardBody(
+                    [
+                        html.Div(
+                            [
+                                html.I(className="fas fa-crown", style={
+                                    "fontSize": "32px",
+                                    "color": SPOTIFY_GREEN,
+                                    "marginBottom": "15px",
+                                    "display": "block",
+                                    "textAlign": "center"
+                                }),
+                                html.P(
+                                    "Spotify DJ is a premium-only feature that uses AI to curate a personalized soundtrack.",
+                                    className="text-center"
+                                ),
+                                html.P(
+                                    "Upgrade to Spotify Premium to access this feature.",
+                                    className="text-center text-muted"
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ],
+            className="mb-4 shadow"
+        )
+
+    # For premium users or if we want to show the stats anyway
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -885,14 +924,40 @@ class SpotifyVisualizations:
             genre_counts.columns = ['genre', 'count']
             df = genre_counts
 
+        # Filter out "unknown" placeholder genres
+        df = df[df['genre'] != 'unknown']
+
+        # If we have no genres after filtering, show a message
+        if df.empty:
+            fig = go.Figure()
+            fig.add_annotation(
+                text="Still gathering genre data...",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(color=self.theme['text_color'], size=16)
+            )
+            fig.add_annotation(
+                text="This may take a moment as we analyze your music",
+                xref="paper", yref="paper",
+                x=0.5, y=0.4, showarrow=False,
+                font=dict(color=self.theme['secondary_color'], size=14)
+            )
+            return self._apply_theme(fig)
+
         df = df.sort_values('count', ascending=False).head(10)
 
-        # If we have very few genres, still create a chart
+        # If we have very few genres, add some placeholder categories
         if len(df) == 1:
             # Add a "Other" category to make the pie chart more meaningful
             df = pd.concat([
                 df,
                 pd.DataFrame([{'genre': 'Exploring more genres...', 'count': df['count'].iloc[0] * 0.2}])
+            ])
+        elif len(df) == 2:
+            # Add a third category for better visualization
+            df = pd.concat([
+                df,
+                pd.DataFrame([{'genre': 'Discovering new genres...', 'count': df['count'].iloc[0] * 0.15}])
             ])
 
         # Create pie chart
@@ -1295,23 +1360,159 @@ class SpotifyVisualizations:
                     'margin': '20px 0'
                 })
             ]),
+        ], style={
+            'backgroundColor': '#121212',
+            'padding': '30px',
+            'borderRadius': '15px',
+            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
+        })
 
-            # Music mood section
+    def create_sound_story_component(self, summary_data):
+        """Create a combined Sound Story and Music Mood component with Top Genre integration."""
+        if not summary_data:
+            return html.Div([
+                html.H3("Sound Story Not Available", style={'color': self.theme['text_color']}),
+                html.P("We need more listening data to generate your Sound Story.", style={'color': self.theme['secondary_color']})
+            ], style={'textAlign': 'center', 'padding': '20px'})
+
+        # Create component
+        return html.Div([
+            # Main title and subtitle
+            html.H2("Your Sound Story",
+                style={
+                    'color': self.theme['accent_color'],
+                    'textAlign': 'center',
+                    'fontSize': '3rem',
+                    'fontWeight': 'bold',
+                    'marginBottom': '20px',
+                    'letterSpacing': '1px',
+                    'textShadow': '2px 2px 4px rgba(0,0,0,0.3)'
+                }
+            ),
+            html.P("Discover the unique elements that make up your musical identity",
+                style={
+                    'color': self.theme['text_color'],
+                    'textAlign': 'center',
+                    'fontSize': '1.2rem',
+                    'marginBottom': '40px',
+                    'opacity': '0.9'
+                }
+            ),
+
+            # Main content grid - 3 columns
             html.Div([
-                html.H3("Your Music Mood", style={'color': self.theme['text_color'], 'textAlign': 'center'}),
+                # Column 1: Music Mood
                 html.Div([
-                    html.H1(summary_data['music_mood']['mood'], style={
+                    html.I(className="fas fa-smile", style={
+                        'fontSize': '2rem',
                         'color': self.theme['accent_color'],
-                        'textAlign': 'center',
-                        'fontSize': '48px',
-                        'margin': '10px 0'
+                        'marginBottom': '15px'
                     }),
+                    html.H3("Your Music Mood", style={'color': self.theme['text_color'], 'marginBottom': '10px'}),
+                    html.H4(summary_data['music_mood']['mood'],
+                        style={'color': self.theme['accent_color'], 'fontSize': '2rem', 'marginBottom': '15px'}),
+
+                    # Mood visualization - Valence
+                    html.Div([
+                        html.Span("Positivity", style={'color': self.theme['text_color']}),
+                        html.Div([
+                            html.Div(style={
+                                'width': f"{summary_data['music_mood']['valence'] * 100}%",
+                                'backgroundColor': self.theme['accent_color'],
+                                'height': '8px',
+                                'borderRadius': '4px'
+                            })
+                        ], style={
+                            'width': '100%',
+                            'backgroundColor': self.theme['secondary_color'],
+                            'height': '8px',
+                            'borderRadius': '4px',
+                            'margin': '5px 0 15px 0'
+                        })
+                    ]),
+
+                    # Mood visualization - Energy
+                    html.Div([
+                        html.Span("Energy", style={'color': self.theme['text_color']}),
+                        html.Div([
+                            html.Div(style={
+                                'width': f"{summary_data['music_mood']['energy'] * 100}%",
+                                'backgroundColor': self.theme['accent_color'],
+                                'height': '8px',
+                                'borderRadius': '4px'
+                            })
+                        ], style={
+                            'width': '100%',
+                            'backgroundColor': self.theme['secondary_color'],
+                            'height': '8px',
+                            'borderRadius': '4px',
+                            'margin': '5px 0'
+                        })
+                    ]),
+
+                    # Mood description
+                    html.P(self._get_mood_description(summary_data['music_mood']['mood']),
+                        style={'color': self.theme['secondary_color'], 'fontSize': '0.9rem', 'marginTop': '15px'})
+                ], style={
+                    'textAlign': 'center',
+                    'padding': '25px',
+                    'backgroundColor': '#181818',
+                    'borderRadius': '15px',
+                    'height': '100%'
+                }, className='col-md-4'),
+
+                # Column 2: Top Genre
+                html.Div([
+                    html.I(className="fas fa-tag", style={
+                        'fontSize': '2rem',
+                        'color': self.theme['accent_color'],
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Your Top Genre", style={'color': self.theme['text_color'], 'marginBottom': '10px'}),
+                    html.H4(summary_data['genre_highlight']['name'],
+                        style={'color': self.theme['accent_color'], 'fontSize': '2rem', 'marginBottom': '15px'}),
+
+                    # Genre icon or visualization
+                    html.Div([
+                        html.I(className=self._get_genre_icon(summary_data['genre_highlight']['name']), style={
+                            'fontSize': '4rem',
+                            'color': self.theme['accent_color'],
+                            'opacity': '0.8',
+                            'marginBottom': '20px'
+                        })
+                    ]),
+
+                    # Genre description
+                    html.P(self._get_genre_description(summary_data['genre_highlight']['name']),
+                        style={'color': self.theme['secondary_color'], 'fontSize': '0.9rem', 'marginTop': '15px'})
+                ], style={
+                    'textAlign': 'center',
+                    'padding': '25px',
+                    'backgroundColor': '#181818',
+                    'borderRadius': '15px',
+                    'height': '100%'
+                }, className='col-md-4'),
+
+                # Column 3: Listening Style
+                html.Div([
+                    html.I(className="fas fa-headphones", style={
+                        'fontSize': '2rem',
+                        'color': self.theme['accent_color'],
+                        'marginBottom': '15px'
+                    }),
+                    html.H3("Your Listening Style", style={'color': self.theme['text_color'], 'marginBottom': '10px'}),
+
+                    # Get listening style from metrics if available
+                    html.H4(summary_data.get('metrics', {}).get('listening_style', 'Eclectic Explorer'),
+                        style={'color': self.theme['accent_color'], 'fontSize': '2rem', 'marginBottom': '15px'}),
+
+                    # Listening style visualization
                     html.Div([
                         html.Div([
-                            html.Span("Valence", style={'color': self.theme['text_color']}),
+                            html.Span("Variety", style={'color': self.theme['text_color']}),
                             html.Div([
                                 html.Div(style={
-                                    'width': f"{summary_data['music_mood']['valence'] * 100}%",
+                                    'width': f"{summary_data.get('metrics', {}).get('variety_score', 50)}%",
                                     'backgroundColor': self.theme['accent_color'],
                                     'height': '8px',
                                     'borderRadius': '4px'
@@ -1324,11 +1525,12 @@ class SpotifyVisualizations:
                                 'margin': '5px 0 15px 0'
                             })
                         ]),
+
                         html.Div([
-                            html.Span("Energy", style={'color': self.theme['text_color']}),
+                            html.Span("Discovery", style={'color': self.theme['text_color']}),
                             html.Div([
                                 html.Div(style={
-                                    'width': f"{summary_data['music_mood']['energy'] * 100}%",
+                                    'width': f"{summary_data.get('metrics', {}).get('discovery_score', 50)}%",
                                     'backgroundColor': self.theme['accent_color'],
                                     'height': '8px',
                                     'borderRadius': '4px'
@@ -1341,38 +1543,90 @@ class SpotifyVisualizations:
                                 'margin': '5px 0'
                             })
                         ])
-                    ])
-                ], style={
-                    'backgroundColor': '#181818',
-                    'padding': '30px',
-                    'borderRadius': '10px',
-                    'margin': '20px 0'
-                })
-            ]),
+                    ]),
 
-            # Top genre section
-            html.Div([
-                html.H3("Your Top Genre", style={'color': self.theme['text_color'], 'textAlign': 'center'}),
-                html.Div([
-                    html.H1(summary_data['genre_highlight']['name'], style={
-                        'color': self.theme['accent_color'],
-                        'textAlign': 'center',
-                        'fontSize': '48px',
-                        'margin': '10px 0'
-                    })
+                    # Listening style description
+                    html.P(self._get_listening_style_description(summary_data.get('metrics', {}).get('listening_style', 'Eclectic Explorer')),
+                        style={'color': self.theme['secondary_color'], 'fontSize': '0.9rem', 'marginTop': '15px'})
                 ], style={
+                    'textAlign': 'center',
+                    'padding': '25px',
                     'backgroundColor': '#181818',
-                    'padding': '30px',
-                    'borderRadius': '10px',
-                    'margin': '20px 0'
-                })
-            ])
+                    'borderRadius': '15px',
+                    'height': '100%'
+                }, className='col-md-4')
+            ], className='row')
         ], style={
-                        'backgroundColor': '#121212',
+            'backgroundColor': '#121212',
             'padding': '30px',
             'borderRadius': '15px',
-            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
+            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)',
+            'margin': '20px 0'
         })
+
+    def _get_mood_description(self, mood):
+        """Get a description for a given mood."""
+        descriptions = {
+            "Happy & Energetic": "You gravitate toward upbeat, positive music that keeps your energy high. Your playlist is the life of the party!",
+            "Peaceful & Positive": "You enjoy uplifting music with a calmer vibe. Your playlist is perfect for relaxing while staying positive.",
+            "Angry & Intense": "You connect with passionate, intense music that expresses stronger emotions. Your playlist has depth and power.",
+            "Sad & Chill": "You appreciate reflective, emotional music with a laid-back feel. Your playlist tells deep stories and creates atmosphere."
+        }
+        return descriptions.get(mood, "Your musical taste creates a unique emotional landscape that reflects your personality.")
+
+    def _get_genre_icon(self, genre):
+        """Get an appropriate icon for a genre."""
+        genre = genre.lower()
+        if any(word in genre for word in ['rock', 'metal', 'punk', 'grunge']):
+            return "fa-guitar"
+        elif any(word in genre for word in ['pop', 'dance', 'disco']):
+            return "fa-music"
+        elif any(word in genre for word in ['rap', 'hip hop', 'hip-hop']):
+            return "fa-microphone"
+        elif any(word in genre for word in ['electronic', 'techno', 'house', 'edm']):
+            return "fa-laptop"
+        elif any(word in genre for word in ['jazz', 'blues', 'soul']):
+            return "fa-saxophone"
+        elif any(word in genre for word in ['classical', 'orchestra']):
+            return "fa-violin"
+        elif any(word in genre for word in ['country', 'folk']):
+            return "fa-hat-cowboy"
+        else:
+            return "fa-compact-disc"
+
+    def _get_genre_description(self, genre):
+        """Get a description for a genre."""
+        genre = genre.lower()
+        if any(word in genre for word in ['rock', 'metal', 'punk', 'grunge']):
+            return "You're drawn to the raw energy and authentic expression of rock music. The electric guitar speaks to your soul."
+        elif any(word in genre for word in ['pop']):
+            return "You appreciate catchy melodies and polished production. Pop music's universal appeal resonates with your taste."
+        elif any(word in genre for word in ['rap', 'hip hop', 'hip-hop']):
+            return "You connect with the lyrical prowess and cultural significance of hip-hop. The rhythm and poetry of rap speaks to you."
+        elif any(word in genre for word in ['electronic', 'techno', 'house', 'edm']):
+            return "You're attracted to innovative sounds and futuristic production. Electronic music's endless possibilities match your forward-thinking nature."
+        elif any(word in genre for word in ['jazz', 'blues', 'soul']):
+            return "You value musical sophistication and emotional depth. The improvisational nature of jazz reflects your appreciation for spontaneity."
+        elif any(word in genre for word in ['classical', 'orchestra']):
+            return "You have a taste for timeless composition and musical complexity. Classical music's rich history and depth resonate with you."
+        elif any(word in genre for word in ['country', 'folk']):
+            return "You connect with authentic storytelling and traditional musical roots. The sincerity of country and folk music speaks to your values."
+        else:
+            return f"Your preference for {genre} shows your unique musical personality and specific taste that sets you apart."
+
+    def _get_listening_style_description(self, style):
+        """Get a description for a listening style."""
+        descriptions = {
+            "Album Purist": "You appreciate albums as complete works of art, listening to them from start to finish as the artist intended.",
+            "Album Explorer": "You enjoy exploring albums but don't always listen to them in sequence or completion.",
+            "Track Hopper": "You prefer individual tracks over full albums, creating your own unique listening journey.",
+            "Mood Curator": "You select music based on mood and atmosphere, regardless of album structure.",
+            "Eclectic Explorer": "You have diverse musical interests and enjoy discovering new sounds across different genres.",
+            "Loyal Listener": "You have strong favorites and return to them regularly, building deep connections with your preferred artists.",
+            "Trend Follower": "You stay current with the latest music and enjoy being part of cultural conversations.",
+            "Nostalgic Soul": "You have a special connection to music from specific eras that hold personal significance."
+        }
+        return descriptions.get(style, "Your listening habits create a unique musical fingerprint that reflects your personality.")
 
 
 
