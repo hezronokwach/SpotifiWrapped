@@ -1,4 +1,3 @@
-
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import os
@@ -13,7 +12,7 @@ from typing import Dict, List, Optional, Union, Any
 from modules.ai_audio_features import get_track_audio_features
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('spotify_api')
 
@@ -30,41 +29,56 @@ class SpotifyAPI:
         # Cache for audio features to reduce API calls
         self.audio_features_cache = {}
         self.initialize_connection()
-        
+
     def initialize_connection(self):
         """Create Spotify API connection with proper authentication."""
         try:
-            self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+            auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
                 redirect_uri=self.redirect_uri,
                 scope=self.scopes,
-                open_browser=False
-            ))
-            logger.info("Successfully connected to Spotify API")
+                open_browser=True,  # Show browser for authentication
+                show_dialog=True,  # Always show auth dialog
+                cache_path='.spotify_cache'  # Cache tokens
+            )
+
+            # Force token refresh
+            auth_manager.get_access_token(as_dict=False)
+
+            # Create Spotify client with increased timeout (default is 5 seconds)
+            self.sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
+
+            # Test connection
+            user = self.sp.current_user()
+            if user:
+                logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+            else:
+                logger.error("Failed to get user profile after connection")
+                self.sp = None
         except Exception as e:
             logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
-    
+
     @lru_cache(maxsize=100)
     def get_audio_features_safely(self, track_id: str) -> Dict[str, Any]:
         """
         Safely get audio features for a track, using AI-based extraction when possible.
         Uses caching to reduce API calls for the same track.
-        
+
         Args:
             track_id: Spotify track ID
-            
+
         Returns:
             Audio features dictionary or generated fallback data
         """
         if not track_id:
             return self._generate_fallback_audio_features()
-            
+
         # Check cache first
         if track_id in self.audio_features_cache:
             return self.audio_features_cache[track_id]
-            
+
         try:
             # If using AI-based extraction, try to get the preview URL and analyze it
             if self.use_ai_audio_features:
@@ -72,7 +86,7 @@ class SpotifyAPI:
                     # Get track info to get the preview URL
                     track_info = self.sp.track(track_id)
                     preview_url = track_info.get('preview_url')
-                    
+
                     # If we have a preview URL, use AI to extract features
                     if preview_url:
                         features = get_track_audio_features(track_id, preview_url)
@@ -87,12 +101,12 @@ class SpotifyAPI:
                 except Exception as e:
                     logger.warning(f"Error using AI audio features for track {track_id}: {e}")
                     # Fall back to Spotify API if AI fails
-            
+
             # If not using AI or AI failed, try Spotify API
             # Add retry mechanism with backoff
             max_retries = 3
             retry_count = 0
-            
+
             while retry_count < max_retries:
                 try:
                     features = self.sp.audio_features(track_id)
@@ -100,7 +114,7 @@ class SpotifyAPI:
                         # Cache the result
                         self.audio_features_cache[track_id] = features[0]
                         return features[0]
-                    
+
                     fallback = self._generate_fallback_audio_features()
                     self.audio_features_cache[track_id] = fallback
                     return fallback
@@ -111,7 +125,7 @@ class SpotifyAPI:
                         fallback = self._generate_fallback_audio_features()
                         self.audio_features_cache[track_id] = fallback
                         return fallback
-                    
+
                     retry_count += 1
                     if retry_count < max_retries:
                         # Exponential backoff
@@ -121,7 +135,7 @@ class SpotifyAPI:
                     else:
                         logger.error(f"Max retries reached for track {track_id}")
                         raise
-            
+
             fallback = self._generate_fallback_audio_features()
             self.audio_features_cache[track_id] = fallback
             return fallback
@@ -130,27 +144,27 @@ class SpotifyAPI:
             fallback = self._generate_fallback_audio_features()
             self.audio_features_cache[track_id] = fallback
             return fallback
-    
+
     def get_audio_features_batch(self, track_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         Get audio features for multiple tracks efficiently.
-        
+
         Args:
             track_ids: List of Spotify track IDs
-            
+
         Returns:
             Dictionary mapping track IDs to their audio features
         """
         if not track_ids:
             return {}
-            
+
         # Filter out IDs that are already in cache
         uncached_ids = [tid for tid in track_ids if tid not in self.audio_features_cache]
-        
+
         # If all IDs are cached, return from cache
         if not uncached_ids:
             return {tid: self.audio_features_cache[tid] for tid in track_ids}
-        
+
         # If using AI features, we need to process one by one
         if self.use_ai_audio_features:
             for track_id in uncached_ids:
@@ -171,15 +185,15 @@ class SpotifyAPI:
                     # If batch request fails, fall back to individual requests
                     for track_id in batch:
                         self.get_audio_features_safely(track_id)
-        
+
         # Return all requested features from cache
-        return {tid: self.audio_features_cache.get(tid, self._generate_fallback_audio_features()) 
+        return {tid: self.audio_features_cache.get(tid, self._generate_fallback_audio_features())
                 for tid in track_ids}
-    
+
     def _generate_fallback_audio_features(self) -> Dict[str, Any]:
         """
         Generate realistic fallback audio features when API fails.
-        
+
         Returns:
             Dictionary with realistic audio feature values
         """
@@ -198,35 +212,35 @@ class SpotifyAPI:
             'tempo': round(random.uniform(80, 160), 2),
             'duration_ms': random.randint(180000, 240000)
         }
-    
+
     def get_top_tracks(self, limit: int = 10, time_range: str = 'short_term') -> List[Dict[str, Any]]:
         """
         Fetch user's top tracks.
-        
+
         Args:
             limit: Number of tracks to fetch
             time_range: 'short_term' (4 weeks), 'medium_term' (6 months), or 'long_term' (years)
-        
+
         Returns:
             List of track dictionaries or empty list if error
         """
         if not self.sp:
             return self._generate_sample_top_tracks(limit)
-            
+
         try:
             results = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
             tracks_data = []
-            
+
             # Get all track IDs for batch processing
             track_ids = [track['id'] for track in results['items']]
-            
+
             # Get audio features in batch
             audio_features_map = self.get_audio_features_batch(track_ids)
-            
+
             for idx, track in enumerate(results['items'], 1):
                 # Get audio features from the batch results
                 audio_features = audio_features_map.get(track['id'], self._generate_fallback_audio_features())
-                
+
                 tracks_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
@@ -234,6 +248,7 @@ class SpotifyAPI:
                     'rank': idx,
                     'popularity': track['popularity'],
                     'id': track['id'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'duration_ms': track['duration_ms'],
                     'explicit': track['explicit'],
                     'preview_url': track['preview_url'],
@@ -245,12 +260,12 @@ class SpotifyAPI:
                     'valence': audio_features.get('valence', 0),
                     'acousticness': audio_features.get('acousticness', 0)
                 })
-            
+
             return tracks_data
         except Exception as e:
             logger.error(f"Error fetching top tracks: {e}")
             return self._generate_sample_top_tracks(limit)
-    
+
     def _generate_sample_top_tracks(self, limit=10):
         """Generate sample top tracks when API fails."""
         sample_tracks = [
@@ -265,12 +280,12 @@ class SpotifyAPI:
             {"track": "Top Track 9", "artist": "Popular Artist 9", "album": "Hit Album 9"},
             {"track": "Top Track 10", "artist": "Popular Artist 10", "album": "Hit Album 10"}
         ]
-        
+
         tracks_data = []
         for idx, track in enumerate(sample_tracks[:limit], 1):
             # Get fallback audio features
             audio_features = self._generate_fallback_audio_features()
-            
+
             tracks_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
@@ -289,45 +304,52 @@ class SpotifyAPI:
                 'valence': audio_features['valence'],
                 'acousticness': audio_features['acousticness']
             })
-        
+
         return tracks_data
-    
-    def get_saved_tracks(self, limit=10):
-        """Fetch user's saved tracks."""
+
+    def get_saved_tracks(self, limit=50, offset=0):
+        """
+        Fetch user's saved tracks.
+
+        Args:
+            limit: Number of tracks to fetch
+            offset: The index of the first track to return
+        """
         if not self.sp:
             return self._generate_sample_saved_tracks(limit)
-            
+
         try:
-            results = self.sp.current_user_saved_tracks(limit=limit)
+            results = self.sp.current_user_saved_tracks(limit=limit, offset=offset)
             tracks_data = []
-            
+
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
                 # Calculate end date for timeline (added_at + 1 day)
-                added_at = pd.to_datetime(item['added_at'])
+                added_at = pd.to_datetime(item['added_at'], format='ISO8601')
                 end_date = added_at + pd.Timedelta(days=1)
-                
+
                 tracks_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
                     'album': track['album']['name'],
                     'added_at': item['added_at'],
-                    'end_date': end_date.isoformat(),  # For timeline visualization
+                    'end_date': end_date.isoformat(),
                     'id': track['id'],
                     'popularity': track['popularity'],
                     'duration_ms': track['duration_ms'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else ''
                 })
-            
+
             # If we got no data, return sample data
             if not tracks_data:
                 return self._generate_sample_saved_tracks(limit)
-                
+
             return tracks_data
         except Exception as e:
             print(f"Error fetching saved tracks: {e}")
             return self._generate_sample_saved_tracks(limit)
-    
+
     def _generate_sample_saved_tracks(self, limit=10):
         """Generate sample saved tracks when API fails."""
         sample_tracks = [
@@ -342,14 +364,14 @@ class SpotifyAPI:
             {"track": "Sample Track 9", "artist": "Sample Artist 9", "album": "Sample Album 9"},
             {"track": "Sample Track 10", "artist": "Sample Artist 10", "album": "Sample Album 10"}
         ]
-        
+
         tracks_data = []
         for idx, track in enumerate(sample_tracks[:limit], 1):
             # Generate dates within the last month
             days_ago = idx * 2
             added_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago)
             end_date = added_at + pd.Timedelta(days=1)
-            
+
             tracks_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
@@ -361,18 +383,18 @@ class SpotifyAPI:
                 'duration_ms': random.randint(180000, 240000),
                 'image_url': ''
             })
-        
+
         return tracks_data
-    
+
     def get_playlists(self, limit=10):
         """Fetch user's playlists."""
         if not self.sp:
             return self._generate_sample_playlists(limit)
-            
+
         try:
             results = self.sp.current_user_playlists(limit=limit)
             playlists_data = []
-            
+
             for idx, playlist in enumerate(results['items'], 1):
                 playlists_data.append({
                     'playlist': playlist['name'],
@@ -383,16 +405,16 @@ class SpotifyAPI:
                     'image_url': playlist['images'][0]['url'] if playlist['images'] else '',
                     'owner': playlist['owner']['display_name']
                 })
-            
+
             # If we got no data, return sample data
             if not playlists_data:
                 return self._generate_sample_playlists(limit)
-                
+
             return playlists_data
         except Exception as e:
             print(f"Error fetching playlists: {e}")
             return self._generate_sample_playlists(limit)
-    
+
     def _generate_sample_playlists(self, limit=10):
         """Generate sample playlists when API fails."""
         sample_playlists = [
@@ -407,7 +429,7 @@ class SpotifyAPI:
             {"name": "Morning Coffee", "tracks": 12, "public": False},
             {"name": "Weekend Vibes", "tracks": 30, "public": True}
         ]
-        
+
         playlists_data = []
         for idx, playlist in enumerate(sample_playlists[:limit], 1):
             playlists_data.append({
@@ -419,23 +441,23 @@ class SpotifyAPI:
                 'image_url': '',
                 'owner': 'Sample User'
             })
-        
+
         return playlists_data
-    
+
     def get_currently_playing(self):
         """Fetch currently playing track."""
         if not self.sp:
             return None
-            
+
         try:
             current_track = self.sp.currently_playing()
-            
+
             if current_track and current_track.get('is_playing', False) and current_track.get('item'):
                 track = current_track['item']
-                
+
                 # Get audio features - using the safe method
                 audio_features = self.get_audio_features_safely(track['id'])
-                
+
                 return {
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
@@ -454,21 +476,31 @@ class SpotifyAPI:
         except Exception as e:
             print(f"Error fetching currently playing track: {e}")
             return None
-    
+
     def get_user_profile(self):
         """Fetch user profile information."""
         if not self.sp:
             return None
-            
+
         try:
             user_profile = self.sp.current_user()
-            
+
+            # Get the number of artists the user is following
+            following_count = 0
+            try:
+                # Get followed artists
+                followed_artists = self.sp.current_user_followed_artists(limit=1)
+                following_count = followed_artists['artists']['total'] if followed_artists and 'artists' in followed_artists else 0
+            except Exception as e:
+                print(f"Error fetching followed artists: {e}")
+                following_count = 0
+
             return {
                 'display_name': user_profile.get('display_name', 'Unknown'),
                 'id': user_profile.get('id', 'Unknown'),
                 'followers': user_profile.get('followers', {}).get('total', 0),
+                'following': following_count,  # Add following count
                 'image_url': user_profile.get('images', [{}])[0].get('url', '') if user_profile.get('images') else '',
-                'country': user_profile.get('country', 'Unknown'),
                 'product': user_profile.get('product', 'Unknown')  # subscription level
             }
         except Exception as e:
@@ -477,26 +509,41 @@ class SpotifyAPI:
                 'display_name': 'Sample User',
                 'id': 'sample-user-id',
                 'followers': 123,
+                'following': 45,  # Add sample following count
                 'image_url': '',
                 'country': 'US',
                 'product': 'premium'
             }
-    
-    def get_recently_played(self, limit=50):  # Increased limit for better patterns
-        """Fetch recently played tracks."""
+
+    def get_recently_played(self, limit=50, before=None, after=None):
+        """
+        Fetch recently played tracks.
+
+        Args:
+            limit: Number of tracks to fetch
+            before: Unix timestamp in milliseconds - returns all items before this timestamp
+            after: Unix timestamp in milliseconds - returns all items after this timestamp
+        """
         if not self.sp:
-            return self._generate_sample_recently_played(limit)
-            
+            print("No Spotify connection available")
+            return []
+
         try:
-            results = self.sp.current_user_recently_played(limit=limit)
+            params = {'limit': limit}
+            if before:
+                params['before'] = before
+            elif after:
+                params['after'] = after
+
+            results = self.sp.current_user_recently_played(**params)
             tracks_data = []
-            
+
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
-                played_at = pd.to_datetime(item['played_at'])
+                played_at = pd.to_datetime(item['played_at'], format='ISO8601')
                 # Estimate end time (played_at + track duration)
                 end_time = played_at + pd.Timedelta(milliseconds=track['duration_ms'])
-                
+
                 tracks_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
@@ -505,20 +552,18 @@ class SpotifyAPI:
                     'end_time': end_time.isoformat(),
                     'id': track['id'],
                     'duration_ms': track['duration_ms'],
+                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
                     'day_of_week': played_at.day_name(),
                     'hour_of_day': played_at.hour
                 })
-            
-            # If we got no data, return sample data
-            if not tracks_data:
-                return self._generate_sample_recently_played(limit)
-                
+
+            print(f"Retrieved {len(tracks_data)} recently played tracks")
             return tracks_data
         except Exception as e:
             print(f"Error fetching recently played tracks: {e}")
-            return self._generate_sample_recently_played(limit)
-    
+            return []
+
     def _generate_sample_recently_played(self, limit=50):
         """Generate sample recently played tracks when API fails."""
         sample_tracks = [
@@ -533,13 +578,13 @@ class SpotifyAPI:
             {"track": "Sample Recent 9", "artist": "Sample Artist 9", "album": "Sample Album 9"},
             {"track": "Sample Recent 10", "artist": "Sample Artist 10", "album": "Sample Album 10"}
         ]
-        
+
         # Extend the sample tracks to reach the limit
         extended_tracks = []
         while len(extended_tracks) < limit:
             extended_tracks.extend(sample_tracks)
         extended_tracks = extended_tracks[:limit]
-        
+
         tracks_data = []
         for idx, track in enumerate(extended_tracks, 1):
             # Generate timestamps across different days and hours for better pattern visualization
@@ -548,7 +593,7 @@ class SpotifyAPI:
             played_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago, hours=random.randint(0, 23))
             played_at = played_at.replace(hour=hour)
             end_time = played_at + pd.Timedelta(minutes=3, seconds=30)
-            
+
             tracks_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
@@ -561,32 +606,32 @@ class SpotifyAPI:
                 'day_of_week': played_at.day_name(),
                 'hour_of_day': played_at.hour
             })
-        
+
         return tracks_data
-    
+
     def get_audio_features_for_top_tracks(self, time_range='short_term', limit=10):
         """Get detailed audio features for top tracks."""
         if not self.sp:
             return self._generate_sample_audio_features(limit)
-            
+
         try:
             top_tracks = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
             track_ids = [track['id'] for track in top_tracks['items']]
-            
+
             if not track_ids:
                 return self._generate_sample_audio_features(limit)
-            
+
             features_data = []
-            
+
             # Process tracks individually to handle potential 403 errors
             for i, track_id in enumerate(track_ids):
                 if i >= len(top_tracks['items']):
                     continue
-                    
+
                 track = top_tracks['items'][i]
                 preview_url = track.get('preview_url')
                 features = self.get_audio_features_safely(track_id)
-                
+
                 features_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
@@ -604,16 +649,16 @@ class SpotifyAPI:
                     'id': track_id,
                     'duration_ms': features.get('duration_ms', track.get('duration_ms', 0))
                 })
-            
+
             # If we got no data, return sample data
             if not features_data:
                 return self._generate_sample_audio_features(limit)
-                
+
             return features_data
         except Exception as e:
             print(f"Error fetching audio features: {e}")
             return self._generate_sample_audio_features(limit)
-    
+
     def _generate_sample_audio_features(self, limit=5):
         """Generate sample audio features when API fails."""
         sample_tracks = [
@@ -628,12 +673,12 @@ class SpotifyAPI:
             {"track": "Sample Feature 9", "artist": "Sample Artist 9"},
             {"track": "Sample Feature 10", "artist": "Sample Artist 10"}
         ]
-        
+
         features_data = []
         for idx, track in enumerate(sample_tracks[:limit], 1):
             # Generate realistic audio features
             features = self._generate_fallback_audio_features()
-            
+
             features_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
@@ -651,18 +696,18 @@ class SpotifyAPI:
                 'id': f"sample-feature-{idx}",
                 'duration_ms': features['duration_ms']
             })
-        
+
         return features_data
-    
+
     def get_top_artists(self, limit=10, time_range='short_term'):
         """Fetch user's top artists."""
         if not self.sp:
             return self._generate_sample_artists(limit)
-            
+
         try:
             results = self.sp.current_user_top_artists(limit=limit, time_range=time_range)
             artists_data = []
-            
+
             for idx, artist in enumerate(results['items'], 1):
                 artists_data.append({
                     'artist': artist['name'],
@@ -673,16 +718,16 @@ class SpotifyAPI:
                     'id': artist['id'],
                     'image_url': artist['images'][0]['url'] if artist['images'] else ''
                 })
-            
+
             # If we got no data, return sample data
             if not artists_data:
                 return self._generate_sample_artists(limit)
-                
+
             return artists_data
         except Exception as e:
             print(f"Error fetching top artists: {e}")
             return self._generate_sample_artists(limit)
-    
+
     def _generate_sample_artists(self, limit=10):
         """Generate sample artists when API fails."""
         sample_artists = [
@@ -697,7 +742,7 @@ class SpotifyAPI:
             {"name": "Sample Artist 9", "genres": "Reggae, World"},
             {"name": "Sample Artist 10", "genres": "Metal, Hard Rock"}
         ]
-        
+
         artists_data = []
         for idx, artist in enumerate(sample_artists[:limit], 1):
             artists_data.append({
@@ -709,5 +754,176 @@ class SpotifyAPI:
                 'id': f"sample-artist-{idx}",
                 'image_url': ''
             })
-        
+
         return artists_data
+
+    def get_artists_by_genre(self, genre_name, limit=5):
+        """
+        Get artists for a specific genre.
+
+        Args:
+            genre_name: Name of the genre to search for
+            limit: Maximum number of artists to return
+
+        Returns:
+            List of artist dictionaries with name and image_url
+        """
+        if not self.sp or not genre_name or genre_name == 'unknown':
+            return []
+
+        try:
+            # Search for artists by genre
+            results = self.sp.search(q=f'genre:"{genre_name}"', type='artist', limit=limit)
+
+            if not results or 'artists' not in results or 'items' not in results['artists']:
+                return []
+
+            artists = []
+            for artist in results['artists']['items']:
+                artist_data = {
+                    'name': artist['name'],
+                    'id': artist['id'],
+                    'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                    'popularity': artist.get('popularity', 0),
+                    'genres': artist.get('genres', [])
+                }
+                artists.append(artist_data)
+
+            return artists
+
+        except Exception as e:
+            print(f"Error getting artists for genre {genre_name}: {e}")
+            return []
+
+    def get_artist_genres(self, artist_name):
+        """
+        Get genres for a specific artist.
+
+        Args:
+            artist_name: Name of the artist to search for
+
+        Returns:
+            List of genres for the artist or empty list if not found
+        """
+        if not self.sp or not artist_name:
+            return []
+
+        # Normalize artist name
+        artist_name = artist_name.strip()
+        if not artist_name:
+            return []
+
+        # Add retry mechanism with backoff
+        max_retries = 3
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                # First try with exact artist name search
+                artist_data = self.sp.search(q=f'artist:"{artist_name}"', type='artist', limit=1)
+
+                # If no results, try a more general search
+                if not artist_data or not artist_data.get('artists', {}).get('items'):
+                    print(f"No exact match for artist '{artist_name}', trying general search")
+                    artist_data = self.sp.search(q=artist_name, type='artist', limit=5)
+
+                # Process results
+                if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
+                    # Try to find an exact or close match
+                    matched_artist = None
+
+                    # First look for exact match
+                    for artist in artist_data['artists']['items']:
+                        if artist['name'].lower() == artist_name.lower():
+                            matched_artist = artist
+                            break
+
+                    # If no exact match, use the first result
+                    if not matched_artist and artist_data['artists']['items']:
+                        matched_artist = artist_data['artists']['items'][0]
+                        print(f"Using closest match: '{matched_artist['name']}' for '{artist_name}'")
+
+                    if matched_artist:
+                        genres = matched_artist.get('genres', [])
+                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
+                        return genres
+
+                print(f"No artist data found for {artist_name}")
+                return []
+
+            except Exception as e:
+                retry_count += 1
+                if "429" in str(e):  # Rate limiting error
+                    wait_time = 2 ** retry_count  # Exponential backoff
+                    print(f"Rate limit hit, retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    print(f"Error getting genres for artist {artist_name}: {e}")
+                    if retry_count < max_retries:
+                        wait_time = 1
+                        print(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                        time.sleep(wait_time)
+                    else:
+                        return []
+
+        return []
+
+    def get_artists_by_genre(self, genre_name, limit=10):
+        """
+        Search for artists by genre.
+
+        Args:
+            genre_name: The genre to search for
+            limit: Maximum number of artists to return
+
+        Returns:
+            List of artist dictionaries with name and image_url
+        """
+        if not self.sp:
+            return []
+
+        if not genre_name or genre_name == 'unknown' or genre_name == 'Exploring New Genres':
+            return []
+
+        try:
+            # Search for artists with this genre
+            # Note: Spotify doesn't have a direct genre search, so we search for the genre name
+            # and then filter results that have the genre in their genres list
+            search_results = self.sp.search(q=f'genre:{genre_name}', type='artist', limit=50)
+
+            if not search_results or 'artists' not in search_results or 'items' not in search_results['artists']:
+                return []
+
+            # Filter artists that actually have this genre
+            matching_artists = []
+            for artist in search_results['artists']['items']:
+                if genre_name.lower() in [g.lower() for g in artist.get('genres', [])]:
+                    matching_artists.append({
+                        'name': artist['name'],
+                        'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                        'popularity': artist['popularity'],
+                        'genres': artist['genres']
+                    })
+
+                    if len(matching_artists) >= limit:
+                        break
+
+            # If we didn't find enough artists with exact genre match, add some from the search results
+            if len(matching_artists) < limit:
+                for artist in search_results['artists']['items']:
+                    if artist['name'] not in [a['name'] for a in matching_artists]:
+                        matching_artists.append({
+                            'name': artist['name'],
+                            'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                            'popularity': artist['popularity'],
+                            'genres': artist['genres']
+                        })
+
+                        if len(matching_artists) >= limit:
+                            break
+
+            return matching_artists
+
+        except Exception as e:
+            logger.error(f"Error searching for artists by genre {genre_name}: {e}")
+            return []

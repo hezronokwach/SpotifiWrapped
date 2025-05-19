@@ -30,31 +30,31 @@ def get_top_albums(spotify_api, limit=10):
     if recently_played:
         for track in recently_played:
             all_tracks.append({
-                'album': track.get('album', ''),
-                'artist': track.get('artist', ''),
+                'album': track.get('album_name', track.get('album', '')),
+                'artist': track.get('album_artist', track.get('artist', '')),
                 'count': 1,
                 'source': 'recently_played',
-                'image_url': track.get('image_url', '')
+                'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
     
     if saved_tracks:
         for track in saved_tracks:
             all_tracks.append({
-                'album': track.get('album', ''),
-                'artist': track.get('artist', ''),
+                'album': track.get('album_name', track.get('album', '')),
+                'artist': track.get('album_artist', track.get('artist', '')),
                 'count': 2,  # Give saved tracks higher weight
                 'source': 'saved_tracks',
-                'image_url': track.get('image_url', '')
+                'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
     
     if top_tracks:
         for track in top_tracks:
             all_tracks.append({
-                'album': track.get('album', ''),
-                'artist': track.get('artist', ''),
+                'album': track.get('album_name', track.get('album', '')),
+                'artist': track.get('album_artist', track.get('artist', '')),
                 'count': 3,  # Give top tracks highest weight
                 'source': 'top_tracks',
-                'image_url': track.get('image_url', '')
+                'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
     
     # Create DataFrame
@@ -65,6 +65,11 @@ def get_top_albums(spotify_api, limit=10):
         total_count=('count', 'sum'),
         sources=('source', lambda x: ', '.join(set(x)))
     ).reset_index()
+    
+    # Normalize listening scores to be between 0-100
+    if not album_counts.empty:
+        max_count = album_counts['total_count'].max()
+        album_counts['total_count'] = (album_counts['total_count'] / max_count * 100).round()
     
     # Sort by count in descending order
     album_counts = album_counts.sort_values('total_count', ascending=False)
@@ -148,8 +153,8 @@ def get_album_listening_patterns(spotify_api):
     # Convert to DataFrame
     df = pd.DataFrame(recently_played)
     
-    # Add datetime column
-    df['played_at_dt'] = pd.to_datetime(df['played_at'])
+    # Add datetime column - use ISO8601 format
+    df['played_at_dt'] = pd.to_datetime(df['played_at'], format='ISO8601')
     
     # Sort by played_at
     df = df.sort_values('played_at_dt')
