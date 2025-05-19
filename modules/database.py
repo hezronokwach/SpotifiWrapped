@@ -409,20 +409,39 @@ class SpotifyDatabase:
         finally:
             conn.close()
 
-    def get_top_genres(self, limit: int = 10):
-        """Get top genres from the database."""
+    def get_top_genres(self, limit: int = 10, exclude_unknown: bool = False):
+        """
+        Get top genres from the database.
+
+        Args:
+            limit: Maximum number of genres to return
+            exclude_unknown: Whether to exclude the 'unknown' placeholder genre
+
+        Returns:
+            List of genre dictionaries with genre and count
+        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         try:
-            cursor.execute('''
-                SELECT genre_name as genre, SUM(count) as count
-                FROM genres
-                GROUP BY genre_name
-                ORDER BY count DESC
-                LIMIT ?
-            ''', (limit,))
+            if exclude_unknown:
+                cursor.execute('''
+                    SELECT genre_name as genre, SUM(count) as count
+                    FROM genres
+                    WHERE genre_name != 'unknown'
+                    GROUP BY genre_name
+                    ORDER BY count DESC
+                    LIMIT ?
+                ''', (limit,))
+            else:
+                cursor.execute('''
+                    SELECT genre_name as genre, SUM(count) as count
+                    FROM genres
+                    GROUP BY genre_name
+                    ORDER BY count DESC
+                    LIMIT ?
+                ''', (limit,))
 
             return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:

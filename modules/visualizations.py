@@ -1367,7 +1367,7 @@ class SpotifyVisualizations:
             'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
         })
 
-    def create_sound_story_component(self, summary_data):
+    def create_sound_story_component(self, summary_data, spotify_api=None):
         """Create a combined Sound Story and Music Mood component with Top Genre integration."""
         if not summary_data:
             return html.Div([
@@ -1472,15 +1472,8 @@ class SpotifyVisualizations:
                     html.H4(summary_data['genre_highlight']['name'],
                         style={'color': self.theme['accent_color'], 'fontSize': '2rem', 'marginBottom': '15px'}),
 
-                    # Genre icon or visualization
-                    html.Div([
-                        html.I(className=self._get_genre_icon(summary_data['genre_highlight']['name']), style={
-                            'fontSize': '4rem',
-                            'color': self.theme['accent_color'],
-                            'opacity': '0.8',
-                            'marginBottom': '20px'
-                        })
-                    ]),
+                    # Genre artist image (if available) or icon
+                    self._get_genre_artist_image(summary_data['genre_highlight']['name'], spotify_api),
 
                     # Genre description
                     html.P(self._get_genre_description(summary_data['genre_highlight']['name']),
@@ -1573,6 +1566,88 @@ class SpotifyVisualizations:
             "Sad & Chill": "You appreciate reflective, emotional music with a laid-back feel. Your playlist tells deep stories and creates atmosphere."
         }
         return descriptions.get(mood, "Your musical taste creates a unique emotional landscape that reflects your personality.")
+
+    def _get_genre_artist_image(self, genre_name, spotify_api):
+        """Get a random artist image for a genre."""
+        import random
+
+        if not spotify_api or genre_name == 'unknown' or genre_name == 'Exploring New Genres':
+            # Return a generic icon if no API or unknown genre
+            return html.Div([
+                html.I(className=self._get_genre_icon(genre_name), style={
+                    'fontSize': '4rem',
+                    'color': self.theme['accent_color'],
+                    'opacity': '0.8',
+                    'marginBottom': '20px'
+                })
+            ])
+
+        try:
+            # Get artists for this genre
+            artists = spotify_api.get_artists_by_genre(genre_name, limit=10)
+
+            if not artists:
+                # Fall back to icon if no artists found
+                return html.Div([
+                    html.I(className=self._get_genre_icon(genre_name), style={
+                        'fontSize': '4rem',
+                        'color': self.theme['accent_color'],
+                        'opacity': '0.8',
+                        'marginBottom': '20px'
+                    })
+                ])
+
+            # Filter artists with images
+            artists_with_images = [artist for artist in artists if artist.get('image_url')]
+
+            if not artists_with_images:
+                # Fall back to icon if no artists have images
+                return html.Div([
+                    html.I(className=self._get_genre_icon(genre_name), style={
+                        'fontSize': '4rem',
+                        'color': self.theme['accent_color'],
+                        'opacity': '0.8',
+                        'marginBottom': '20px'
+                    })
+                ])
+
+            # Pick a random artist
+            random_artist = random.choice(artists_with_images)
+
+            # Return the artist image with name
+            return html.Div([
+                html.Img(
+                    src=random_artist['image_url'],
+                    style={
+                        'width': '120px',
+                        'height': '120px',
+                        'borderRadius': '50%',
+                        'objectFit': 'cover',
+                        'border': f'3px solid {self.theme["accent_color"]}',
+                        'marginBottom': '10px'
+                    }
+                ),
+                html.P(
+                    f"Artist in this genre: {random_artist['name']}",
+                    style={
+                        'color': self.theme['secondary_color'],
+                        'fontSize': '0.9rem',
+                        'marginBottom': '15px'
+                    }
+                )
+            ])
+
+        except Exception as e:
+            print(f"Error getting artist image for genre {genre_name}: {e}")
+            # Fall back to icon on error
+            return html.Div([
+                html.I(className=self._get_genre_icon(genre_name), style={
+                    'fontSize': '4rem',
+                    'color': self.theme['accent_color'],
+                    'opacity': '0.8',
+                    'marginBottom': '20px'
+                })
+            ])
 
     def _get_genre_icon(self, genre):
         """Get an appropriate icon for a genre."""

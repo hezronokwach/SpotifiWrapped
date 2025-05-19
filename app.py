@@ -1486,7 +1486,7 @@ def update_dj_mode_stats(n_intervals, n_clicks):
             ),
             create_stat_card(
                 "DJ Mode Status",
-                "Active User" if dj_stats.get('dj_mode_user', False) else "Occasional User",
+                "Active User" if dj_stats.get('dj_mode_user', False) else ("Not Available" if not dj_stats.get('is_premium', False) else "Occasional User"),
                 icon="fa-user-check",
                 color="#2D46B9"
             )
@@ -1691,8 +1691,8 @@ def update_wrapped_summary_display(summary):
     # Create visualizations instance to use the new components
     vis = visualizations
 
-    # Create the combined Sound Story component
-    sound_story = vis.create_sound_story_component(summary)
+    # Create the combined Sound Story component with Spotify API for artist images
+    sound_story = vis.create_sound_story_component(summary, spotify_api)
 
     # Create the wrapped summary component (simplified version)
     wrapped_summary = vis.create_wrapped_summary_component(summary)
@@ -1923,12 +1923,13 @@ def generate_wrapped_summary_from_db():
             'energy': 0.5
         }
 
-    # Get top genre from the dedicated genres table
+    # Get top genre from the dedicated genres table, excluding "unknown" placeholder
     cursor.execute('''
         SELECT
             genre_name as genre,
             SUM(count) as count
         FROM genres
+        WHERE genre_name != 'unknown'
         GROUP BY genre_name
         ORDER BY count DESC
         LIMIT 1

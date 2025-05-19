@@ -746,6 +746,44 @@ class SpotifyAPI:
 
         return artists_data
 
+    def get_artists_by_genre(self, genre_name, limit=5):
+        """
+        Get artists for a specific genre.
+
+        Args:
+            genre_name: Name of the genre to search for
+            limit: Maximum number of artists to return
+
+        Returns:
+            List of artist dictionaries with name and image_url
+        """
+        if not self.sp or not genre_name or genre_name == 'unknown':
+            return []
+
+        try:
+            # Search for artists by genre
+            results = self.sp.search(q=f'genre:"{genre_name}"', type='artist', limit=limit)
+
+            if not results or 'artists' not in results or 'items' not in results['artists']:
+                return []
+
+            artists = []
+            for artist in results['artists']['items']:
+                artist_data = {
+                    'name': artist['name'],
+                    'id': artist['id'],
+                    'image_url': artist['images'][0]['url'] if artist['images'] else '',
+                    'popularity': artist.get('popularity', 0),
+                    'genres': artist.get('genres', [])
+                }
+                artists.append(artist_data)
+
+            return artists
+
+        except Exception as e:
+            print(f"Error getting artists for genre {genre_name}: {e}")
+            return []
+
     def get_artist_genres(self, artist_name):
         """
         Get genres for a specific artist.
