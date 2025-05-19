@@ -999,19 +999,30 @@ def update_listening_patterns_chart(n_intervals):
     # Query for listening patterns with proper filtering
     # Only include actual listening events (not top tracks) and ensure dates are valid
     current_date = datetime.now().strftime('%Y-%m-%d')
+
+    # Get local timezone offset to adjust UTC times in the database
+    # This helps ensure the hours displayed match your local time
+    local_tz_offset = time.localtime().tm_gmtoff / 3600  # Convert seconds to hours
+    tz_adjustment = f"{local_tz_offset:+g} hours"  # Format as "+3 hours" or "-5 hours"
+
+    print(f"TIMEZONE DEBUG: Using timezone adjustment: {tz_adjustment}")
+    print(f"TIMEZONE DEBUG: Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"TIMEZONE DEBUG: Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+
     cursor.execute('''
         SELECT
-            strftime('%w', played_at) as day_of_week,
-            strftime('%H', played_at) as hour_of_day,
+            strftime('%w', datetime(played_at, ?)) as day_of_week,
+            strftime('%H', datetime(played_at, ?)) as hour_of_day,
             COUNT(*) as play_count
         FROM listening_history
         WHERE user_id = ?
         AND played_at IS NOT NULL
         AND source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND source NOT LIKE 'audio_features'  -- Exclude audio features data
         AND date(played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
-    ''', (user_data['id'], current_date))
+    ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
 
     patterns_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -1062,19 +1073,28 @@ def update_listening_patterns_chart(n_intervals):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
+        # Use the same timezone adjustment as before
+        local_tz_offset = time.localtime().tm_gmtoff / 3600
+        tz_adjustment = f"{local_tz_offset:+g} hours"
+
+        print(f"TIMEZONE DEBUG (retry): Using timezone adjustment: {tz_adjustment}")
+        print(f"TIMEZONE DEBUG (retry): Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+
         cursor.execute('''
             SELECT
-                strftime('%w', played_at) as day_of_week,
-                strftime('%H', played_at) as hour_of_day,
+                strftime('%w', datetime(played_at, ?)) as day_of_week,
+                strftime('%H', datetime(played_at, ?)) as hour_of_day,
                 COUNT(*) as play_count
             FROM listening_history
             WHERE user_id = ?
             AND played_at IS NOT NULL
             AND source NOT LIKE 'top_%'  -- Exclude top tracks data
+            AND source NOT LIKE 'audio_features'  -- Exclude audio features data
             AND date(played_at) <= ?     -- Ensure dates are not in the future
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        ''', (user_data['id'], current_date))
+        ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
 
         patterns_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
