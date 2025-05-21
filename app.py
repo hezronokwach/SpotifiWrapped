@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import time
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Import custom modules
 import sqlite3
@@ -397,8 +397,8 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     if n_clicks is not None and n_clicks > 0:
         user_data = spotify_api.get_user_profile()
         if user_data:
-            # Fetch saved tracks and save to database
-            saved_tracks_data = spotify_api.get_saved_tracks(limit=10)
+            # Fetch saved tracks and save to database - get more tracks to ensure we have a good history
+            saved_tracks_data = spotify_api.get_saved_tracks(limit=50)
             if saved_tracks_data:
                 # Save to database
                 for track in saved_tracks_data:
@@ -424,6 +424,7 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
                         # If no timestamp, use current time
                         played_at = datetime.now().replace(microsecond=0).isoformat()
 
+                    # Save with both 'saved' and 'library' sources to ensure compatibility
                     db.save_listening_history(
                         user_id=user_data['id'],
                         track_id=track['id'],
@@ -431,12 +432,24 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
                         source='saved'
                     )
 
+                    # Also save with 'library' source for better compatibility
+                    try:
+                        db.save_listening_history(
+                            user_id=user_data['id'],
+                            track_id=track['id'],
+                            played_at=played_at,
+                            source='library'
+                        )
+                    except Exception as e:
+                        # If it fails (likely due to unique constraint), that's okay
+                        pass
+
     # Get data from database
     conn = sqlite3.connect(db.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for saved tracks
+    # Query for saved tracks - include both 'saved' source and tracks from Spotify's saved tracks API
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -447,9 +460,9 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
             h.played_at as added_at
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source = 'saved'
+        WHERE (h.source = 'saved' OR h.source = 'library')
         ORDER BY h.played_at DESC
-        LIMIT 10
+        LIMIT 50
     ''')
 
     saved_tracks_data = [dict(row) for row in cursor.fetchall()]
@@ -1000,14 +1013,14 @@ def update_listening_patterns_chart(n_intervals):
     # Only include actual listening events (not top tracks) and ensure dates are valid
     current_date = datetime.now().strftime('%Y-%m-%d')
 
-    # Get local timezone offset to adjust UTC times in the database
-    # This helps ensure the hours displayed match your local time
-    local_tz_offset = time.localtime().tm_gmtoff / 3600  # Convert seconds to hours
-    tz_adjustment = f"{local_tz_offset:+g} hours"  # Format as "+3 hours" or "-5 hours"
+    # Set timezone offset for Kenya (EAT, UTC+3)
+    # This ensures the hours displayed match Kenya's timezone
+    kenya_tz_offset = 3  # Kenya is UTC+3
+    tz_adjustment = f"+{kenya_tz_offset} hours"
 
-    print(f"TIMEZONE DEBUG: Using timezone adjustment: {tz_adjustment}")
+    print(f"TIMEZONE DEBUG: Using Kenya timezone adjustment: {tz_adjustment}")
     print(f"TIMEZONE DEBUG: Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"TIMEZONE DEBUG: Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"TIMEZONE DEBUG: Current UTC time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
     cursor.execute('''
         SELECT
@@ -1073,13 +1086,13 @@ def update_listening_patterns_chart(n_intervals):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Use the same timezone adjustment as before
-        local_tz_offset = time.localtime().tm_gmtoff / 3600
-        tz_adjustment = f"{local_tz_offset:+g} hours"
+        # Use the same Kenya timezone adjustment as before
+        kenya_tz_offset = 3  # Kenya is UTC+3
+        tz_adjustment = f"+{kenya_tz_offset} hours"
 
-        print(f"TIMEZONE DEBUG (retry): Using timezone adjustment: {tz_adjustment}")
+        print(f"TIMEZONE DEBUG (retry): Using Kenya timezone adjustment: {tz_adjustment}")
         print(f"TIMEZONE DEBUG (retry): Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
         cursor.execute('''
             SELECT
