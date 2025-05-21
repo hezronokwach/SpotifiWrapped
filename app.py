@@ -1012,6 +1012,7 @@ def update_listening_patterns_chart(n_intervals):
     # Query for listening patterns with proper filtering
     # Only include actual listening events (not top tracks) and ensure dates are valid
     current_date = datetime.now().strftime('%Y-%m-%d')
+    current_hour = datetime.now().hour
 
     # Set timezone offset for Kenya (EAT, UTC+3)
     # This ensures the hours displayed match Kenya's timezone
@@ -1020,6 +1021,7 @@ def update_listening_patterns_chart(n_intervals):
 
     print(f"TIMEZONE DEBUG: Using Kenya timezone adjustment: {tz_adjustment}")
     print(f"TIMEZONE DEBUG: Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"TIMEZONE DEBUG: Current hour: {current_hour}")
     print(f"TIMEZONE DEBUG: Current UTC time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
     cursor.execute('''
@@ -1032,10 +1034,16 @@ def update_listening_patterns_chart(n_intervals):
         AND played_at IS NOT NULL
         AND source NOT LIKE 'top_%'  -- Exclude top tracks data
         AND source NOT LIKE 'audio_features'  -- Exclude audio features data
-        AND date(played_at) <= ?     -- Ensure dates are not in the future
+        AND (
+            date(played_at) < ?  -- Past dates are always valid
+            OR (
+                date(played_at) = ? AND  -- For current date
+                CAST(strftime('%H', datetime(played_at, ?)) AS INTEGER) <= ?  -- Only include hours up to current hour
+            )
+        )
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
-    ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
+    ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date, current_date, tz_adjustment, current_hour))
 
     patterns_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -1090,8 +1098,12 @@ def update_listening_patterns_chart(n_intervals):
         kenya_tz_offset = 3  # Kenya is UTC+3
         tz_adjustment = f"+{kenya_tz_offset} hours"
 
+        # Make sure we have the current hour
+        current_hour = datetime.now().hour
+
         print(f"TIMEZONE DEBUG (retry): Using Kenya timezone adjustment: {tz_adjustment}")
         print(f"TIMEZONE DEBUG (retry): Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"TIMEZONE DEBUG (retry): Current hour: {current_hour}")
         print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
 
         cursor.execute('''
@@ -1104,10 +1116,16 @@ def update_listening_patterns_chart(n_intervals):
             AND played_at IS NOT NULL
             AND source NOT LIKE 'top_%'  -- Exclude top tracks data
             AND source NOT LIKE 'audio_features'  -- Exclude audio features data
-            AND date(played_at) <= ?     -- Ensure dates are not in the future
+            AND (
+                date(played_at) < ?  -- Past dates are always valid
+                OR (
+                    date(played_at) = ? AND  -- For current date
+                    CAST(strftime('%H', datetime(played_at, ?)) AS INTEGER) <= ?  -- Only include hours up to current hour
+                )
+            )
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
+        ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date, current_date, tz_adjustment, current_hour))
 
         patterns_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -1611,28 +1629,13 @@ def update_wrapped_summary(n_clicks):
         print(f"Error updating wrapped summary: {e}")
         return {}
 
-# New callback for music analysis section
-@app.callback(
-    Output('music-analysis-container', 'children'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
-)
+# Music analysis section has been removed from the layout
+# Keeping this function for reference but not registering it as a callback
 def update_music_analysis(n_intervals, n_clicks):
-    """Update the music analysis section."""
-    try:
-        # Get user data
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Log in to see your music analysis",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-
-        # Return an empty div - we've moved this content to the Sound Story section
-        return html.Div()
-
-    except Exception as e:
-        print(f"Error updating music analysis: {e}")
-        return html.Div("Error loading music analysis",
-                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+    """Update the music analysis section (no longer used)."""
+    # This function is kept for reference but is no longer used
+    # The "Your Musical Universe" section has been removed from the dashboard
+    return html.Div()
 
 # Update wrapped summary display
 @app.callback(

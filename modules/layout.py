@@ -385,9 +385,6 @@ class DashboardLayout:
                     dbc.Col(self.create_dj_mode_section(), md=6)
                 ], className='mb-4'),
 
-                # Music analysis section
-                self.create_music_analysis_section(),
-
                 # Audio analysis row
                 dbc.Row([
                     dbc.Col(self.create_audio_features_section(), md=6),

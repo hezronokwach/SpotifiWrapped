@@ -1308,7 +1308,7 @@ class SpotifyVisualizations:
         # Create component
         return html.Div([
             # Title
-            html.H2("Your 2023 Wrapped", style={
+            html.H2("Your 2025 Wrapped", style={
                 'color': self.theme['accent_color'],
                 'textAlign': 'center',
                 'fontSize': '32px',
