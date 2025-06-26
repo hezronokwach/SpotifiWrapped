@@ -12,6 +12,7 @@ SpotifyWrappedRemix is a Python-powered, interactive remake of Spotify Wrapped, 
 1. Clone the repo: `git clone https://github.com/your-username/SpotifyWrappedRemix.git`
 2. Create a virtual environment: `python3 -m venv venv`
 3. Activate: `source venv/bin/activate`
+venv\Scripts\Activate.ps1
 4. Install dependencies: `pip install -r requirements.txt`
 5. Create a `.env` file in the project root with your Spotify API credentials:
    ```

@@ -40,35 +40,89 @@ class SpotifyAnimations:
     # Animation methods will be implemented here
 
 def create_stat_card(title, value, icon="fa-music", color=SPOTIFY_GREEN):
-    """Create a stat card for displaying metrics."""
+    """Create a futuristic stat card for displaying metrics with enhanced animations."""
+
+    # Generate unique ID for this card
+    import uuid
+    card_id = f"stat-card-{uuid.uuid4().hex[:8]}"
+
     return html.Div([
+        # Animated background effect
+        html.Div(className="data-flow", style={
+            'position': 'absolute',
+            'top': '0',
+            'left': '0',
+            'right': '0',
+            'bottom': '0',
+            'background': f'linear-gradient(45deg, transparent, {color}20, transparent)',
+            'opacity': '0.3'
+        }),
+
+        # Icon with glow effect
         html.Div([
             html.I(className=f"fas {icon}", style={
-                'fontSize': '24px',
-                'color': color
+                'fontSize': '32px',
+                'color': color,
+                'filter': f'drop-shadow(0 0 10px {color}50)',
+                'transition': 'all 0.3s ease'
             })
         ], style={
             'textAlign': 'center',
-            'marginBottom': '10px'
+            'marginBottom': '15px',
+            'position': 'relative',
+            'zIndex': '2'
         }),
-        html.H4(value, style={
+
+        # Value with counter animation effect
+        html.H4(value, id=f"{card_id}-value", style={
             'textAlign': 'center',
             'color': SPOTIFY_WHITE,
-            'fontSize': '28px',
-            'fontWeight': 'bold',
-            'marginBottom': '5px'
+            'fontSize': '32px',
+            'fontWeight': '700',
+            'marginBottom': '8px',
+            'fontFamily': 'Orbitron, monospace',
+            'textShadow': f'0 0 20px {color}30',
+            'position': 'relative',
+            'zIndex': '2'
         }),
+
+        # Title with subtle glow
         html.P(title, style={
             'textAlign': 'center',
             'color': SPOTIFY_GRAY,
-            'fontSize': '14px'
+            'fontSize': '13px',
+            'fontWeight': '500',
+            'textTransform': 'uppercase',
+            'letterSpacing': '1px',
+            'position': 'relative',
+            'zIndex': '2'
+        }),
+
+        # Futuristic border accent
+        html.Div(style={
+            'position': 'absolute',
+            'bottom': '0',
+            'left': '20%',
+            'right': '20%',
+            'height': '2px',
+            'background': f'linear-gradient(90deg, transparent, {color}, transparent)',
+            'borderRadius': '1px',
+            'boxShadow': f'0 0 10px {color}50'
         })
-    ], style={
-        'backgroundColor': '#181818',
-        'padding': '20px',
-        'borderRadius': '10px',
-        'boxShadow': '0 4px 8px rgba(0,0,0,0.3)',
-        'height': '100%'
+    ],
+    id=card_id,
+    className='spotify-card card-glass pulse',
+    style={
+        'padding': '24px',
+        'borderRadius': '16px',
+        'height': '160px',
+        'position': 'relative',
+        'overflow': 'hidden',
+        'border': f'1px solid {color}30',
+        'background': f'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+        'backdropFilter': 'blur(20px)',
+        'transition': 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        'cursor': 'pointer'
     })
 def create_album_card(album_name, artist_name, rank, image_url="", score=0):
     """
@@ -1327,7 +1381,7 @@ class SpotifyVisualizations:
         # Create component
         return html.Div([
             # Title
-            html.H2("Your 2023 Wrapped", style={
+            html.H2("Your Spotify Wrapped", style={
                 'color': self.theme['accent_color'],
                 'textAlign': 'center',
                 'fontSize': '32px',
@@ -1847,27 +1901,173 @@ def create_artist_list_item(artist_data):
         }
     })
 
-def create_spotify_card(title, content, icon=None):
-    """Create a styled card component for the dashboard."""
-    header = html.Div([
-        html.I(className=f"fas {icon}", style={'marginRight': '10px'}) if icon else None,
-        html.H3(title, style={'margin': '0', 'display': 'inline'})
-    ], style={
-        'borderBottom': f'1px solid {SPOTIFY_GRAY}',
-        'paddingBottom': '10px',
-        'marginBottom': '15px',
-        'color': SPOTIFY_GREEN
+def create_playlists_fancy_list(df):
+    """Create a fancy list display for playlists."""
+    if df.empty or 'playlist' not in df.columns:
+        return html.Div([
+            html.Div([
+                html.I(className="fas fa-music", style={
+                    'fontSize': '48px',
+                    'color': SPOTIFY_GREEN,
+                    'marginBottom': '20px'
+                }),
+                html.H4("No Playlists Found", style={
+                    'color': SPOTIFY_WHITE,
+                    'marginBottom': '10px'
+                }),
+                html.P("Your playlists will appear here when available", style={
+                    'color': SPOTIFY_GRAY,
+                    'fontSize': '14px'
+                })
+            ], style={
+                'textAlign': 'center',
+                'padding': '40px 20px',
+                'backgroundColor': 'rgba(255, 255, 255, 0.05)',
+                'borderRadius': '12px',
+                'border': '1px dashed rgba(29, 185, 84, 0.3)'
+            })
+        ])
+
+    # Sort by track count and limit to top 10
+    if 'total_tracks' in df.columns:
+        df = df.sort_values('total_tracks', ascending=False)
+    df = df.head(10)
+
+    playlist_items = []
+    for _, row in df.iterrows():
+        playlist_item = html.Div([
+            # Playlist icon/image
+            html.Div([
+                html.Div([
+                    html.I(className="fas fa-list-music", style={
+                        'fontSize': '24px',
+                        'color': SPOTIFY_GREEN
+                    })
+                ], style={
+                    'width': '50px',
+                    'height': '50px',
+                    'borderRadius': '8px',
+                    'backgroundColor': 'rgba(29, 185, 84, 0.1)',
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'justifyContent': 'center',
+                    'border': '1px solid rgba(29, 185, 84, 0.3)'
+                })
+            ], style={'display': 'inline-block', 'verticalAlign': 'middle'}),
+
+            # Playlist info
+            html.Div([
+                html.Div([
+                    html.Span(row['playlist'], style={
+                        'color': SPOTIFY_WHITE,
+                        'fontWeight': '600',
+                        'fontSize': '16px',
+                        'display': 'block',
+                        'marginBottom': '4px'
+                    }),
+                    html.Span(f"{row.get('total_tracks', 0)} tracks", style={
+                        'color': SPOTIFY_GRAY,
+                        'fontSize': '14px'
+                    }),
+                    html.Span(" • ", style={'color': SPOTIFY_GRAY, 'margin': '0 8px'}),
+                    html.Span(
+                        'Public' if row.get('public', False) else 'Private',
+                        style={
+                            'color': SPOTIFY_GREEN if row.get('public', False) else '#F037A5',
+                            'fontSize': '12px',
+                            'fontWeight': '500',
+                            'textTransform': 'uppercase',
+                            'letterSpacing': '0.5px'
+                        }
+                    )
+                ])
+            ], style={
+                'display': 'inline-block',
+                'verticalAlign': 'middle',
+                'marginLeft': '16px',
+                'flex': '1'
+            })
+        ], className='playlist-item', style={
+            'display': 'flex',
+            'alignItems': 'center',
+            'padding': '16px',
+            'marginBottom': '12px',
+            'backgroundColor': 'rgba(255, 255, 255, 0.03)',
+            'borderRadius': '12px',
+            'border': '1px solid rgba(255, 255, 255, 0.1)',
+            'transition': 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            'cursor': 'pointer',
+            'position': 'relative',
+            'overflow': 'hidden'
+        })
+
+        playlist_items.append(playlist_item)
+
+    return html.Div(playlist_items, style={
+        'maxHeight': '400px',
+        'overflowY': 'auto',
+        'padding': '8px'
     })
+
+def create_spotify_card(title, content, icon=None, card_type="default"):
+    """Create a styled card component for the dashboard with futuristic design."""
+
+    # Enhanced header with futuristic styling
+    header = html.Div([
+        html.Div([
+            html.I(className=f"fas {icon}", style={
+                'marginRight': '12px',
+                'fontSize': '1.2rem',
+                'background': 'linear-gradient(45deg, #1DB954, #1ED760)',
+                'backgroundClip': 'text',
+                'WebkitBackgroundClip': 'text',
+                'WebkitTextFillColor': 'transparent',
+                'filter': 'drop-shadow(0 0 8px rgba(29, 185, 84, 0.3))'
+            }) if icon else None,
+            html.H3(title, style={
+                'margin': '0',
+                'display': 'inline',
+                'fontFamily': 'Orbitron, monospace',
+                'fontWeight': '600',
+                'fontSize': '1.3rem',
+                'background': 'linear-gradient(45deg, #FFFFFF, #B3B3B3)',
+                'backgroundClip': 'text',
+                'WebkitBackgroundClip': 'text',
+                'WebkitTextFillColor': 'transparent'
+            })
+        ], style={'display': 'flex', 'alignItems': 'center'}),
+
+        # Futuristic divider line
+        html.Div(style={
+            'height': '2px',
+            'background': 'linear-gradient(90deg, transparent, #1DB954, transparent)',
+            'marginTop': '12px',
+            'borderRadius': '1px',
+            'boxShadow': '0 0 10px rgba(29, 185, 84, 0.3)'
+        })
+    ], style={
+        'marginBottom': '20px',
+        'position': 'relative'
+    })
+
+    # Card type specific styling
+    card_styles = {
+        'default': 'spotify-card',
+        'holographic': 'spotify-card card-holographic',
+        'neon': 'spotify-card card-neon',
+        'glass': 'spotify-card card-glass',
+        'matrix': 'spotify-card card-matrix'
+    }
 
     return html.Div([
         header,
-        html.Div(content)
-    ], style={
-        'backgroundColor': '#121212',
-        'padding': '20px',
-        'borderRadius': '10px',
-        'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
-        'margin': '15px 0'
+        html.Div(content, style={'position': 'relative', 'zIndex': '1'})
+    ], className=card_styles.get(card_type, 'spotify-card'), style={
+        'padding': '24px',
+        'borderRadius': '16px',
+        'margin': '15px 0',
+        'position': 'relative',
+        'overflow': 'hidden'
     })
 
 def create_progress_bar(value, max_value=100, label=None, color=SPOTIFY_GREEN):
@@ -2067,7 +2267,7 @@ class SpotifyAnimations:
                 time_str = f"{hours:,} hours {mins} minutes"
 
                 time_text = Text(time_str, font="Arial", color="#FFFFFF")
-                subtext = Text("of music in 2023", font="Arial", color="#AAAAAA")
+                subtext = Text("of music in 2024", font="Arial", color="#AAAAAA")
 
                 # Position text
                 header.to_edge(UP, buff=1)

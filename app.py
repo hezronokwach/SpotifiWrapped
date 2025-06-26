@@ -468,14 +468,14 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     # Create visualization
     return visualizations.create_saved_tracks_timeline(saved_tracks_df)
 
-# Update playlists chart
+# Update playlists list
 @app.callback(
-    Output('playlists-chart', 'figure'),
+    Output('playlists-container', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks')
 )
-def update_playlists_chart(n_intervals, n_clicks):
-    """Update the playlists chart."""
+def update_playlists_list(n_intervals, n_clicks):
+    """Update the playlists fancy list."""
     # Fetch new data if refresh button clicked
     if n_clicks is not None and n_clicks > 0:
         playlists_data = spotify_api.get_playlists(limit=10)
@@ -485,7 +485,7 @@ def update_playlists_chart(n_intervals, n_clicks):
     playlists_df = data_processor.load_data('playlists.csv')
 
     # Create visualization
-    return visualizations.create_playlists_chart(playlists_df)
+    return visualizations.create_playlists_fancy_list(playlists_df)
 
 # Update audio features chart
 @app.callback(
@@ -1084,6 +1084,7 @@ def update_listening_patterns_chart(n_intervals):
         AND h.played_at IS NOT NULL
         AND h.source IN ('played', 'recently_played', 'current')  -- Only include actual listening events
         AND datetime(h.played_at) <= datetime('now')  -- Ensure dates are not in the future
+        AND datetime(h.played_at) >= datetime('now', '-7 days')  -- Only last 7 days
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
     ''', (user_data['id'],))
@@ -1142,6 +1143,7 @@ def update_listening_patterns_chart(n_intervals):
             AND h.played_at IS NOT NULL
             AND h.source IN ('played', 'recently_played', 'current')  -- Only include actual listening events
             AND datetime(h.played_at) <= datetime('now')  -- Ensure dates are not in the future
+            AND datetime(h.played_at) >= datetime('now', '-7 days')  -- Only last 7 days
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
         ''', (user_data['id'],))
@@ -1460,9 +1462,9 @@ def update_personality_analysis(n_intervals, n_clicks):
                 'boxShadow': '0 4px 12px rgba(0,0,0,0.3)'
             }),
 
-            # Recommendations
+            # Recommendations - Side by Side Layout
             html.Div([
-                html.H3("Personalized Recommendations",
+                html.H3("🎯 Personalized Recommendations",
                     style={
                         'color': SPOTIFY_WHITE,
                         'textAlign': 'center',
@@ -1471,24 +1473,52 @@ def update_personality_analysis(n_intervals, n_clicks):
                     }
                 ),
                 html.Div([
+                    # Left column
                     html.Div([
-                        html.I(className="fas fa-lightbulb",
-                            style={
-                                'color': SPOTIFY_GREEN,
-                                'fontSize': '1.2rem',
-                                'marginRight': '10px'
-                            }
-                        ),
-                        html.Span(recommendation)
-                    ], style={
-                        'color': SPOTIFY_WHITE,
-                        'backgroundColor': '#242424',
-                        'padding': '15px 20px',
-                        'borderRadius': '10px',
-                        'marginBottom': '10px',
-                        'fontSize': '1.1rem'
-                    }) for recommendation in personality_data.get('recommendations', [])
-                ])
+                        html.Div([
+                            html.I(className="fas fa-lightbulb",
+                                style={
+                                    'color': SPOTIFY_GREEN,
+                                    'fontSize': '1rem',
+                                    'marginRight': '8px'
+                                }
+                            ),
+                            html.Span(recommendation, style={'fontSize': '0.9rem'})
+                        ], style={
+                            'color': SPOTIFY_WHITE,
+                            'backgroundColor': '#1a1a1a',
+                            'padding': '15px',
+                            'borderRadius': '8px',
+                            'marginBottom': '10px',
+                            'border': f'1px solid {["#1DB954", "#FF6B35", "#1E90FF", "#FFD700", "#FF69B4"][i % 5]}',
+                            'display': 'flex',
+                            'alignItems': 'flex-start'
+                        }) for i, recommendation in enumerate(personality_data.get('recommendations', [])[::2])  # Even indices
+                    ], className="col-md-6"),
+
+                    # Right column
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-lightbulb",
+                                style={
+                                    'color': SPOTIFY_GREEN,
+                                    'fontSize': '1rem',
+                                    'marginRight': '8px'
+                                }
+                            ),
+                            html.Span(recommendation, style={'fontSize': '0.9rem'})
+                        ], style={
+                            'color': SPOTIFY_WHITE,
+                            'backgroundColor': '#1a1a1a',
+                            'padding': '15px',
+                            'borderRadius': '8px',
+                            'marginBottom': '10px',
+                            'border': f'1px solid {["#1DB954", "#FF6B35", "#1E90FF", "#FFD700", "#FF69B4"][(i*2+1) % 5]}',
+                            'display': 'flex',
+                            'alignItems': 'flex-start'
+                        }) for i, recommendation in enumerate(personality_data.get('recommendations', [])[1::2])  # Odd indices
+                    ], className="col-md-6")
+                ], className="row")
             ], style={
                 'backgroundColor': '#181818',
                 'padding': '30px',
@@ -1653,28 +1683,7 @@ def update_wrapped_summary(n_clicks):
         print(f"Error updating wrapped summary: {e}")
         return {}
 
-# New callback for music analysis section
-@app.callback(
-    Output('music-analysis-container', 'children'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
-)
-def update_music_analysis(n_intervals, n_clicks):
-    """Update the music analysis section."""
-    try:
-        # Get user data
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Log in to see your music analysis",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-        # Return an empty div - we've moved this content to the Sound Story section
-        return html.Div()
-
-    except Exception as e:
-        print(f"Error updating music analysis: {e}")
-        return html.Div("Error loading music analysis",
-                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
 # Update wrapped summary display
 @app.callback(

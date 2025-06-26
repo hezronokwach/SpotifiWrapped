@@ -207,13 +207,64 @@ class DashboardLayout:
             icon="fa-clock"
         )
 
+    def create_top_track_highlight_section(self):
+        """Create the top track highlight section."""
+        return create_spotify_card(
+            title="Your #1 Track",
+            content=html.Div(
+                id='top-track-highlight-container',
+                style={
+                    'minHeight': '180px',
+                    'position': 'relative'
+                }
+            ),
+            icon="fa-music",
+            card_type="neon"
+        )
+
+    def create_top_artist_highlight_section(self):
+        """Create the top artist highlight section."""
+        return create_spotify_card(
+            title="Your Top Artist",
+            content=html.Div(
+                id='top-artist-highlight-container',
+                style={
+                    'minHeight': '180px',
+                    'position': 'relative'
+                }
+            ),
+            icon="fa-user-music",
+            card_type="glass"
+        )
+
+    def create_sound_story_section(self):
+        """Create the sound story section."""
+        return create_spotify_card(
+            title="Your Sound Story",
+            content=html.Div(
+                id='sound-story-container',
+                style={
+                    'minHeight': '180px',
+                    'position': 'relative'
+                }
+            ),
+            icon="fa-book-open",
+            card_type="matrix"
+        )
+
     def create_wrapped_summary_section(self):
-        """Create the Spotify Wrapped summary section."""
-        return html.Div(
-            id='wrapped-summary-container',
-            style={
-                'margin': '30px 0'
-            }
+        """Create the Spotify Wrapped summary section with futuristic styling."""
+        return create_spotify_card(
+            title="Your Spotify Wrapped",
+            content=html.Div(
+                id='wrapped-summary-container',
+                style={
+                    'minHeight': '200px',
+                    'position': 'relative'
+                }
+            ),
+            icon="fa-star",
+            card_type="holographic"
         )
 
     def create_top_albums_section(self):
