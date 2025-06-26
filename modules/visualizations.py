@@ -688,20 +688,21 @@ class SpotifyVisualizations:
         # Limit to most recent 10 tracks
         df = df.head(10)
 
-        # Create timeline
-        fig = px.timeline(
+        # Create a scatter plot instead of timeline for better visualization
+        fig = px.scatter(
             df,
-            x_start='added_at',
-            x_end='end_date' if 'end_date' in df.columns else 'added_at',
+            x='added_at',
             y='track',
             color='artist',
+            size='duration_minutes' if 'duration_minutes' in df.columns else None,
             color_discrete_sequence=SPOTIFY_PALETTE,
             labels={
                 'added_at': 'Date Added',
-                'track': '',
-                'artist': 'Artist'
+                'track': 'Track',
+                'artist': 'Artist',
+                'duration_minutes': 'Duration (min)'
             },
-            title='Recently Saved Tracks'
+            title='Recently Saved Tracks Timeline'
         )
 
         # Reverse y-axis to show most recent at the top
@@ -714,11 +715,16 @@ class SpotifyVisualizations:
             "Added: %{x}<br>"
         )
 
+        custom_data_cols = ['artist']
         if 'album' in df.columns:
             hover_template += "Album: %{customdata[1]}<br>"
-            custom_data = df[['artist', 'album']].values
-        else:
-            custom_data = df[['artist']].values
+            custom_data_cols.append('album')
+
+        if 'duration_minutes' in df.columns:
+            hover_template += "Duration: %{customdata[" + str(len(custom_data_cols)) + "]} min<br>"
+            custom_data_cols.append('duration_minutes')
+
+        custom_data = df[custom_data_cols].values
 
         fig.update_traces(
             hovertemplate=hover_template,
@@ -1045,12 +1051,25 @@ class SpotifyVisualizations:
                 # Try to convert string hours to integers
                 df['hour_of_day'] = pd.to_numeric(df['hour_of_day'], errors='coerce').fillna(0).astype(int)
 
-            # Create pivot table for heatmap
+            # Create pivot table for heatmap - prefer minutes_played if available
+            if 'minutes_played' in df.columns:
+                value_column = 'minutes_played'
+                title_suffix = ' (Minutes Played)'
+                hover_label = 'Minutes'
+            elif 'play_count' in df.columns:
+                value_column = 'play_count'
+                title_suffix = ' (Play Count)'
+                hover_label = 'Plays'
+            else:
+                value_column = None
+                title_suffix = ''
+                hover_label = 'Count'
+
             pivot_df = df.pivot_table(
                 index='day_of_week',
                 columns='hour_of_day',
-                values='play_count' if 'play_count' in df.columns else None,
-                aggfunc='sum' if 'play_count' in df.columns else 'size',
+                values=value_column,
+                aggfunc='sum' if value_column else 'size',
                 fill_value=0
             )
 
@@ -1080,12 +1099,12 @@ class SpotifyVisualizations:
                 y=pivot_df.index,
                 colorscale='Viridis',
                 hoverongaps=False,
-                hovertemplate='Day: %{y}<br>Hour: %{x}<br>Play Count: %{z}<extra></extra>'
+                hovertemplate=f'Day: %{{y}}<br>Hour: %{{x}}<br>{hover_label}: %{{z}}<extra></extra>'
             ))
 
             # Update layout for better appearance
             fig.update_layout(
-                title='Your Listening Patterns',
+                title=f'Your Listening Patterns{title_suffix}',
                 xaxis_title='Hour of Day',
                 yaxis_title='Day of Week',
                 height=500,

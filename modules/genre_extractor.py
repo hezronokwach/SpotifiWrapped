@@ -11,7 +11,9 @@ class GenreExtractor:
         """Initialize extractor with API and database instances."""
         self.api = spotify_api
         self.db = database
-        self.rate_limit_delay = 1  # Base delay between API calls
+        self.rate_limit_delay = 1.5  # Increased base delay between API calls
+        self.batch_delay = 3.0  # Longer delay every few requests
+        self.request_count = 0  # Track number of requests made
 
     def extract_genres_from_recent_tracks(self, max_artists: int = 100):
         """
@@ -53,6 +55,7 @@ class GenreExtractor:
 
                 # Add a delay to avoid rate limiting
                 self._handle_rate_limit()
+                self.request_count += 1
 
             except Exception as e:
                 logger.error(f"Error extracting genres for artist {artist_name}: {e}")
@@ -94,18 +97,16 @@ class GenreExtractor:
             return []
 
     def _handle_rate_limit(self):
-        """Handle rate limiting with exponential backoff."""
+        """Handle rate limiting with improved backoff strategy."""
+        # Base delay
         time.sleep(self.rate_limit_delay)
-        # Increase delay if we're getting close to rate limit
-        # Reset it periodically
-        if self.rate_limit_delay < 5:  # Max 5 second delay
-            self.rate_limit_delay *= 1.5
 
-        # Every 10 calls, add a longer pause to avoid hitting rate limits
-        if hasattr(self, '_api_call_count'):
-            self._api_call_count += 1
-            if self._api_call_count % 10 == 0:
-                print(f"Taking a longer break after {self._api_call_count} API calls...")
-                time.sleep(5)  # Take a 5-second break every 10 calls
-        else:
-            self._api_call_count = 1
+        # Every 5 requests, take a longer break
+        if self.request_count % 5 == 0 and self.request_count > 0:
+            logger.info(f"Taking a longer break after {self.request_count} API calls...")
+            time.sleep(self.batch_delay)
+
+        # Every 20 requests, take an even longer break
+        if self.request_count % 20 == 0 and self.request_count > 0:
+            logger.info(f"Taking an extended break after {self.request_count} API calls...")
+            time.sleep(10)  # 10-second break every 20 calls

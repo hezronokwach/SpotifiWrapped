@@ -43,19 +43,26 @@ class SpotifyAPI:
                 cache_path='.spotify_cache'  # Cache tokens
             )
 
-            # Force token refresh
-            auth_manager.get_access_token(as_dict=False)
+            # Try to get token, but don't force if not available
+            try:
+                auth_manager.get_access_token(as_dict=False)
+            except Exception as e:
+                logger.warning(f"Could not get access token during initialization: {e}")
+                # Continue without token - will be requested when needed
 
             # Create Spotify client with increased timeout (default is 5 seconds)
             self.sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
 
-            # Test connection
-            user = self.sp.current_user()
-            if user:
-                logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
-            else:
-                logger.error("Failed to get user profile after connection")
-                self.sp = None
+            # Test connection (but don't fail if not authenticated yet)
+            try:
+                user = self.sp.current_user()
+                if user:
+                    logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+                else:
+                    logger.warning("No user profile available - authentication may be needed")
+            except Exception as e:
+                logger.warning(f"Could not test connection during initialization: {e}")
+                # Keep the client - authentication will happen when needed
         except Exception as e:
             logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
@@ -324,21 +331,18 @@ class SpotifyAPI:
 
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
-                # Calculate end date for timeline (added_at + 1 day)
-                added_at = pd.to_datetime(item['added_at'], format='ISO8601')
-                end_date = added_at + pd.Timedelta(days=1)
 
                 tracks_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
                     'album': track['album']['name'],
                     'added_at': item['added_at'],
-                    'end_date': end_date.isoformat(),
                     'id': track['id'],
                     'popularity': track['popularity'],
                     'duration_ms': track['duration_ms'],
                     'name': track['name'],  # Add this to satisfy NOT NULL constraint
-                    'image_url': track['album']['images'][0]['url'] if track['album']['images'] else ''
+                    'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
+                    'preview_url': track.get('preview_url', '')
                 })
 
             # If we got no data, return sample data
@@ -370,18 +374,18 @@ class SpotifyAPI:
             # Generate dates within the last month
             days_ago = idx * 2
             added_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago)
-            end_date = added_at + pd.Timedelta(days=1)
 
             tracks_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
                 'album': track['album'],
                 'added_at': added_at.isoformat(),
-                'end_date': end_date.isoformat(),
                 'id': f"sample-id-{idx}",
                 'popularity': random.randint(50, 90),
                 'duration_ms': random.randint(180000, 240000),
-                'image_url': ''
+                'name': track['track'],  # Add this to satisfy NOT NULL constraint
+                'image_url': '',
+                'preview_url': ''
             })
 
         return tracks_data
@@ -515,54 +519,77 @@ class SpotifyAPI:
                 'product': 'premium'
             }
 
-    def get_recently_played(self, limit=50, before=None, after=None):
+    def get_recently_played(self, limit=50, before=None, after=None, max_retries=3):
         """
-        Fetch recently played tracks.
+        Fetch recently played tracks with retry logic.
 
         Args:
             limit: Number of tracks to fetch
             before: Unix timestamp in milliseconds - returns all items before this timestamp
             after: Unix timestamp in milliseconds - returns all items after this timestamp
+            max_retries: Maximum number of retry attempts
         """
         if not self.sp:
             print("No Spotify connection available")
             return []
 
-        try:
-            params = {'limit': limit}
-            if before:
-                params['before'] = before
-            elif after:
-                params['after'] = after
+        for attempt in range(max_retries + 1):
+            try:
+                params = {'limit': limit}
+                if before:
+                    params['before'] = before
+                elif after:
+                    params['after'] = after
 
-            results = self.sp.current_user_recently_played(**params)
-            tracks_data = []
+                results = self.sp.current_user_recently_played(**params)
+                tracks_data = []
 
-            for idx, item in enumerate(results['items'], 1):
-                track = item['track']
-                played_at = pd.to_datetime(item['played_at'], format='ISO8601')
-                # Estimate end time (played_at + track duration)
-                end_time = played_at + pd.Timedelta(milliseconds=track['duration_ms'])
+                for idx, item in enumerate(results['items'], 1):
+                    track = item['track']
+                    played_at = pd.to_datetime(item['played_at'], format='ISO8601')
 
-                tracks_data.append({
-                    'track': track['name'],
-                    'artist': track['artists'][0]['name'],
-                    'album': track['album']['name'],
-                    'played_at': item['played_at'],
-                    'end_time': end_time.isoformat(),
-                    'id': track['id'],
-                    'duration_ms': track['duration_ms'],
-                    'name': track['name'],  # Add this to satisfy NOT NULL constraint
-                    'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
-                    'day_of_week': played_at.day_name(),
-                    'hour_of_day': played_at.hour
-                })
+                    tracks_data.append({
+                        'track': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'album': track['album']['name'],
+                        'played_at': item['played_at'],
+                        'id': track['id'],
+                        'duration_ms': track['duration_ms'],
+                        'name': track['name'],  # Add this to satisfy NOT NULL constraint
+                        'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
+                        'preview_url': track.get('preview_url', ''),
+                        'popularity': track.get('popularity', 0),
+                        'day_of_week': played_at.day_name(),
+                        'hour_of_day': played_at.hour
+                    })
 
-            print(f"Retrieved {len(tracks_data)} recently played tracks")
-            return tracks_data
-        except Exception as e:
-            print(f"Error fetching recently played tracks: {e}")
-            return []
+                print(f"Retrieved {len(tracks_data)} recently played tracks")
+                return tracks_data
+
+            except Exception as e:
+                print(f"Error fetching recently played tracks (attempt {attempt + 1}/{max_retries + 1}): {e}")
+
+                # Check if it's a rate limit error
+                if "429" in str(e) or "rate limit" in str(e).lower():
+                    if attempt < max_retries:
+                        wait_time = (attempt + 1) * 5  # Progressive backoff: 5, 10, 15 seconds
+                        print(f"Rate limit detected, waiting {wait_time} seconds before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        print("Max retries reached for rate limit")
+                        return []
+                elif attempt < max_retries:
+                    # For other errors, wait a shorter time
+                    wait_time = (attempt + 1) * 2  # 2, 4, 6 seconds
+                    print(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print("Max retries reached")
+                    return []
+
+        return []  # If all retries failed
 
     def _generate_sample_recently_played(self, limit=50):
         """Generate sample recently played tracks when API fails."""
@@ -592,17 +619,18 @@ class SpotifyAPI:
             hour = random.randint(0, 23)  # Any hour
             played_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago, hours=random.randint(0, 23))
             played_at = played_at.replace(hour=hour)
-            end_time = played_at + pd.Timedelta(minutes=3, seconds=30)
 
             tracks_data.append({
                 'track': track['track'],
                 'artist': track['artist'],
                 'album': track['album'],
                 'played_at': played_at.isoformat(),
-                'end_time': end_time.isoformat(),
                 'id': f"sample-recent-{idx}",
                 'duration_ms': 210000,  # 3:30
+                'name': track['track'],  # Add this to satisfy NOT NULL constraint
                 'image_url': '',
+                'preview_url': '',
+                'popularity': random.randint(50, 90),
                 'day_of_week': played_at.day_name(),
                 'hour_of_day': played_at.hour
             })

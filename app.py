@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 # Import custom modules
 import sqlite3
 from modules.api import SpotifyAPI
-from modules.data_processing import DataProcessor
+from modules.data_processing import DataProcessor, normalize_timestamp, calculate_duration_minutes
 from modules.layout import DashboardLayout
 from modules.visualizations import (
     SpotifyVisualizations, SpotifyAnimations,
@@ -403,25 +403,11 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
                 # Save to database
                 for track in saved_tracks_data:
                     db.save_track(track)
-                    # Use a consistent datetime format
+                    # Use the improved timestamp normalization
                     timestamp = track.get('added_at')
-                    if timestamp:
-                        # Try to parse and normalize the timestamp
-                        try:
-                            if 'Z' in timestamp:
-                                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                            elif 'T' in timestamp and ('+' in timestamp or '-' in timestamp.split('T')[1]):
-                                dt = datetime.fromisoformat(timestamp)
-                            else:
-                                dt = datetime.fromisoformat(timestamp)
-
-                            # Convert to naive datetime in ISO format
-                            played_at = dt.replace(tzinfo=None, microsecond=0).isoformat()
-                        except ValueError:
-                            # If parsing fails, use current time
-                            played_at = datetime.now().replace(microsecond=0).isoformat()
-                    else:
-                        # If no timestamp, use current time
+                    played_at = normalize_timestamp(timestamp)
+                    if not played_at:
+                        # If normalization fails, use current time
                         played_at = datetime.now().replace(microsecond=0).isoformat()
 
                     db.save_listening_history(
@@ -436,7 +422,7 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for saved tracks
+    # Query for saved tracks with duration information
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -444,23 +430,40 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
             t.artist,
             t.album,
             t.image_url,
+            t.duration_ms,
+            t.popularity,
             h.played_at as added_at
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE h.source = 'saved'
+        AND t.name IS NOT NULL
+        AND t.artist IS NOT NULL
         ORDER BY h.played_at DESC
-        LIMIT 10
+        LIMIT 20
     ''')
 
     saved_tracks_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
-    # Convert to DataFrame
+    # Convert to DataFrame and process
     if saved_tracks_data:
         saved_tracks_df = pd.DataFrame(saved_tracks_data)
+
+        # Calculate duration in minutes
+        if 'duration_ms' in saved_tracks_df.columns:
+            saved_tracks_df['duration_minutes'] = saved_tracks_df['duration_ms'].apply(calculate_duration_minutes)
+
+        # Ensure added_at is properly formatted
+        if 'added_at' in saved_tracks_df.columns:
+            saved_tracks_df['added_at'] = saved_tracks_df['added_at'].apply(normalize_timestamp)
+            saved_tracks_df['added_at'] = pd.to_datetime(saved_tracks_df['added_at'], errors='coerce')
+            # Remove rows with invalid timestamps
+            saved_tracks_df = saved_tracks_df.dropna(subset=['added_at'])
+
+        print(f"Processed {len(saved_tracks_df)} saved tracks for visualization")
     else:
         # Create empty DataFrame with the right columns
-        saved_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'added_at'])
+        saved_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'added_at', 'duration_minutes'])
 
     # Create visualization
     return visualizations.create_saved_tracks_timeline(saved_tracks_df)
@@ -726,10 +729,15 @@ def update_genre_chart(n_intervals, n_clicks):
                 before_timestamp = None
 
                 # Spotify API has a limit of 50 tracks per call, so we need to paginate
-                # We'll make up to 4 calls to get up to 200 tracks
-                for i in range(4):  # 4 calls * 50 tracks = 200 tracks max
+                # We'll make up to 4 calls to get up to 200 tracks with better error handling
+                max_batches = 4
+                successful_batches = 0
+
+                for i in range(max_batches):
                     try:
-                        # Get recently played tracks
+                        print(f"Fetching batch {i+1}/{max_batches}...")
+
+                        # Get recently played tracks with retry logic
                         tracks = spotify_api.get_recently_played(limit=50, before=before_timestamp)
 
                         if not tracks or len(tracks) == 0:
@@ -738,31 +746,17 @@ def update_genre_chart(n_intervals, n_clicks):
 
                         print(f"Retrieved {len(tracks)} tracks in batch {i+1}")
                         all_tracks.extend(tracks)
+                        successful_batches += 1
 
                         # Save tracks to database
                         for track in tracks:
                             db.save_track(track)
 
                             # Normalize the timestamp
-                            played_at = track.get('played_at')
-                            if played_at:
-                                try:
-                                    # Parse the timestamp
-                                    if 'Z' in played_at:
-                                        dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
-                                    elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
-                                        dt = datetime.fromisoformat(played_at)
-                                    else:
-                                        dt = datetime.fromisoformat(played_at)
-
-                                    # Convert to naive datetime in ISO format
-                                    played_at = dt.replace(tzinfo=None).isoformat()
-                                except ValueError:
-                                    # If parsing fails, use the original timestamp
-                                    pass
-                            else:
-                                # If no timestamp, use current time
-                                played_at = datetime.now().isoformat()
+                            played_at = normalize_timestamp(track.get('played_at'))
+                            if not played_at:
+                                # If normalization fails, use current time
+                                played_at = datetime.now().replace(microsecond=0).isoformat()
 
                             # Save listening history
                             db.save_listening_history(
@@ -779,18 +773,17 @@ def update_genre_chart(n_intervals, n_clicks):
 
                         if played_at:
                             try:
-                                # Parse the timestamp
-                                if 'Z' in played_at:
-                                    dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
-                                elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
-                                    dt = datetime.fromisoformat(played_at)
+                                # Use normalize_timestamp to parse consistently
+                                normalized_timestamp = normalize_timestamp(played_at)
+                                if normalized_timestamp:
+                                    dt = datetime.fromisoformat(normalized_timestamp)
+                                    # Convert to timestamp for the next request
+                                    # Subtract 1 millisecond to avoid getting the same track again
+                                    before_timestamp = int(dt.timestamp() * 1000) - 1
+                                    print(f"Next request will fetch tracks before {dt}")
                                 else:
-                                    dt = datetime.fromisoformat(played_at)
-
-                                # Convert to timestamp for the next request
-                                # Subtract 1 millisecond to avoid getting the same track again
-                                before_timestamp = int(dt.timestamp() * 1000) - 1
-                                print(f"Next request will fetch tracks before {dt}")
+                                    print(f"Failed to normalize timestamp: {played_at}")
+                                    break
                             except ValueError as e:
                                 print(f"Error parsing timestamp: {e}")
                                 break
@@ -798,16 +791,63 @@ def update_genre_chart(n_intervals, n_clicks):
                             print("Last track has no played_at timestamp")
                             break
 
-                        # Add a delay to avoid rate limiting
-                        time.sleep(1)
+                        # Progressive delay to avoid rate limiting
+                        if i == 0:
+                            time.sleep(1)  # Short delay after first batch
+                        elif i == 1:
+                            time.sleep(2)  # Longer delay after second batch
+                        else:
+                            time.sleep(3)  # Even longer delay for subsequent batches
 
                     except Exception as e:
-                        print(f"Error fetching recently played tracks: {e}")
-                        import traceback
-                        traceback.print_exc()
-                        break
+                        print(f"Error fetching recently played tracks in batch {i+1}: {e}")
 
-                print(f"Total tracks fetched: {len(all_tracks)}")
+                        # Check if it's a rate limit error
+                        if "429" in str(e) or "rate limit" in str(e).lower():
+                            print("Rate limit detected, waiting longer before retry...")
+                            time.sleep(10)  # Wait 10 seconds for rate limit
+
+                            # Try one more time for this batch
+                            try:
+                                tracks = spotify_api.get_recently_played(limit=50, before=before_timestamp)
+                                if tracks:
+                                    print(f"Retry successful for batch {i+1}, retrieved {len(tracks)} tracks")
+                                    all_tracks.extend(tracks)
+                                    successful_batches += 1
+
+                                    # Process tracks as before...
+                                    for track in tracks:
+                                        db.save_track(track)
+                                        played_at = normalize_timestamp(track.get('played_at'))
+                                        if not played_at:
+                                            played_at = datetime.now().replace(microsecond=0).isoformat()
+                                        db.save_listening_history(
+                                            user_id=user_data['id'],
+                                            track_id=track['id'],
+                                            played_at=played_at,
+                                            source='played'
+                                        )
+
+                                    # Update timestamp for next request
+                                    last_track = tracks[-1]
+                                    played_at = last_track.get('played_at')
+                                    if played_at:
+                                        normalized_timestamp = normalize_timestamp(played_at)
+                                        if normalized_timestamp:
+                                            dt = datetime.fromisoformat(normalized_timestamp)
+                                            before_timestamp = int(dt.timestamp() * 1000) - 1
+                                else:
+                                    print(f"Retry failed for batch {i+1}")
+                                    break
+                            except Exception as retry_e:
+                                print(f"Retry also failed for batch {i+1}: {retry_e}")
+                                break
+                        else:
+                            import traceback
+                            traceback.print_exc()
+                            break
+
+                print(f"Total tracks fetched: {len(all_tracks)} from {successful_batches}/{max_batches} successful batches")
 
                 # Extract unique artists from the tracks
                 artists = set()
@@ -818,9 +858,21 @@ def update_genre_chart(n_intervals, n_clicks):
 
                 print(f"Found {len(artists)} unique artists in recently played tracks")
 
-                # Process each artist to get their genres
+                # Process each artist to get their genres with improved rate limiting
+                processed_count = 0
                 for artist_name in artists:
-                    print(f"Processing genres for artist: {artist_name}")
+                    print(f"Processing genres for artist: {artist_name} ({processed_count + 1}/{len(artists)})")
+
+                    # Check if we already have genres for this artist
+                    conn = sqlite3.connect(db.db_path)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT COUNT(*) FROM genres WHERE artist_name = ?", (artist_name,))
+                    existing_genres = cursor.fetchone()[0]
+                    conn.close()
+
+                    if existing_genres > 0:
+                        print(f"Already have {existing_genres} genres for artist: {artist_name}")
+                        continue
 
                     # Use our new function to get genres
                     genres = spotify_api.get_artist_genres(artist_name)
@@ -830,17 +882,25 @@ def update_genre_chart(n_intervals, n_clicks):
 
                         # Save each genre to the database
                         for genre in genres:
-                            if genre:  # Skip empty genres
-                                success = db.save_genre(genre, artist_name)
+                            if genre and genre.strip():  # Skip empty or whitespace-only genres
+                                success = db.save_genre(genre.strip(), artist_name)
                                 if success:
                                     print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
                                 else:
                                     print(f"Failed to save genre '{genre}' to database")
                     else:
                         print(f"No genres found for artist {artist_name}")
+                        # Save a placeholder to avoid repeated lookups
+                        db.save_genre("unknown", artist_name)
 
-                    # Add a small delay to avoid rate limiting
-                    time.sleep(0.5)
+                    processed_count += 1
+
+                    # Improved rate limiting
+                    if processed_count % 5 == 0:
+                        print(f"Taking a longer break after processing {processed_count} artists...")
+                        time.sleep(3)  # Longer break every 5 artists
+                    else:
+                        time.sleep(1)  # Standard delay
 
         # Process all artists in the database to ensure we have genres for all of them
         print("Processing genres for all artists in the database...")
@@ -854,8 +914,11 @@ def update_genre_chart(n_intervals, n_clicks):
 
         print(f"Found {len(all_artists)} unique artists in the database")
 
-        # Process each artist to get their genres
-        for artist_name in all_artists:
+        # Process each artist to get their genres with better batching
+        processed_artists = 0
+        max_artists_per_session = 50  # Limit processing to avoid long delays
+
+        for artist_name in all_artists[:max_artists_per_session]:  # Limit to first 50 artists
             # Check if we already have genres for this artist
             conn = sqlite3.connect(db.db_path)
             cursor = conn.cursor()
@@ -865,7 +928,7 @@ def update_genre_chart(n_intervals, n_clicks):
 
             # If we don't have genres for this artist, get them
             if genre_count == 0:
-                print(f"Getting genres for artist: {artist_name}")
+                print(f"Getting genres for artist: {artist_name} ({processed_artists + 1}/{min(len(all_artists), max_artists_per_session)})")
 
                 # Get genres for this artist
                 genres = spotify_api.get_artist_genres(artist_name)
@@ -873,8 +936,8 @@ def update_genre_chart(n_intervals, n_clicks):
                 # Save each genre to the database
                 if genres:
                     for genre in genres:
-                        if genre:  # Skip empty genres
-                            success = db.save_genre(genre, artist_name)
+                        if genre and genre.strip():  # Skip empty or whitespace-only genres
+                            success = db.save_genre(genre.strip(), artist_name)
                             if success:
                                 print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
                 else:
@@ -882,31 +945,35 @@ def update_genre_chart(n_intervals, n_clicks):
                     print(f"No genres found for artist {artist_name}, saving placeholder")
                     db.save_genre("unknown", artist_name)
 
-                # Add a delay to avoid rate limiting - longer delay every 5 artists
-                if hasattr(app, '_genre_artist_count'):
-                    app._genre_artist_count += 1
-                    if app._genre_artist_count % 5 == 0:
-                        print(f"Taking a longer break after processing {app._genre_artist_count} artists...")
-                        time.sleep(2)  # Longer break every 5 artists
-                    else:
-                        time.sleep(0.8)  # Slightly longer standard delay
+                processed_artists += 1
+
+                # Improved rate limiting
+                if processed_artists % 10 == 0:
+                    print(f"Taking an extended break after processing {processed_artists} artists...")
+                    time.sleep(5)  # Extended break every 10 artists
+                elif processed_artists % 5 == 0:
+                    print(f"Taking a longer break after processing {processed_artists} artists...")
+                    time.sleep(2)  # Longer break every 5 artists
                 else:
-                    app._genre_artist_count = 1
-                    time.sleep(0.8)
+                    time.sleep(1)  # Standard delay
             else:
                 print(f"Already have {genre_count} genres for artist: {artist_name}")
+
+        if len(all_artists) > max_artists_per_session:
+            print(f"Processed {max_artists_per_session} artists this session. {len(all_artists) - max_artists_per_session} remaining for next refresh.")
 
         # Get user data if not already available
         if 'user_data' not in locals() or user_data is None:
             user_data = spotify_api.get_user_profile()
 
-        # Get genre data from the genres table
-        genre_data = db.get_top_genres(limit=10)
+        # Get genre data from the genres table with categorization
+        genre_data = db.get_top_genres(limit=10, exclude_unknown=True, categorize=True)
 
         # Convert to DataFrame
         if genre_data:
             genre_df = pd.DataFrame(genre_data)
             print(f"Genre data loaded from database: {len(genre_df)} genres")
+            print(f"Top genres: {genre_df['genre'].tolist()}")
         else:
             print("No genre data in database")
             # Create an empty DataFrame
@@ -1000,38 +1067,40 @@ def update_listening_patterns_chart(n_intervals):
     # Only include actual listening events (not top tracks) and ensure dates are valid
     current_date = datetime.now().strftime('%Y-%m-%d')
 
-    # Get local timezone offset to adjust UTC times in the database
-    # This helps ensure the hours displayed match your local time
-    local_tz_offset = time.localtime().tm_gmtoff / 3600  # Convert seconds to hours
-    tz_adjustment = f"{local_tz_offset:+g} hours"  # Format as "+3 hours" or "-5 hours"
-
-    print(f"TIMEZONE DEBUG: Using timezone adjustment: {tz_adjustment}")
+    # Use localtime for user-friendly display
+    # SQLite datetime() function with 'localtime' modifier automatically adjusts to local timezone
     print(f"TIMEZONE DEBUG: Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"TIMEZONE DEBUG: Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
 
     cursor.execute('''
         SELECT
-            strftime('%w', datetime(played_at, ?)) as day_of_week,
-            strftime('%H', datetime(played_at, ?)) as hour_of_day,
-            COUNT(*) as play_count
-        FROM listening_history
-        WHERE user_id = ?
-        AND played_at IS NOT NULL
-        AND source NOT LIKE 'top_%'  -- Exclude top tracks data
-        AND source NOT LIKE 'audio_features'  -- Exclude audio features data
-        AND date(played_at) <= ?     -- Ensure dates are not in the future
+            strftime('%w', datetime(played_at, 'localtime')) as day_of_week,
+            strftime('%H', datetime(played_at, 'localtime')) as hour_of_day,
+            COUNT(*) as play_count,
+            SUM(CASE WHEN t.duration_ms IS NOT NULL THEN t.duration_ms ELSE 0 END) as total_duration_ms
+        FROM listening_history h
+        JOIN tracks t ON h.track_id = t.track_id
+        WHERE h.user_id = ?
+        AND h.played_at IS NOT NULL
+        AND h.source IN ('played', 'recently_played', 'current')  -- Only include actual listening events
+        AND datetime(h.played_at) <= datetime('now')  -- Ensure dates are not in the future
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
-    ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
+    ''', (user_data['id'],))
 
     patterns_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
 
     if patterns_data:
-        # Convert numeric day of week to name
+        # Convert numeric day of week to name and calculate minutes
         day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
         patterns_df = pd.DataFrame(patterns_data)
         patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
+
+        # Calculate minutes played
+        patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
+
+        print(f"Listening patterns data: {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
         return visualizations.create_listening_patterns_heatmap(patterns_df)
 
     # If no data in database, try to fetch recent data from API and save to database
@@ -1040,25 +1109,10 @@ def update_listening_patterns_chart(n_intervals):
         # Save to database
         for track in recently_played:
             db.save_track(track)
-            # Normalize the timestamp
-            played_at = track.get('played_at')
-            if played_at:
-                try:
-                    # Parse the timestamp
-                    if 'Z' in played_at:
-                        dt = datetime.fromisoformat(played_at.replace('Z', '+00:00'))
-                    elif 'T' in played_at and ('+' in played_at or '-' in played_at.split('T')[1]):
-                        dt = datetime.fromisoformat(played_at)
-                    else:
-                        dt = datetime.fromisoformat(played_at)
-
-                    # Convert to naive datetime in ISO format
-                    played_at = dt.replace(tzinfo=None, microsecond=0).isoformat()
-                except ValueError:
-                    # If parsing fails, use current time
-                    played_at = datetime.now().replace(microsecond=0).isoformat()
-            else:
-                # If no timestamp, use current time
+            # Normalize the timestamp using our utility function
+            played_at = normalize_timestamp(track.get('played_at'))
+            if not played_at:
+                # If normalization fails, use current time
                 played_at = datetime.now().replace(microsecond=0).isoformat()
 
             db.save_listening_history(
@@ -1073,28 +1127,24 @@ def update_listening_patterns_chart(n_intervals):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Use the same timezone adjustment as before
-        local_tz_offset = time.localtime().tm_gmtoff / 3600
-        tz_adjustment = f"{local_tz_offset:+g} hours"
-
-        print(f"TIMEZONE DEBUG (retry): Using timezone adjustment: {tz_adjustment}")
         print(f"TIMEZONE DEBUG (retry): Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
 
         cursor.execute('''
             SELECT
-                strftime('%w', datetime(played_at, ?)) as day_of_week,
-                strftime('%H', datetime(played_at, ?)) as hour_of_day,
-                COUNT(*) as play_count
-            FROM listening_history
-            WHERE user_id = ?
-            AND played_at IS NOT NULL
-            AND source NOT LIKE 'top_%'  -- Exclude top tracks data
-            AND source NOT LIKE 'audio_features'  -- Exclude audio features data
-            AND date(played_at) <= ?     -- Ensure dates are not in the future
+                strftime('%w', datetime(played_at, 'localtime')) as day_of_week,
+                strftime('%H', datetime(played_at, 'localtime')) as hour_of_day,
+                COUNT(*) as play_count,
+                SUM(CASE WHEN t.duration_ms IS NOT NULL THEN t.duration_ms ELSE 0 END) as total_duration_ms
+            FROM listening_history h
+            JOIN tracks t ON h.track_id = t.track_id
+            WHERE h.user_id = ?
+            AND h.played_at IS NOT NULL
+            AND h.source IN ('played', 'recently_played', 'current')  -- Only include actual listening events
+            AND datetime(h.played_at) <= datetime('now')  -- Ensure dates are not in the future
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        ''', (tz_adjustment, tz_adjustment, user_data['id'], current_date))
+        ''', (user_data['id'],))
 
         patterns_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -1103,6 +1153,11 @@ def update_listening_patterns_chart(n_intervals):
             day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
             patterns_df = pd.DataFrame(patterns_data)
             patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
+
+            # Calculate minutes played
+            patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
+
+            print(f"Listening patterns data (retry): {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
             return visualizations.create_listening_patterns_heatmap(patterns_df)
 
     # Create empty DataFrame with the right columns

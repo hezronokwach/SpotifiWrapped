@@ -2,7 +2,96 @@ import pandas as pd
 import os
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional, Union
+
+def normalize_timestamp(timestamp: Union[str, datetime, None]) -> Optional[str]:
+    """
+    Normalize various timestamp formats to ISO format string.
+
+    Args:
+        timestamp: Timestamp in various formats (ISO string, datetime object, etc.)
+
+    Returns:
+        Normalized ISO format string or None if invalid
+    """
+    if timestamp is None:
+        return None
+
+    if isinstance(timestamp, datetime):
+        # Convert datetime to naive UTC and return ISO format
+        if timestamp.tzinfo is not None:
+            timestamp = timestamp.astimezone(timezone.utc).replace(tzinfo=None)
+        return timestamp.replace(microsecond=0).isoformat()
+
+    if isinstance(timestamp, str):
+        try:
+            # Handle various string formats
+            if 'Z' in timestamp:
+                # UTC format with Z
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            elif 'T' in timestamp and ('+' in timestamp or '-' in timestamp.split('T')[1]):
+                # ISO format with timezone
+                dt = datetime.fromisoformat(timestamp)
+            else:
+                # Assume ISO format without timezone
+                dt = datetime.fromisoformat(timestamp)
+
+            # Convert to naive UTC
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+            return dt.replace(microsecond=0).isoformat()
+        except (ValueError, TypeError):
+            # If parsing fails, return None
+            return None
+
+    return None
+
+def calculate_duration_minutes(duration_ms: Optional[int]) -> float:
+    """
+    Calculate duration in minutes from milliseconds.
+
+    Args:
+        duration_ms: Duration in milliseconds
+
+    Returns:
+        Duration in minutes (rounded to 2 decimal places)
+    """
+    if duration_ms is None or duration_ms <= 0:
+        return 0.0
+    return round(duration_ms / 60000, 2)
+
+def calculate_total_listening_time(tracks_data: list) -> dict:
+    """
+    Calculate total listening time statistics from tracks data.
+
+    Args:
+        tracks_data: List of track dictionaries with duration_ms
+
+    Returns:
+        Dictionary with listening time statistics
+    """
+    if not tracks_data:
+        return {
+            'total_minutes': 0,
+            'total_hours': 0,
+            'total_tracks': 0,
+            'average_track_length': 0
+        }
+
+    total_ms = sum(track.get('duration_ms', 0) for track in tracks_data if track.get('duration_ms'))
+    total_minutes = calculate_duration_minutes(total_ms)
+    total_hours = round(total_minutes / 60, 2)
+    total_tracks = len(tracks_data)
+    average_track_length = round(total_minutes / total_tracks, 2) if total_tracks > 0 else 0
+
+    return {
+        'total_minutes': total_minutes,
+        'total_hours': total_hours,
+        'total_tracks': total_tracks,
+        'average_track_length': average_track_length
+    }
 
 class DataProcessor:
     def __init__(self, data_dir='data'):
@@ -71,16 +160,27 @@ class DataProcessor:
         return df
 
     def process_saved_tracks(self, data):
-        """Process saved tracks data."""
+        """Process saved tracks data with improved timestamp handling."""
         df = self.save_data(data, 'saved_tracks.csv')
 
-        # Convert date columns to datetime
+        # Convert date columns to datetime with proper normalization
         if not df.empty and 'added_at' in df.columns:
-            df['added_at'] = pd.to_datetime(df['added_at'], format='ISO8601')
-            if 'end_date' in df.columns:
-                df['end_date'] = pd.to_datetime(df['end_date'], format='ISO8601')
+            # Normalize timestamps
+            df['added_at'] = df['added_at'].apply(normalize_timestamp)
+            df['added_at'] = pd.to_datetime(df['added_at'], errors='coerce')
 
-            # Sort by added_at date
+            # Remove rows with invalid timestamps
+            df = df.dropna(subset=['added_at'])
+
+            # Calculate duration in minutes if duration_ms exists
+            if 'duration_ms' in df.columns:
+                df['duration_minutes'] = df['duration_ms'].apply(calculate_duration_minutes)
+
+            # Remove artificial end_date if it exists (we don't need it for timeline)
+            if 'end_date' in df.columns:
+                df = df.drop(columns=['end_date'])
+
+            # Sort by added_at date (most recent first)
             df = df.sort_values('added_at', ascending=False)
 
             # Save the processed data
@@ -125,19 +225,31 @@ class DataProcessor:
             print(f"Error processing listening history data: {e}")
 
     def process_recently_played(self, data):
-        """Process recently played tracks data."""
+        """Process recently played tracks data with improved timestamp handling."""
         df = self.save_data(data, 'recently_played.csv')
 
-        # Convert date columns to datetime
+        # Convert date columns to datetime with proper normalization
         if not df.empty and 'played_at' in df.columns:
-            df['played_at'] = pd.to_datetime(df['played_at'], format='ISO8601')
-            if 'end_time' in df.columns:
-                df['end_time'] = pd.to_datetime(df['end_time'], format='ISO8601')
+            # Normalize timestamps
+            df['played_at'] = df['played_at'].apply(normalize_timestamp)
+            df['played_at'] = pd.to_datetime(df['played_at'], errors='coerce')
 
-            # Sort by played_at date
+            # Remove rows with invalid timestamps
+            df = df.dropna(subset=['played_at'])
+
+            # Calculate duration in minutes if duration_ms exists
+            if 'duration_ms' in df.columns:
+                df['duration_minutes'] = df['duration_ms'].apply(calculate_duration_minutes)
+
+            # Remove artificial end_time if it exists
+            if 'end_time' in df.columns:
+                df = df.drop(columns=['end_time'])
+
+            # Sort by played_at date (most recent first)
             df = df.sort_values('played_at', ascending=False)
 
             # Calculate day of week and hour of day for time pattern analysis
+            # Use local time for user-friendly display
             df['day_of_week'] = df['played_at'].dt.day_name()
             df['hour_of_day'] = df['played_at'].dt.hour
 

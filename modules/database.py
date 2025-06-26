@@ -192,10 +192,38 @@ class SpotifyDatabase:
             if not name:
                 name = f"Unknown Track ({track_id})"
 
-            # Get artist with default
+            # Get artist with default and validation
             artist = track_data.get('artist')
-            if not artist:
+            if not artist or not str(artist).strip():
                 artist = "Unknown Artist"
+            else:
+                artist = str(artist).strip()
+
+            # Validate and clean other string fields
+            album = track_data.get('album')
+            if album:
+                album = str(album).strip()
+                if not album:
+                    album = None
+
+            # Validate numeric fields
+            duration_ms = track_data.get('duration_ms')
+            if duration_ms is not None:
+                try:
+                    duration_ms = int(duration_ms)
+                    if duration_ms < 0:
+                        duration_ms = None
+                except (ValueError, TypeError):
+                    duration_ms = None
+
+            popularity = track_data.get('popularity')
+            if popularity is not None:
+                try:
+                    popularity = int(popularity)
+                    if not (0 <= popularity <= 100):
+                        popularity = None
+                except (ValueError, TypeError):
+                    popularity = None
 
             # Special logging for genre tracks
             if track_id.startswith('genre-'):
@@ -215,11 +243,11 @@ class SpotifyDatabase:
                 track_id,
                 name,
                 artist,
-                track_data.get('album'),
-                track_data.get('duration_ms'),
-                track_data.get('popularity'),
-                track_data.get('preview_url'),
-                track_data.get('image_url'),
+                album,
+                duration_ms,
+                popularity,
+                str(track_data.get('preview_url', '')).strip() if track_data.get('preview_url') else None,
+                str(track_data.get('image_url', '')).strip() if track_data.get('image_url') else None,
                 track_data.get('added_at'),
                 track_data.get('danceability'),
                 track_data.get('energy'),
@@ -254,7 +282,24 @@ class SpotifyDatabase:
             conn.close()
 
     def save_listening_history(self, user_id: str, track_id: str, played_at: str, source: str = 'played'):
-        """Save a listening history entry."""
+        """Save a listening history entry with validation."""
+        # Validate required parameters
+        if not user_id or not isinstance(user_id, str):
+            logger.error("Invalid user_id: must be a non-empty string")
+            return False
+
+        if not track_id or not isinstance(track_id, str):
+            logger.error("Invalid track_id: must be a non-empty string")
+            return False
+
+        if not played_at or not isinstance(played_at, str):
+            logger.error("Invalid played_at: must be a non-empty string")
+            return False
+
+        if not source or not isinstance(source, str):
+            logger.error("Invalid source: must be a non-empty string")
+            return False
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -328,11 +373,13 @@ class SpotifyDatabase:
                 else:
                     print(f"DATABASE WARNING: Listening history for genre {track_id} was not found after save attempt")
 
+            return True
+
         except sqlite3.Error as e:
             logger.error(f"Error saving listening history: {e}")
             if track_id.startswith('genre-') or source == 'genre':
                 print(f"DATABASE ERROR saving listening history for genre {track_id}: {e}")
-            raise
+            return False
         finally:
             conn.close()
 
@@ -433,13 +480,14 @@ class SpotifyDatabase:
         finally:
             conn.close()
 
-    def get_top_genres(self, limit: int = 10, exclude_unknown: bool = False):
+    def get_top_genres(self, limit: int = 10, exclude_unknown: bool = True, categorize: bool = True):
         """
-        Get top genres from the database.
+        Get top genres from the database with optional categorization.
 
         Args:
             limit: Maximum number of genres to return
             exclude_unknown: Whether to exclude the 'unknown' placeholder genre
+            categorize: Whether to group similar genres together
 
         Returns:
             List of genre dictionaries with genre and count
@@ -453,26 +501,98 @@ class SpotifyDatabase:
                 cursor.execute('''
                     SELECT genre_name as genre, SUM(count) as count
                     FROM genres
-                    WHERE genre_name != 'unknown'
+                    WHERE genre_name != 'unknown' AND genre_name IS NOT NULL AND genre_name != ''
                     GROUP BY genre_name
                     ORDER BY count DESC
-                    LIMIT ?
-                ''', (limit,))
+                ''')
             else:
                 cursor.execute('''
                     SELECT genre_name as genre, SUM(count) as count
                     FROM genres
+                    WHERE genre_name IS NOT NULL AND genre_name != ''
                     GROUP BY genre_name
                     ORDER BY count DESC
-                    LIMIT ?
-                ''', (limit,))
+                ''')
 
-            return [dict(row) for row in cursor.fetchall()]
+            raw_genres = [dict(row) for row in cursor.fetchall()]
+
+            if categorize and raw_genres:
+                # Group similar genres together
+                categorized_genres = self._categorize_genres(raw_genres)
+                return categorized_genres[:limit]
+            else:
+                return raw_genres[:limit]
+
         except sqlite3.Error as e:
             logger.error(f"Error getting top genres: {e}")
             return []
         finally:
             conn.close()
+
+    def _categorize_genres(self, genres):
+        """
+        Categorize and group similar genres together.
+
+        Args:
+            genres: List of genre dictionaries with 'genre' and 'count' keys
+
+        Returns:
+            List of categorized genre dictionaries
+        """
+        # Define genre categories and their keywords
+        genre_categories = {
+            'Pop': ['pop', 'mainstream', 'top 40'],
+            'Rock': ['rock', 'alternative', 'indie rock', 'classic rock', 'hard rock'],
+            'Hip Hop': ['hip hop', 'rap', 'trap', 'hip-hop'],
+            'Electronic': ['electronic', 'edm', 'house', 'techno', 'dubstep', 'electro'],
+            'R&B': ['r&b', 'soul', 'neo soul', 'contemporary r&b'],
+            'Country': ['country', 'folk', 'americana', 'bluegrass'],
+            'Jazz': ['jazz', 'smooth jazz', 'bebop', 'swing'],
+            'Classical': ['classical', 'orchestral', 'symphony', 'opera'],
+            'Reggae': ['reggae', 'dancehall', 'ska'],
+            'Latin': ['latin', 'salsa', 'reggaeton', 'bachata', 'merengue'],
+            'Blues': ['blues', 'delta blues', 'chicago blues'],
+            'Punk': ['punk', 'hardcore', 'post-punk'],
+            'Metal': ['metal', 'heavy metal', 'death metal', 'black metal'],
+            'Funk': ['funk', 'disco', 'groove']
+        }
+
+        # Initialize category counts
+        category_counts = {category: 0 for category in genre_categories.keys()}
+        uncategorized = []
+
+        # Categorize each genre
+        for genre_data in genres:
+            genre_name = genre_data['genre'].lower()
+            count = genre_data['count']
+            categorized = False
+
+            # Check if genre matches any category
+            for category, keywords in genre_categories.items():
+                if any(keyword in genre_name for keyword in keywords):
+                    category_counts[category] += count
+                    categorized = True
+                    break
+
+            # If not categorized, keep as individual genre
+            if not categorized:
+                uncategorized.append(genre_data)
+
+        # Create final list with categories and uncategorized genres
+        result = []
+
+        # Add categories with counts > 0
+        for category, count in category_counts.items():
+            if count > 0:
+                result.append({'genre': category, 'count': count})
+
+        # Add uncategorized genres
+        result.extend(uncategorized)
+
+        # Sort by count descending
+        result.sort(key=lambda x: x['count'], reverse=True)
+
+        return result
 
     def get_all_listening_history_artists(self):
         """Get all unique artists from the listening history."""
@@ -490,5 +610,65 @@ class SpotifyDatabase:
         except sqlite3.Error as e:
             logger.error(f"Error getting listening history artists: {e}")
             return []
+        finally:
+            conn.close()
+
+    def get_listening_statistics(self, user_id: str):
+        """
+        Get comprehensive listening statistics for a user.
+
+        Args:
+            user_id: User ID to get statistics for
+
+        Returns:
+            Dictionary with listening statistics
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            # Get total listening time and track count
+            cursor.execute('''
+                SELECT
+                    COUNT(DISTINCT h.history_id) as total_plays,
+                    COUNT(DISTINCT t.track_id) as unique_tracks,
+                    COUNT(DISTINCT t.artist) as unique_artists,
+                    SUM(t.duration_ms) as total_duration_ms,
+                    AVG(t.duration_ms) as avg_track_duration_ms
+                FROM listening_history h
+                JOIN tracks t ON h.track_id = t.track_id
+                WHERE h.user_id = ?
+                AND h.source IN ('played', 'recently_played', 'current')
+                AND t.duration_ms IS NOT NULL
+                AND t.duration_ms > 0
+            ''', (user_id,))
+
+            stats = dict(cursor.fetchone())
+
+            # Calculate derived statistics
+            total_minutes = round((stats['total_duration_ms'] or 0) / 60000, 2)
+            total_hours = round(total_minutes / 60, 2)
+            avg_track_minutes = round((stats['avg_track_duration_ms'] or 0) / 60000, 2)
+
+            return {
+                'total_plays': stats['total_plays'] or 0,
+                'unique_tracks': stats['unique_tracks'] or 0,
+                'unique_artists': stats['unique_artists'] or 0,
+                'total_minutes': total_minutes,
+                'total_hours': total_hours,
+                'average_track_minutes': avg_track_minutes
+            }
+
+        except sqlite3.Error as e:
+            logger.error(f"Error getting listening statistics: {e}")
+            return {
+                'total_plays': 0,
+                'unique_tracks': 0,
+                'unique_artists': 0,
+                'total_minutes': 0,
+                'total_hours': 0,
+                'average_track_minutes': 0
+            }
         finally:
             conn.close()
