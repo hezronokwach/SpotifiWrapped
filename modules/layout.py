@@ -153,14 +153,15 @@ class DashboardLayout:
         )
 
     def create_playlists_section(self):
-        """Create the playlists section."""
+        """Create the playlists section with matrix styling."""
         return create_spotify_card(
             title="Your Playlists",
-            content=dcc.Graph(
-                id='playlists-chart',
-                config={'displayModeBar': False}
+            content=html.Div(
+                id='playlists-container',
+                className="playlists-fancy-list"
             ),
-            icon="fa-list"
+            icon="fa-list",
+            card_type="matrix"
         )
 
     def create_audio_features_section(self):
@@ -175,25 +176,27 @@ class DashboardLayout:
         )
 
     def create_top_artists_section(self):
-        """Create the top artists section."""
+        """Create the top artists section with matrix styling."""
         return create_spotify_card(
             title="Your Top Artists",
             content=dcc.Graph(
                 id='top-artists-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-user"
+            icon="fa-user",
+            card_type="matrix"
         )
 
     def create_genre_analysis_section(self):
-        """Create the genre analysis section."""
+        """Create the genre analysis section with glass styling."""
         return create_spotify_card(
             title="Genre Analysis",
             content=dcc.Graph(
                 id='genre-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-tag"
+            icon="fa-tag",
+            card_type="glass"
         )
 
     def create_listening_patterns_section(self):
@@ -410,58 +413,133 @@ class DashboardLayout:
             # Header (will be populated with user data)
             html.Div(id='header-container'),
 
-            # Main content container
+            # STORY-DRIVEN SPOTIFY WRAPPED EXPERIENCE
             dbc.Container([
-                # Stats row
-                self.create_stats_row(),
+                # 🎵 HERO SECTION - Your Musical Journey Begins
+                html.Div([
+                    html.Div([
+                        html.H1("🎵 Your Musical Journey", className="hero-title"),
+                        html.P("Discover the story your music tells about you", className="hero-subtitle")
+                    ], className="hero-text"),
 
-                # Currently playing section
-                self.create_currently_playing_section(),
+                    dbc.Row([
+                        # Currently Playing - The Present Moment
+                        dbc.Col([
+                            html.Div([
+                                html.H3("🎧 Right Now", className="section-mini-header"),
+                                self.create_currently_playing_section()
+                            ])
+                        ], md=6),
 
-                # Personality analysis section
-                self.create_personality_section(),
+                        # Wrapped Summary - Your Year in Music
+                        dbc.Col([
+                            html.Div([
+                                html.H3("✨ Your Year", className="section-mini-header"),
+                                self.create_wrapped_summary_section()
+                            ])
+                        ], md=6)
+                    ], className='mb-4')
+                ], className='hero-section'),
 
-                # Top content row
-                dbc.Row([
-                    dbc.Col(self.create_top_tracks_section(), md=6),
-                    dbc.Col(self.create_top_artists_section(), md=6)
-                ], className='mb-4'),
+                # 🎭 IDENTITY SECTION - Who You Are as a Music Lover
+                html.Div([
+                    html.H2("🎭 Your Musical DNA", className="section-header"),
+                    html.P("Every listener has a unique musical fingerprint. Here's yours.", className="section-description"),
 
-                # Top albums section
-                self.create_top_albums_section(),
+                    # Personality Analysis - The Core of Your Musical Self
+                    self.create_personality_section(),
 
-                # Album listening patterns and DJ mode row
-                dbc.Row([
-                    dbc.Col(self.create_album_listening_patterns_section(), md=6),
-                    dbc.Col(self.create_dj_mode_section(), md=6)
-                ], className='mb-4'),
+                    # Your Musical Stats - The Numbers That Define You
+                    html.Div([
+                        html.H4("📊 Your Musical Metrics", className="subsection-header"),
+                        self.create_stats_row()
+                    ], className="stats-container")
+                ], className='identity-section'),
 
-                # Music analysis section
-                self.create_music_analysis_section(),
+                # ⭐ DISCOVERY SECTION - Your Standout Moments
+                html.Div([
+                    html.H2("⭐ Your Hall of Fame", className="section-header"),
+                    html.P("The tracks and artists that defined your year", className="section-description"),
 
-                # Audio analysis row
-                dbc.Row([
-                    dbc.Col(self.create_audio_features_section(), md=6),
-                    dbc.Col(self.create_genre_analysis_section(), md=6)
-                ], className='mb-4'),
+                    dbc.Row([
+                        dbc.Col([
+                            self.create_top_track_highlight_section()
+                        ], md=4),
+                        dbc.Col([
+                            self.create_top_artist_highlight_section()
+                        ], md=4),
+                        dbc.Col([
+                            self.create_sound_story_section()
+                        ], md=4)
+                    ], className='mb-4')
+                ], className='discovery-section'),
 
-                # Library content row
-                dbc.Row([
-                    dbc.Col(self.create_saved_tracks_section(), md=6),
-                    dbc.Col(self.create_playlists_section(), md=6)
-                ], className='mb-4'),
+                # 🔍 EXPLORATION SECTION - Deep Dive Into Your Taste
+                html.Div([
+                    html.H2("🔍 Your Musical Universe", className="section-header"),
+                    html.P("Explore the full spectrum of your musical preferences", className="section-description"),
 
-                # Listening patterns
-                self.create_listening_patterns_section(),
+                    dbc.Row([
+                        dbc.Col([
+                            self.create_top_tracks_section()
+                        ], md=6),
+                        dbc.Col([
+                            self.create_top_artists_section()
+                        ], md=6)
+                    ], className='mb-4'),
 
-                # Wrapped summary section
-                self.create_wrapped_summary_section(),
+                    # Top Albums - Your Album Journey
+                    self.create_top_albums_section()
+                ], className='exploration-section'),
 
-                # Refresh button
-                self.create_refresh_button(),
+                # 📊 ANALYSIS SECTION - The Science of Your Sound
+                html.Div([
+                    html.H2("🧬 Musical Analysis", className="section-header"),
+                    html.P("The technical breakdown of what makes your music taste unique", className="section-description"),
 
-                # Footer
-                self.create_footer()
+                    dbc.Row([
+                        dbc.Col([
+                            self.create_audio_features_section()
+                        ], md=6),
+                        dbc.Col([
+                            self.create_genre_analysis_section()
+                        ], md=6)
+                    ], className='mb-4'),
+
+                    dbc.Row([
+                        dbc.Col([
+                            self.create_album_listening_patterns_section()
+                        ], md=6),
+                        dbc.Col([
+                            self.create_dj_mode_section()
+                        ], md=6)
+                    ], className='mb-4')
+                ], className='analysis-section'),
+
+                # 📚 LIBRARY SECTION - Your Musical Collection
+                html.Div([
+                    html.H2("📚 Your Music Library", className="section-header"),
+                    html.P("The collection you've built and how you experience it", className="section-description"),
+
+                    dbc.Row([
+                        dbc.Col([
+                            self.create_saved_tracks_section()
+                        ], md=6),
+                        dbc.Col([
+                            self.create_playlists_section()
+                        ], md=6)
+                    ], className='mb-4'),
+
+                    # Listening Patterns - When and How You Listen
+                    self.create_listening_patterns_section()
+                ], className='library-section'),
+
+                # 🔄 ACTION SECTION - Control Your Experience
+                html.Div([
+                    html.H2("🔄 Refresh Your Journey", className="section-header"),
+                    self.create_refresh_button(),
+                    self.create_footer()
+                ], className='action-section')
             ], fluid=True)
         ], style={
             'backgroundColor': self.theme['background_color'],
