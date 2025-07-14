@@ -359,14 +359,15 @@ def update_top_tracks_chart(n_intervals, n_clicks):
             t.album,
             t.popularity,
             t.image_url,
-            COUNT(h.history_id) as play_count
+            COUNT(h.history_id) as play_count,
+            (COUNT(h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.track_id
-        ORDER BY play_count DESC
+        HAVING play_count >= 2  -- Minimum 2 plays to be considered
+        ORDER BY weighted_score DESC
         LIMIT 10
     ''', (current_date,))
 
@@ -385,9 +386,9 @@ def update_top_tracks_chart(n_intervals, n_clicks):
     # Create visualization
     return visualizations.create_top_tracks_chart(top_tracks_df)
 
-# Update saved tracks chart
+# Update saved tracks list
 @app.callback(
-    Output('saved-tracks-chart', 'figure'),
+    Output('saved-tracks-chart', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks')
 )
@@ -465,8 +466,8 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
         # Create empty DataFrame with the right columns
         saved_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'added_at', 'duration_minutes'])
 
-    # Create visualization
-    return visualizations.create_saved_tracks_timeline(saved_tracks_df)
+    # Create list visualization
+    return visualizations.create_saved_tracks_list(saved_tracks_df)
 
 # Update playlists list
 @app.callback(
@@ -650,14 +651,16 @@ def update_top_artists_chart(n_intervals, n_clicks):
             t.artist as artist,
             MAX(t.popularity) as popularity,
             MAX(t.image_url) as image_url,
-            COUNT(h.history_id) as play_count
+            COUNT(h.history_id) as play_count,
+            (COUNT(h.history_id) * 0.8 + (MAX(t.popularity) / 100.0) * 0.2) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
-        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         GROUP BY t.artist
-        ORDER BY play_count DESC
+        HAVING play_count >= 2  -- Minimum 2 plays to be considered
+        ORDER BY weighted_score DESC
         LIMIT 10
     ''', (current_date,))
 
@@ -690,11 +693,14 @@ def update_top_track_highlight(n_intervals, n_clicks):
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT track_name, artist_name, album_name, popularity, image_url
-            FROM listening_history
-            WHERE track_name IS NOT NULL AND track_name != ''
-            GROUP BY track_name, artist_name
-            ORDER BY COUNT(*) DESC, popularity DESC
+            SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
+                   t.popularity, t.image_url, COUNT(h.history_id) as play_count
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE t.name IS NOT NULL AND t.name != ''
+            AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
+            ORDER BY play_count DESC, t.popularity DESC
             LIMIT 1
         ''')
 
@@ -703,11 +709,12 @@ def update_top_track_highlight(n_intervals, n_clicks):
 
         if result:
             track_data = {
-                'track': result[0],
-                'artist': result[1],
-                'album': result[2] or 'Unknown Album',
-                'popularity': result[3] or 0,
-                'image_url': result[4] or ''
+                'track': result[0],      # track_name
+                'artist': result[1],     # artist_name
+                'album': result[2] or 'Unknown Album',  # album_name
+                'popularity': result[3] or 0,           # popularity
+                'image_url': result[4] or '',           # image_url
+                'play_count': result[5]                 # play_count
             }
             return visualizations.create_top_track_highlight_component(track_data)
         else:
@@ -734,10 +741,13 @@ def update_top_artist_highlight(n_intervals, n_clicks):
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT artist_name, COUNT(*) as play_count, AVG(popularity) as avg_popularity, image_url
-            FROM listening_history
-            WHERE artist_name IS NOT NULL AND artist_name != ''
-            GROUP BY artist_name
+            SELECT t.artist as artist_name, COUNT(h.history_id) as play_count,
+                   AVG(t.popularity) as avg_popularity, MAX(t.image_url) as image_url
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE t.artist IS NOT NULL AND t.artist != ''
+            AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            GROUP BY t.artist
             ORDER BY play_count DESC, avg_popularity DESC
             LIMIT 1
         ''')

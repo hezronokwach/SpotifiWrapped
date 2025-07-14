@@ -177,7 +177,7 @@ def create_album_card(album_name, artist_name, rank, image_url="", score=0):
             )
         ],
         className="album-card h-100 shadow-sm",
-        style={"max-width": "200px", "margin": "10px"}
+        style={"maxWidth": "200px", "margin": "10px"}
     )
 
 def create_personality_card(primary_type, secondary_type, description, recommendations, metrics):
@@ -793,6 +793,116 @@ class SpotifyVisualizations:
         )
 
         return self._apply_theme(fig)
+
+    def create_saved_tracks_list(self, df):
+        """Create a list view of saved tracks instead of a timeline chart."""
+        if df.empty:
+            return html.Div([
+                html.Div([
+                    html.I(className="fas fa-heart", style={
+                        'fontSize': '48px',
+                        'color': SPOTIFY_GREEN,
+                        'marginBottom': '20px'
+                    }),
+                    html.H4("No Saved Tracks Yet", style={
+                        'color': SPOTIFY_WHITE,
+                        'marginBottom': '10px'
+                    }),
+                    html.P("Your saved tracks will appear here when you start saving music to your library", style={
+                        'color': SPOTIFY_GRAY,
+                        'fontSize': '14px'
+                    })
+                ], style={
+                    'textAlign': 'center',
+                    'padding': '40px'
+                })
+            ])
+
+        # Create list of tracks
+        track_items = []
+        for idx, row in df.head(10).iterrows():  # Show only top 10
+            track_item = html.Div([
+                # Track image
+                html.Div([
+                    html.Img(
+                        src=row.get('image_url', ''),
+                        style={
+                            'width': '50px',
+                            'height': '50px',
+                            'borderRadius': '8px',
+                            'objectFit': 'cover'
+                        }
+                    ) if row.get('image_url') else html.Div([
+                        html.I(className="fas fa-music", style={
+                            'fontSize': '20px',
+                            'color': SPOTIFY_GRAY
+                        })
+                    ], style={
+                        'width': '50px',
+                        'height': '50px',
+                        'borderRadius': '8px',
+                        'backgroundColor': '#333',
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'justifyContent': 'center'
+                    })
+                ], style={'marginRight': '15px'}),
+
+                # Track info
+                html.Div([
+                    html.Div([
+                        html.Span(row.get('track', 'Unknown Track'), style={
+                            'color': SPOTIFY_WHITE,
+                            'fontWeight': '600',
+                            'fontSize': '16px'
+                        }),
+                    ]),
+                    html.Div([
+                        html.Span(f"by {row.get('artist', 'Unknown Artist')}", style={
+                            'color': SPOTIFY_GRAY,
+                            'fontSize': '14px'
+                        }),
+                        html.Span(" • ", style={'color': SPOTIFY_GRAY, 'margin': '0 8px'}),
+                        html.Span(row.get('album', 'Unknown Album'), style={
+                            'color': SPOTIFY_GRAY,
+                            'fontSize': '14px'
+                        })
+                    ])
+                ], style={'flex': '1'}),
+
+                # Added date
+                html.Div([
+                    html.Span(
+                        row.get('added_at', '').strftime('%b %d') if pd.notna(row.get('added_at')) else 'Recently',
+                        style={
+                            'color': SPOTIFY_GRAY,
+                            'fontSize': '12px'
+                        }
+                    )
+                ], style={'textAlign': 'right'})
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'padding': '12px 0',
+                'borderBottom': '1px solid #333',
+                'transition': 'background-color 0.2s ease'
+            }, className='track-item')
+
+            track_items.append(track_item)
+
+        return html.Div([
+            html.Div([
+                html.H5(f"Recently Saved ({len(df)} total)", style={
+                    'color': SPOTIFY_WHITE,
+                    'marginBottom': '20px',
+                    'fontSize': '18px'
+                })
+            ]),
+            html.Div(track_items, style={
+                'maxHeight': '400px',
+                'overflowY': 'auto'
+            })
+        ], style={'padding': '20px'})
 
     def create_playlists_chart(self, df):
         """Create a bar chart of playlists by track count."""
@@ -1775,7 +1885,7 @@ class SpotifyVisualizations:
                         'boxShadow': f'0 0 20px {SPOTIFY_GREEN}50'
                     }
                 ) if artist_data.get('image_url') else html.Div([
-                    html.I(className="fas fa-user-music", style={
+                    html.I(className="fas fa-microphone", style={
                         'fontSize': '48px',
                         'color': SPOTIFY_GREEN
                     })
@@ -1922,7 +2032,15 @@ def create_playlists_fancy_list(df):
         playlist_item = html.Div([
             # Playlist icon/image
             html.Div([
-                html.Div([
+                html.Img(
+                    src=row.get('image_url', ''),
+                    style={
+                        'width': '50px',
+                        'height': '50px',
+                        'borderRadius': '8px',
+                        'objectFit': 'cover'
+                    }
+                ) if row.get('image_url') else html.Div([
                     html.I(className="fas fa-list-music", style={
                         'fontSize': '24px',
                         'color': SPOTIFY_GREEN
@@ -1993,7 +2111,7 @@ def create_playlists_fancy_list(df):
         'padding': '8px'
     })
 
-def create_spotify_card(title, content, icon=None, card_type="default"):
+def create_spotify_card(title, content, icon=None, card_type="default", className=None):
     """Create a styled card component for the dashboard with futuristic design."""
 
     # Enhanced header with futuristic styling
@@ -2043,10 +2161,15 @@ def create_spotify_card(title, content, icon=None, card_type="default"):
         'matrix': 'spotify-card card-matrix'
     }
 
+    # Combine card type class with additional className if provided
+    final_className = card_styles.get(card_type, 'spotify-card')
+    if className:
+        final_className += f' {className}'
+
     return html.Div([
         header,
         html.Div(content, style={'position': 'relative', 'zIndex': '1'})
-    ], className=card_styles.get(card_type, 'spotify-card'), style={
+    ], className=final_className, style={
         'padding': '24px',
         'borderRadius': '16px',
         'margin': '15px 0',

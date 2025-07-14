@@ -610,6 +610,47 @@ body {
     }
 }
 
+/* Enhanced consistent card heights for dashboard sections */
+.consistent-height-card {
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.consistent-height-card > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Force Plotly graphs to consistent height */
+.consistent-height-card .plotly-graph-div {
+    height: 420px !important;
+    min-height: 420px !important;
+    max-height: 420px !important;
+}
+
+/* Ensure card content areas are consistent */
+.consistent-height-card .card-body,
+.consistent-height-card > div > div:last-child {
+    flex: 1;
+    min-height: 420px;
+}
+
+/* Fix for genre analysis specifically */
+.consistent-height-card #genre-chart {
+    height: 420px !important;
+    min-height: 420px !important;
+}
+
+/* Ensure list containers have proper height */
+.consistent-height-card #playlists-container,
+.consistent-height-card #saved-tracks-chart {
+    min-height: 420px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
 /* Loading States */
 .loading-shimmer {
     background: linear-gradient(90deg,

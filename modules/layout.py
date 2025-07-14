@@ -145,11 +145,12 @@ class DashboardLayout:
         """Create the saved tracks section."""
         return create_spotify_card(
             title="Recently Saved Tracks",
-            content=dcc.Graph(
+            content=html.Div(
                 id='saved-tracks-chart',
-                config={'displayModeBar': False}
+                style={'minHeight': '300px'}
             ),
-            icon="fa-heart"
+            icon="fa-heart",
+            className="consistent-height-card"
         )
 
     def create_playlists_section(self):
@@ -163,7 +164,8 @@ class DashboardLayout:
                     'position': 'relative'
                 }
             ),
-            icon="fa-list"
+            icon="fa-list",
+            className="consistent-height-card"
         )
 
     def create_audio_features_section(self):
@@ -174,7 +176,8 @@ class DashboardLayout:
                 id='audio-features-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-chart-radar"
+            icon="fa-chart-radar",
+            className="consistent-height-card"
         )
 
     def create_top_artists_section(self):
@@ -196,7 +199,8 @@ class DashboardLayout:
                 id='genre-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-tag"
+            icon="fa-tag",
+            className="consistent-height-card"
         )
 
     def create_listening_patterns_section(self):
@@ -293,23 +297,6 @@ class DashboardLayout:
             style={
                 'margin': '30px 0'
             }
-        )
-
-    def create_music_analysis_section(self):
-        """Create the music analysis section."""
-        return create_spotify_card(
-            title="Your Musical Universe",
-            content=html.Div(
-                id='music-analysis-container',
-                style={
-                    'backgroundColor': '#181818',
-                    'borderRadius': '15px',
-                    'padding': '30px',
-                    'boxShadow': '0 8px 16px rgba(0,0,0,0.4)',
-                    'margin': '20px 0'
-                }
-            ),
-            icon="fa-music"
         )
 
     def create_stats_row(self):
@@ -435,8 +422,7 @@ class DashboardLayout:
                     dbc.Col(self.create_dj_mode_section(), md=6)
                 ], className='mb-4'),
 
-                # Music analysis section
-                self.create_music_analysis_section(),
+                
 
                 # Audio analysis row
                 dbc.Row([
