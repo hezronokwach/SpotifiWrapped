@@ -1052,8 +1052,9 @@ class SpotifyVisualizations:
                 )
             ),
             title='Audio Features Comparison',
-            height=600,
-            showlegend=True
+            height=420,
+            showlegend=True,
+            margin=dict(t=50, b=50, l=20, r=20)
         )
 
         return self._apply_theme(fig)
@@ -1143,7 +1144,7 @@ class SpotifyVisualizations:
 
         # Update layout for better appearance
         fig.update_layout(
-            height=500,
+            height=420,
             legend_title_text="",
             margin=dict(t=50, b=50, l=20, r=20),
             title={
@@ -2137,19 +2138,11 @@ def create_spotify_card(title, content, icon=None, card_type="default", classNam
                 'WebkitBackgroundClip': 'text',
                 'WebkitTextFillColor': 'transparent'
             })
-        ], style={'display': 'flex', 'alignItems': 'center'}),
-
-        # Futuristic divider line
-        html.Div(style={
-            'height': '2px',
-            'background': 'linear-gradient(90deg, transparent, #1DB954, transparent)',
-            'marginTop': '12px',
-            'borderRadius': '1px',
-            'boxShadow': '0 0 10px rgba(29, 185, 84, 0.3)'
-        })
+        ], style={'display': 'flex', 'alignItems': 'center'})
     ], style={
-        'marginBottom': '20px',
-        'position': 'relative'
+        'marginBottom': '4px',
+        'position': 'relative',
+        'paddingBottom': '0'
     })
 
     # Card type specific styling
@@ -2168,13 +2161,21 @@ def create_spotify_card(title, content, icon=None, card_type="default", classNam
 
     return html.Div([
         header,
-        html.Div(content, style={'position': 'relative', 'zIndex': '1'})
+        html.Div(content, style={
+            'position': 'relative',
+            'zIndex': '1',
+            'flex': '1',
+            'display': 'flex',
+            'flexDirection': 'column'
+        })
     ], className=final_className, style={
-        'padding': '24px',
+        'padding': '16px',
         'borderRadius': '16px',
         'margin': '15px 0',
         'position': 'relative',
-        'overflow': 'hidden'
+        'overflow': 'hidden',
+        'display': 'flex',
+        'flexDirection': 'column'
     })
 
 def create_progress_bar(value, max_value=100, label=None, color=SPOTIFY_GREEN):

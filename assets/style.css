@@ -610,37 +610,35 @@ body {
     }
 }
 
-/* Enhanced consistent card heights for dashboard sections */
+/* Simplified consistent card heights */
 .consistent-height-card {
-    min-height: 500px;
-    display: flex;
-    flex-direction: column;
+    height: 500px !important;
+    min-height: 500px !important;
+    max-height: 500px !important;
 }
 
-.consistent-height-card > div {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+/* Compact header for consistent height cards */
+.consistent-height-card > div:first-child {
+    margin-bottom: 4px !important;
+    padding-bottom: 0 !important;
 }
 
-/* Force Plotly graphs to consistent height */
-.consistent-height-card .plotly-graph-div {
-    height: 420px !important;
-    min-height: 420px !important;
-    max-height: 420px !important;
+/* Content area fills remaining space */
+.consistent-height-card > div:last-child {
+    height: calc(100% - 60px) !important;
+    overflow: hidden;
 }
 
-/* Ensure card content areas are consistent */
-.consistent-height-card .card-body,
-.consistent-height-card > div > div:last-child {
-    flex: 1;
-    min-height: 420px;
-}
-
-/* Fix for genre analysis specifically */
-.consistent-height-card #genre-chart {
-    height: 420px !important;
-    min-height: 420px !important;
+/* Force all content to fit within card height */
+.consistent-height-card .plotly-graph-div,
+.consistent-height-card #genre-chart,
+.consistent-height-card #audio-features-chart,
+.consistent-height-card #saved-tracks-chart,
+.consistent-height-card #playlists-container {
+    height: 440px !important;
+    min-height: 440px !important;
+    max-height: 440px !important;
+    overflow-y: auto;
 }
 
 /* Ensure list containers have proper height */

@@ -423,7 +423,7 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for saved tracks with duration information
+    # Query for saved tracks with duration information - prevent duplicates
     cursor.execute('''
         SELECT
             t.track_id as id,
@@ -433,13 +433,14 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
             t.image_url,
             t.duration_ms,
             t.popularity,
-            h.played_at as added_at
+            MAX(h.played_at) as added_at
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE h.source = 'saved'
         AND t.name IS NOT NULL
         AND t.artist IS NOT NULL
-        ORDER BY h.played_at DESC
+        GROUP BY t.track_id, t.name, t.artist, t.album, t.image_url, t.duration_ms, t.popularity
+        ORDER BY added_at DESC
         LIMIT 20
     ''')
 
@@ -543,20 +544,25 @@ def update_audio_features_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for tracks with audio features
+    # Query for top tracks using the same improved ranking system
+    current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
-        SELECT DISTINCT
+        SELECT
             t.track_id as id,
             t.name as track,
             t.artist,
             t.album,
-            h.played_at
+            COUNT(h.history_id) as play_count,
+            (COUNT(h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source = 'audio_features' OR h.source LIKE 'top_%'
-        ORDER BY h.played_at DESC
+        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+        AND date(h.played_at) <= ?
+        GROUP BY t.track_id
+        HAVING play_count >= 2
+        ORDER BY weighted_score DESC
         LIMIT 5
-    ''')
+    ''', (current_date,))
 
     tracks_data = [dict(row) for row in cursor.fetchall()]
 
