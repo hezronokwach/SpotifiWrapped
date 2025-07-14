@@ -156,9 +156,12 @@ class DashboardLayout:
         """Create the playlists section."""
         return create_spotify_card(
             title="Your Playlists",
-            content=dcc.Graph(
-                id='playlists-chart',
-                config={'displayModeBar': False}
+            content=html.Div(
+                id='playlists-container',
+                style={
+                    'minHeight': '300px',
+                    'position': 'relative'
+                }
             ),
             icon="fa-list"
         )
@@ -259,7 +262,7 @@ class DashboardLayout:
             content=html.Div(
                 id='wrapped-summary-container',
                 style={
-                    'minHeight': '200px',
+                    'minHeight': '100px',
                     'position': 'relative'
                 }
             ),

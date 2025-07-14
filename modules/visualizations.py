@@ -1061,7 +1061,7 @@ class SpotifyVisualizations:
 
         return self._apply_theme(fig)
 
-    def create_listening_patterns_heatmap(self, df):
+    def create_listening_patterns_heatmap(self, df, date_range_days=7):
         """Create a heatmap of listening patterns by day and hour."""
         if df.empty or 'day_of_week' not in df.columns or 'hour_of_day' not in df.columns:
             # Return empty figure with a more user-friendly message
@@ -1156,9 +1156,15 @@ class SpotifyVisualizations:
                 hovertemplate=f'Day: %{{y}}<br>Hour: %{{x}}<br>{hover_label}: %{{z}}<extra></extra>'
             ))
 
+            # Create title with date range
+            from datetime import datetime, timedelta
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=date_range_days)
+            date_range_text = f" ({start_date.strftime('%b %d')} - {end_date.strftime('%b %d')})"
+
             # Update layout for better appearance
             fig.update_layout(
-                title=f'Your Listening Patterns{title_suffix}',
+                title=f'Your Listening Patterns{title_suffix}{date_range_text}',
                 xaxis_title='Hour of Day',
                 yaxis_title='Day of Week',
                 height=500,

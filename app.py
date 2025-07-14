@@ -484,8 +484,9 @@ def update_playlists_list(n_intervals, n_clicks):
     # Load data from file
     playlists_df = data_processor.load_data('playlists.csv')
 
-    # Create visualization
-    return visualizations.create_playlists_fancy_list(playlists_df)
+    # Create visualization - import the standalone function
+    from modules.visualizations import create_playlists_fancy_list
+    return create_playlists_fancy_list(playlists_df)
 
 # Update audio features chart
 @app.callback(
@@ -1102,7 +1103,7 @@ def update_listening_patterns_chart(n_intervals):
         patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
 
         print(f"Listening patterns data: {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
-        return visualizations.create_listening_patterns_heatmap(patterns_df)
+        return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)
 
     # If no data in database, try to fetch recent data from API and save to database
     recently_played = spotify_api.get_recently_played(limit=50)
@@ -1160,11 +1161,11 @@ def update_listening_patterns_chart(n_intervals):
             patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
 
             print(f"Listening patterns data (retry): {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
-            return visualizations.create_listening_patterns_heatmap(patterns_df)
+            return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)
 
     # Create empty DataFrame with the right columns
     patterns_df = pd.DataFrame(columns=['day_of_week', 'hour_of_day', 'play_count', 'day_name'])
-    return visualizations.create_listening_patterns_heatmap(patterns_df)
+    return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)
 
 # New callback for top albums section
 @app.callback(
