@@ -454,11 +454,11 @@ class DashboardLayout:
                     dbc.Col(self.create_playlists_section(), md=6)
                 ], className='mb-4'),
 
+                # Wrapped summary section (moved before listening patterns)
+                self.create_wrapped_summary_section(),
+
                 # Listening patterns
                 self.create_listening_patterns_section(),
-
-                # Wrapped summary section
-                self.create_wrapped_summary_section(),
 
                 # Refresh button
                 self.create_refresh_button(),

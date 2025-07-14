@@ -371,6 +371,7 @@ body {
         rgba(139, 92, 246, 0.1) 100%);
     border: 1px solid rgba(255, 255, 255, 0.2);
     position: relative;
+    z-index: 1;
 }
 
 .card-holographic::after {
@@ -542,8 +543,8 @@ body {
 }
 
 .card-holographic:hover {
-    transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
 }
 
 .card-matrix:hover::before {
@@ -559,6 +560,12 @@ body {
 @keyframes numberPulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.1); }
+}
+
+/* Hover lift effect for interactive cards */
+.hover-lift:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 /* Loading States */

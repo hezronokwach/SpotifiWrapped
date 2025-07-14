@@ -1377,74 +1377,161 @@ class SpotifyVisualizations:
         })
 
     def create_wrapped_summary_component(self, summary_data):
-        """Create a Spotify Wrapped style summary component."""
+        """Create a colorful, interactive Spotify Wrapped style summary component with unique insights."""
         if not summary_data:
             return html.Div([
-                html.H3("Wrapped Summary Not Available", style={'color': self.theme['text_color']}),
-                html.P("We need more listening data to generate your Wrapped summary.", style={'color': self.theme['secondary_color']})
-            ], style={'textAlign': 'center', 'padding': '20px'})
+                html.Div([
+                    html.I(className="fas fa-music", style={
+                        'fontSize': '48px',
+                        'color': '#1DB954',
+                        'marginBottom': '20px'
+                    }),
+                    html.H3("Your Musical Journey Awaits", style={
+                        'color': '#FFFFFF',
+                        'marginBottom': '10px'
+                    }),
+                    html.P("Start listening to unlock your personalized Spotify Wrapped insights!", style={
+                        'color': '#B3B3B3',
+                        'fontSize': '16px'
+                    })
+                ], style={
+                    'textAlign': 'center',
+                    'padding': '40px',
+                    'background': 'linear-gradient(135deg, rgba(29,185,84,0.1), rgba(0,212,255,0.1))',
+                    'borderRadius': '16px',
+                    'border': '1px solid rgba(29,185,84,0.3)'
+                })
+            ])
 
-        # Create component
+        # Calculate unique insights
+        total_minutes = summary_data.get('total_minutes', 0)
+        hours = total_minutes // 60
+        days = hours // 24
+
+        # Create colorful stat cards in a grid
         return html.Div([
-            # Title
-            html.H2("Your Spotify Wrapped", style={
-                'color': self.theme['accent_color'],
-                'textAlign': 'center',
-                'fontSize': '32px',
-                'marginBottom': '30px'
+            # Header with animated gradient
+            html.Div([
+                html.H2("🎵 Your Music DNA", style={
+                    'background': 'linear-gradient(45deg, #1DB954, #00D4FF, #8B5CF6)',
+                    'backgroundClip': 'text',
+                    'WebkitBackgroundClip': 'text',
+                    'color': 'transparent',
+                    'fontSize': '28px',
+                    'fontWeight': 'bold',
+                    'textAlign': 'center',
+                    'marginBottom': '30px'
+                })
+            ]),
+
+            # Interactive stat grid
+            html.Div([
+                # Listening time insight
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-clock", style={'fontSize': '24px', 'color': '#FF6B6B'}),
+                        html.H3(f"{hours:,} Hours", style={'color': '#FFFFFF', 'margin': '10px 0 5px 0'}),
+                        html.P("of pure musical bliss", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '20px',
+                        'background': 'linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,107,107,0.05))',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(255,107,107,0.3)',
+                        'transition': 'transform 0.3s ease',
+                        'cursor': 'pointer'
+                    }, className='hover-lift')
+                ], style={'flex': '1', 'margin': '0 10px'}),
+
+                # Genre diversity insight
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-palette", style={'fontSize': '24px', 'color': '#4ECDC4'}),
+                        html.H3(summary_data.get('genre_highlight', {}).get('name', 'Exploring'), style={
+                            'color': '#FFFFFF',
+                            'margin': '10px 0 5px 0',
+                            'fontSize': '18px'
+                        }),
+                        html.P("is your vibe", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '20px',
+                        'background': 'linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.05))',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(78,205,196,0.3)',
+                        'transition': 'transform 0.3s ease',
+                        'cursor': 'pointer'
+                    }, className='hover-lift')
+                ], style={'flex': '1', 'margin': '0 10px'}),
+
+                # Mood insight
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-heart", style={'fontSize': '24px', 'color': '#FFD93D'}),
+                        html.H3(summary_data.get('music_mood', {}).get('mood', 'Discovering'), style={
+                            'color': '#FFFFFF',
+                            'margin': '10px 0 5px 0',
+                            'fontSize': '18px'
+                        }),
+                        html.P("energy level", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '20px',
+                        'background': 'linear-gradient(135deg, rgba(255,217,61,0.2), rgba(255,217,61,0.05))',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(255,217,61,0.3)',
+                        'transition': 'transform 0.3s ease',
+                        'cursor': 'pointer'
+                    }, className='hover-lift')
+                ], style={'flex': '1', 'margin': '0 10px'})
+            ], style={
+                'display': 'flex',
+                'gap': '20px',
+                'marginBottom': '30px',
+                'flexWrap': 'wrap'
             }),
 
-            # Top track section
+            # Fun fact section
             html.Div([
-                html.H3("Your Top Track", style={'color': self.theme['text_color'], 'textAlign': 'center'}),
                 html.Div([
-                    html.H1(summary_data['top_track']['name'], style={
-                        'color': self.theme['accent_color'],
-                        'textAlign': 'center',
-                        'fontSize': '48px',
-                        'margin': '10px 0'
+                    html.I(className="fas fa-lightbulb", style={
+                        'fontSize': '20px',
+                        'color': '#8B5CF6',
+                        'marginRight': '10px'
                     }),
-                    html.H3(f"by {summary_data['top_track']['artist']}", style={
-                        'color': self.theme['secondary_color'],
-                        'textAlign': 'center',
-                        'fontWeight': 'normal'
+                    html.Span("Fun Fact: ", style={
+                        'color': '#8B5CF6',
+                        'fontWeight': 'bold'
+                    }),
+                    html.Span(self._generate_fun_fact(summary_data), style={
+                        'color': '#FFFFFF'
                     })
                 ], style={
-                    'backgroundColor': '#181818',
-                    'padding': '30px',
-                    'borderRadius': '10px',
-                    'margin': '20px 0'
+                    'padding': '20px',
+                    'background': 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(139,92,246,0.05))',
+                    'borderRadius': '12px',
+                    'border': '1px solid rgba(139,92,246,0.3)',
+                    'textAlign': 'center'
                 })
-            ]),
-
-            # Top artist section
-            html.Div([
-                html.H3("Your Top Artist", style={'color': self.theme['text_color'], 'textAlign': 'center'}),
-                html.Div([
-                    html.H1(summary_data['top_artist']['name'], style={
-                        'color': self.theme['accent_color'],
-                        'textAlign': 'center',
-                        'fontSize': '48px',
-                        'margin': '10px 0'
-                    }),
-                    html.H3(f"Genres: {summary_data['top_artist']['genres']}", style={
-                        'color': self.theme['secondary_color'],
-                        'textAlign': 'center',
-                        'fontWeight': 'normal'
-                    })
-                ], style={
-                    'backgroundColor': '#181818',
-                    'padding': '30px',
-                    'borderRadius': '10px',
-                    'margin': '20px 0'
-                })
-            ]),
+            ])
         ], style={
-            'backgroundColor': '#121212',
-            'padding': '30px',
-            'borderRadius': '15px',
-            'boxShadow': '0 8px 16px rgba(0,0,0,0.5)'
+            'padding': '0',
+            'borderRadius': '16px'
         })
+
+    def _generate_fun_fact(self, summary_data):
+        """Generate a fun fact based on user's listening data."""
+        total_minutes = summary_data.get('total_minutes', 0)
+        hours = total_minutes // 60
+
+        if hours > 100:
+            return f"You've listened to enough music to soundtrack {hours // 24} full days!"
+        elif hours > 50:
+            return f"Your {hours} hours of music could fill a weekend music festival!"
+        elif hours > 20:
+            return f"You've discovered {hours} hours of musical magic!"
+        else:
+            return "Your musical journey is just beginning - keep exploring!"
 
     def create_sound_story_component(self, summary_data, spotify_api=None):
         """Create a combined Sound Story and Music Mood component with Top Genre integration."""
