@@ -676,6 +676,93 @@ def update_top_artists_chart(n_intervals, n_clicks):
     # Create visualization
     return visualizations.create_top_artists_chart(top_artists_df)
 
+# Update top track highlight
+@app.callback(
+    Output('top-track-highlight-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_top_track_highlight(n_intervals, n_clicks):
+    """Update the top track highlight card."""
+    try:
+        # Get top track from database
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT track_name, artist_name, album_name, popularity, image_url
+            FROM listening_history
+            WHERE track_name IS NOT NULL AND track_name != ''
+            GROUP BY track_name, artist_name
+            ORDER BY COUNT(*) DESC, popularity DESC
+            LIMIT 1
+        ''')
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            track_data = {
+                'track': result[0],
+                'artist': result[1],
+                'album': result[2] or 'Unknown Album',
+                'popularity': result[3] or 0,
+                'image_url': result[4] or ''
+            }
+            return visualizations.create_top_track_highlight_component(track_data)
+        else:
+            return html.Div([
+                html.H3("Your #1 Track", style={'color': SPOTIFY_GREEN, 'textAlign': 'center'}),
+                html.P("Start listening to discover your top track!", style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
+            ], style={'padding': '20px'})
+
+    except Exception as e:
+        print(f"Error updating top track highlight: {e}")
+        return html.Div("Error loading top track", style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+# Update top artist highlight
+@app.callback(
+    Output('top-artist-highlight-container', 'children'),
+    Input('interval-component', 'n_intervals'),
+    Input('refresh-button', 'n_clicks')
+)
+def update_top_artist_highlight(n_intervals, n_clicks):
+    """Update the top artist highlight card."""
+    try:
+        # Get top artist from database
+        conn = sqlite3.connect(db.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT artist_name, COUNT(*) as play_count, AVG(popularity) as avg_popularity, image_url
+            FROM listening_history
+            WHERE artist_name IS NOT NULL AND artist_name != ''
+            GROUP BY artist_name
+            ORDER BY play_count DESC, avg_popularity DESC
+            LIMIT 1
+        ''')
+
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            artist_data = {
+                'artist': result[0],
+                'play_count': result[1],
+                'popularity': int(result[2]) if result[2] else 0,
+                'image_url': result[3] or ''
+            }
+            return visualizations.create_top_artist_highlight_component(artist_data)
+        else:
+            return html.Div([
+                html.H3("Your Top Artist", style={'color': SPOTIFY_GREEN, 'textAlign': 'center'}),
+                html.P("Start listening to discover your top artist!", style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
+            ], style={'padding': '20px'})
+
+    except Exception as e:
+        print(f"Error updating top artist highlight: {e}")
+        return html.Div("Error loading top artist", style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
 # Update genre chart
 @app.callback(
     Output('genre-chart', 'figure'),
@@ -1724,17 +1811,11 @@ def update_wrapped_summary_display(summary):
     # Create visualizations instance to use the new components
     vis = visualizations
 
-    # Create the combined Sound Story component with Spotify API for artist images
-    sound_story = vis.create_sound_story_component(summary, spotify_api)
-
-    # Create the wrapped summary component (simplified version)
+    # Create the enhanced wrapped summary component
     wrapped_summary = vis.create_wrapped_summary_component(summary)
 
-    # Return both components
-    return html.Div([
-        wrapped_summary,
-        sound_story
-    ])
+    # Return only the wrapped summary component
+    return wrapped_summary
 
 # Update stat cards
 @app.callback(

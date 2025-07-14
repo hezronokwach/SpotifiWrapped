@@ -240,20 +240,7 @@ class DashboardLayout:
             card_type="glass"
         )
 
-    def create_sound_story_section(self):
-        """Create the sound story section."""
-        return create_spotify_card(
-            title="Your Sound Story",
-            content=html.Div(
-                id='sound-story-container',
-                style={
-                    'minHeight': '180px',
-                    'position': 'relative'
-                }
-            ),
-            icon="fa-book-open",
-            card_type="matrix"
-        )
+
 
     def create_wrapped_summary_section(self):
         """Create the Spotify Wrapped summary section with futuristic styling."""
@@ -267,7 +254,7 @@ class DashboardLayout:
                 }
             ),
             icon="fa-star",
-            card_type="holographic"
+            card_type="glass"
         )
 
     def create_top_albums_section(self):
@@ -424,7 +411,13 @@ class DashboardLayout:
                 # Personality analysis section
                 self.create_personality_section(),
 
-                # Top content row
+                # Top highlights row (individual top track and artist)
+                dbc.Row([
+                    dbc.Col(self.create_top_track_highlight_section(), md=6),
+                    dbc.Col(self.create_top_artist_highlight_section(), md=6)
+                ], className='mb-4'),
+
+                # Top content row (charts)
                 dbc.Row([
                     dbc.Col(self.create_top_tracks_section(), md=6),
                     dbc.Col(self.create_top_artists_section(), md=6)
@@ -432,6 +425,9 @@ class DashboardLayout:
 
                 # Top albums section
                 self.create_top_albums_section(),
+
+                # Your Spotify Wrapped (enhanced with Sound Story data)
+                self.create_wrapped_summary_section(),
 
                 # Album listening patterns and DJ mode row
                 dbc.Row([
@@ -454,10 +450,7 @@ class DashboardLayout:
                     dbc.Col(self.create_playlists_section(), md=6)
                 ], className='mb-4'),
 
-                # Wrapped summary section (moved before listening patterns)
-                self.create_wrapped_summary_section(),
-
-                # Listening patterns
+                # Listening patterns (with date range)
                 self.create_listening_patterns_section(),
 
                 # Refresh button

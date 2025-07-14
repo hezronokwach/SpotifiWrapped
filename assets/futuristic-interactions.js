@@ -89,31 +89,12 @@ function initializeCardInteractions() {
     });
 }
 
-// Smooth scrolling with parallax effects
+// Smooth scrolling effects (parallax removed to prevent floating cards)
 function initializeScrollEffects() {
-    let ticking = false;
-    
-    function updateScrollEffects() {
-        const scrolled = window.pageYOffset;
-        const parallaxElements = document.querySelectorAll('.card-holographic, .card-glass');
-        
-        parallaxElements.forEach((element, index) => {
-            const speed = 0.5 + (index * 0.1);
-            const yPos = -(scrolled * speed);
-            element.style.transform = `translateY(${yPos}px)`;
-        });
-        
-        ticking = false;
-    }
-    
-    function requestTick() {
-        if (!ticking) {
-            requestAnimationFrame(updateScrollEffects);
-            ticking = true;
-        }
-    }
-    
-    window.addEventListener('scroll', requestTick);
+    // Parallax effects removed to prevent cards from floating on scroll
+    // This was causing the "Your music universe" card and other cards to appear/disappear
+    // and create empty spaces in the layout
+    console.log('Scroll effects initialized without parallax to prevent floating cards');
 }
 
 // Typing animation for text elements
