@@ -282,7 +282,7 @@ def create_album_card(album_name, artist_name, rank, image_url="", score=0):
 
 def create_personality_card(primary_type, secondary_type, description, recommendations, metrics):
     """
-    Create a card for displaying personality analysis.
+    Create an enhanced futuristic card for displaying personality analysis.
 
     Args:
         primary_type: Primary personality type
@@ -292,9 +292,9 @@ def create_personality_card(primary_type, secondary_type, description, recommend
         metrics: Dictionary of metrics
 
     Returns:
-        A dbc.Card component
+        A futuristic personality card component
     """
-    # Create radar chart for metrics
+    # Create metrics display (no radar chart needed)
     radar_metrics = {
         'Variety': metrics.get('variety_score', 0),
         'Discovery': metrics.get('discovery_score', 0),
@@ -303,125 +303,247 @@ def create_personality_card(primary_type, secondary_type, description, recommend
         'Time Pattern': metrics.get('time_pattern_score', 0)
     }
 
-    # Create radar chart
-    categories = list(radar_metrics.keys())
-    values = list(radar_metrics.values())
-
-    # Add the first value at the end to close the polygon
-    categories.append(categories[0])
-    values.append(values[0])
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatterpolar(
-        r=values,
-        theta=categories,
-        fill='toself',
-        fillcolor=f'rgba(29, 185, 84, 0.3)',  # Spotify green with transparency
-        line=dict(color=SPOTIFY_GREEN, width=2),
-        name='Your Metrics'
-    ))
-
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 100]
-            )
-        ),
-        showlegend=False,
-        margin=dict(l=70, r=70, t=20, b=20),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-
     # Create recommendations list
     recommendations_list = [
         html.Li(rec, className="mb-2") for rec in recommendations
     ]
 
-    return dbc.Card(
-        [
-            dbc.CardHeader(
-                html.H4("Your Music Personality", className="text-center"),
-                style={"background-color": SPOTIFY_BLACK, "color": SPOTIFY_WHITE}
-            ),
-            dbc.CardBody(
-                [
-                    html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.H2(
-                                        primary_type,
-                                        className="mb-1",
-                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold"}
-                                    ),
-                                    html.P(
-                                        f"with a touch of {secondary_type}",
-                                        className="text-muted"
-                                    ),
-                                    html.P(description, className="mt-3"),
-                                ],
-                                className="col-md-7"
-                            ),
-                            html.Div(
-                                dcc.Graph(
-                                    figure=fig,
-                                    config={'displayModeBar': False},
-                                    style={"height": "300px"}
-                                ),
-                                className="col-md-5"
-                            )
-                        ],
-                        className="row mb-4"
-                    ),
-                    html.Hr(),
-                    html.Div(
-                        [
-                            html.H5("Recommendations for You", className="mb-3"),
-                            html.Ul(recommendations_list, className="recommendations-list")
-                        ]
-                    ),
-                    html.Hr(),
-                    html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.H6("Album Listening Style"),
-                                    html.P(
-                                        metrics.get('listening_style', 'Unknown'),
-                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold", "font-size": "1.2rem"}
-                                    ),
-                                    html.P(
-                                        f"Album Completion: {metrics.get('album_completion_rate', 0)}%",
-                                        className="mb-0 small"
-                                    )
-                                ],
-                                className="col-md-6"
-                            ),
-                            html.Div(
-                                [
-                                    html.H6("DJ Mode Usage"),
-                                    html.P(
-                                        f"{metrics.get('percentage_of_listening', 0)}% of your listening",
-                                        style={"color": SPOTIFY_GREEN, "font-weight": "bold", "font-size": "1.2rem"}
-                                    ),
-                                    html.P(
-                                        f"Estimated minutes: {metrics.get('estimated_minutes', 0)}",
-                                        className="mb-0 small"
-                                    )
-                                ],
-                                className="col-md-6"
-                            )
-                        ],
-                        className="row mt-3"
-                    )
-                ]
-            )
-        ],
-        className="mb-4 shadow"
-    )
+    # Generate unique ID for this card
+    import uuid
+    card_id = f"personality-card-{uuid.uuid4().hex[:8]}"
+
+    return html.Div([
+        # Animated background elements
+        html.Div(className="personality-bg-animation", style={
+            'position': 'absolute',
+            'top': '0',
+            'left': '0',
+            'right': '0',
+            'bottom': '0',
+            'background': 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(29,185,84,0.1), rgba(244,114,182,0.1))',
+            'borderRadius': '24px',
+            'opacity': '0.8'
+        }),
+
+        # Header section with enhanced styling
+        html.Div([
+            html.Div([
+                html.I(className="fas fa-brain", style={
+                    'fontSize': '24px',
+                    'background': 'linear-gradient(45deg, #8B5CF6, #1DB954, #F472B6)',
+                    'backgroundClip': 'text',
+                    'WebkitBackgroundClip': 'text',
+                    'WebkitTextFillColor': 'transparent',
+                    'marginRight': '12px'
+                }),
+                html.H3("Your Music Personality", style={
+                    'margin': '0',
+                    'background': 'linear-gradient(45deg, #8B5CF6, #1DB954)',
+                    'backgroundClip': 'text',
+                    'WebkitBackgroundClip': 'text',
+                    'WebkitTextFillColor': 'transparent',
+                    'fontFamily': 'Orbitron, monospace',
+                    'fontWeight': '700',
+                    'fontSize': '24px',
+                    'letterSpacing': '1px'
+                })
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'justifyContent': 'center',
+                'marginBottom': '24px'
+            })
+        ]),
+
+        # Main content container - single column layout
+        html.Div([
+            # Personality info section
+            html.Div([
+                # Primary type with enhanced styling
+                html.Div([
+                    html.H2(primary_type, style={
+                        'margin': '0 0 8px 0',
+                        'fontSize': '32px',
+                        'fontWeight': '800',
+                        'background': 'linear-gradient(45deg, #1DB954, #00D4FF)',
+                        'backgroundClip': 'text',
+                        'WebkitBackgroundClip': 'text',
+                        'WebkitTextFillColor': 'transparent',
+                        'textShadow': '0 0 20px rgba(29, 185, 84, 0.3)',
+                        'fontFamily': 'Orbitron, monospace',
+                        'textAlign': 'center'
+                    }),
+                    html.P(f"with a touch of {secondary_type}", style={
+                        'margin': '0 0 20px 0',
+                        'fontSize': '16px',
+                        'color': 'rgba(255,255,255,0.7)',
+                        'fontStyle': 'italic',
+                        'textAlign': 'center'
+                    }),
+                    html.P(description, style={
+                        'margin': '0 0 24px 0',
+                        'fontSize': '16px',
+                        'lineHeight': '1.6',
+                        'color': 'rgba(255,255,255,0.9)',
+                        'textAlign': 'center',
+                        'maxWidth': '600px',
+                        'marginLeft': 'auto',
+                        'marginRight': 'auto'
+                    })
+                ]),
+
+                # Enhanced stats section with meaningful metrics
+                html.Div([
+                    html.Div([
+                        html.Span(metrics.get('listening_style', 'Unknown'), style={
+                            'fontSize': '18px',
+                            'fontWeight': '700',
+                            'color': '#8B5CF6',
+                            'fontFamily': 'Orbitron, monospace'
+                        }),
+                        html.Br(),
+                        html.Span("LISTENING STYLE", style={
+                            'fontSize': '10px',
+                            'color': 'rgba(255,255,255,0.6)',
+                            'letterSpacing': '1px'
+                        })
+                    ], style={'textAlign': 'center', 'flex': '1'}),
+
+                    html.Div([
+                        html.Span(f"{metrics.get('album_completion_rate', 0)}%", style={
+                            'fontSize': '18px',
+                            'fontWeight': '700',
+                            'color': '#F472B6',
+                            'fontFamily': 'Orbitron, monospace'
+                        }),
+                        html.Br(),
+                        html.Span("ALBUM COMPLETION", style={
+                            'fontSize': '10px',
+                            'color': 'rgba(255,255,255,0.6)',
+                            'letterSpacing': '1px'
+                        })
+                    ], style={'textAlign': 'center', 'flex': '1'}),
+
+                    html.Div([
+                        html.Span(f"{int(metrics.get('mood_score', 50))}%", style={
+                            'fontSize': '18px',
+                            'fontWeight': '700',
+                            'color': '#00D4FF',
+                            'fontFamily': 'Orbitron, monospace'
+                        }),
+                        html.Br(),
+                        html.Span("UPBEAT MOOD", style={
+                            'fontSize': '10px',
+                            'color': 'rgba(255,255,255,0.6)',
+                            'letterSpacing': '1px'
+                        })
+                    ], style={'textAlign': 'center', 'flex': '1'})
+                ], style={
+                    'display': 'flex',
+                    'alignItems': 'center',
+                    'justifyContent': 'space-around',
+                    'marginBottom': '32px',
+                    'padding': '20px',
+                    'background': 'rgba(255,255,255,0.03)',
+                    'borderRadius': '16px',
+                    'border': '1px solid rgba(255,255,255,0.1)'
+                })
+            ], style={
+                'position': 'relative',
+                'zIndex': '2'
+            })
+        ], style={
+            'position': 'relative',
+            'zIndex': '2'
+        }),
+
+        # Recommendations section with proper side-by-side layout
+        html.Div([
+            html.H5("Personalized Recommendations", style={
+                'margin': '0 0 20px 0',
+                'fontSize': '20px',
+                'fontWeight': '600',
+                'color': '#00D4FF',
+                'fontFamily': 'Orbitron, monospace',
+                'textAlign': 'center'
+            }),
+            html.Div([
+                # Left column - first half of recommendations
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-lightbulb", style={
+                            'fontSize': '14px',
+                            'color': '#FFD700',
+                            'marginRight': '10px',
+                            'flexShrink': '0'
+                        }),
+                        html.Span(rec, style={
+                            'fontSize': '14px',
+                            'color': 'rgba(255,255,255,0.9)',
+                            'lineHeight': '1.4'
+                        })
+                    ], style={
+                        'display': 'flex',
+                        'alignItems': 'flex-start',
+                        'marginBottom': '12px',
+                        'padding': '12px 16px',
+                        'background': 'rgba(255,255,255,0.05)',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(255,255,255,0.1)',
+                        'transition': 'all 0.3s ease'
+                    }) for rec in recommendations[:len(recommendations)//2]
+                ], style={'flex': '1', 'paddingRight': '12px'}),
+
+                # Right column - second half of recommendations
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-lightbulb", style={
+                            'fontSize': '14px',
+                            'color': '#FFD700',
+                            'marginRight': '10px',
+                            'flexShrink': '0'
+                        }),
+                        html.Span(rec, style={
+                            'fontSize': '14px',
+                            'color': 'rgba(255,255,255,0.9)',
+                            'lineHeight': '1.4'
+                        })
+                    ], style={
+                        'display': 'flex',
+                        'alignItems': 'flex-start',
+                        'marginBottom': '12px',
+                        'padding': '12px 16px',
+                        'background': 'rgba(255,255,255,0.05)',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(255,255,255,0.1)',
+                        'transition': 'all 0.3s ease'
+                    }) for rec in recommendations[len(recommendations)//2:]
+                ], style={'flex': '1', 'paddingLeft': '12px'})
+            ], style={
+                'display': 'flex',
+                'gap': '0px'
+            })
+        ], style={
+            'marginTop': '24px',
+            'position': 'relative',
+            'zIndex': '2'
+        })
+    ],
+    id=card_id,
+    className="futuristic-personality-card",
+    style={
+        'position': 'relative',
+        'padding': '32px',
+        'background': 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
+        'borderRadius': '24px',
+        'border': '2px solid transparent',
+        'backgroundImage': 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95)), linear-gradient(45deg, #8B5CF6, #1DB954, #F472B6)',
+        'backgroundOrigin': 'border-box',
+        'backgroundClip': 'padding-box, border-box',
+        'boxShadow': '0 15px 50px rgba(0,0,0,0.4), 0 0 40px rgba(139,92,246,0.2)',
+        'overflow': 'hidden',
+        'margin': '20px 0'
+    })
 
 def create_dj_mode_card(dj_stats):
     """

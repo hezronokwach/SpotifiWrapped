@@ -359,12 +359,13 @@ def update_top_tracks_chart(n_intervals, n_clicks):
             t.album,
             t.popularity,
             t.image_url,
-            COUNT(h.history_id) as play_count,
-            (COUNT(h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            COUNT(DISTINCT h.history_id) as play_count,
+            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.track_id
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
@@ -552,14 +553,15 @@ def update_audio_features_chart(n_intervals, n_clicks):
             t.name as track,
             t.artist,
             t.album,
-            COUNT(h.history_id) as play_count,
-            (COUNT(h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            COUNT(DISTINCT h.history_id) as play_count,
+            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?
+        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.track_id
-        HAVING play_count >= 2
+        HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 5
     ''', (current_date,))
@@ -657,13 +659,14 @@ def update_top_artists_chart(n_intervals, n_clicks):
             t.artist as artist,
             MAX(t.popularity) as popularity,
             MAX(t.image_url) as image_url,
-            COUNT(h.history_id) as play_count,
-            (COUNT(h.history_id) * 0.8 + (MAX(t.popularity) / 100.0) * 0.2) as weighted_score
+            COUNT(DISTINCT h.history_id) as play_count,
+            (COUNT(DISTINCT h.history_id) * 0.8 + (MAX(t.popularity) / 100.0) * 0.2) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
         AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.artist
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
@@ -698,13 +701,19 @@ def update_top_track_highlight(n_intervals, n_clicks):
         conn = sqlite3.connect(db.db_path)
         cursor = conn.cursor()
 
+        # Play count calculation: COUNT(DISTINCT h.history_id) counts unique listening events
+        # This uses all historical data while preventing duplicate counting from same timestamp/source
+        # Database UNIQUE constraint on (user_id, track_id, played_at) prevents exact duplicates
         cursor.execute('''
             SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
-                   t.popularity, t.image_url, COUNT(h.history_id) as play_count
+                   t.popularity, t.image_url,
+                   COUNT(DISTINCT h.history_id) as play_count,
+                   COUNT(h.history_id) as total_entries
             FROM tracks t
             JOIN listening_history h ON t.track_id = h.track_id
             WHERE t.name IS NOT NULL AND t.name != ''
             AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
             GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
             ORDER BY play_count DESC, t.popularity DESC
             LIMIT 1
@@ -746,13 +755,19 @@ def update_top_artist_highlight(n_intervals, n_clicks):
         conn = sqlite3.connect(db.db_path)
         cursor = conn.cursor()
 
+        # Play count calculation for artists: COUNT(DISTINCT h.history_id) counts unique listening events
+        # This uses all historical data while preventing duplicate counting from same timestamp/source
         cursor.execute('''
-            SELECT t.artist as artist_name, COUNT(h.history_id) as play_count,
-                   AVG(t.popularity) as avg_popularity, MAX(t.image_url) as image_url
+            SELECT t.artist as artist_name,
+                   COUNT(DISTINCT h.history_id) as play_count,
+                   AVG(t.popularity) as avg_popularity,
+                   MAX(t.image_url) as image_url,
+                   COUNT(h.history_id) as total_entries
             FROM tracks t
             JOIN listening_history h ON t.track_id = h.track_id
             WHERE t.artist IS NOT NULL AND t.artist != ''
             AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
             GROUP BY t.artist
             ORDER BY play_count DESC, avg_popularity DESC
             LIMIT 1
@@ -1511,139 +1526,16 @@ def update_personality_analysis(n_intervals, n_clicks):
                 if 'listening_style' not in personality_data['metrics'] or personality_data['metrics']['listening_style'] == 'Unknown':
                     personality_data['metrics']['listening_style'] = album_patterns.get('listening_style', 'Unknown')
 
-        # Create a modern, visually appealing personality section
-        return html.Div([
-            # Header section
-            html.Div([
-                html.H2("Your Music Personality",
-                    style={
-                        'color': SPOTIFY_GREEN,
-                        'textAlign': 'center',
-                        'fontSize': '3rem',
-                        'fontWeight': 'bold',
-                        'marginBottom': '20px',
-                        'letterSpacing': '1px',
-                        'textShadow': '2px 2px 4px rgba(0,0,0,0.3)'
-                    }
-                ),
-                html.Div([
-                    html.Span(personality_data.get('primary_type', 'Unknown'),
-                        style={
-                            'color': SPOTIFY_WHITE,
-                            'fontSize': '1.8rem',
-                            'fontWeight': 'bold'
-                        }
-                    ),
-                    html.Span(" × ",
-                        style={
-                            'color': SPOTIFY_GRAY,
-                            'fontSize': '1.8rem',
-                            'margin': '0 10px'
-                        }
-                    ),
-                    html.Span(personality_data.get('secondary_type', 'Unknown'),
-                        style={
-                            'color': SPOTIFY_WHITE,
-                            'fontSize': '1.8rem',
-                            'fontWeight': 'bold'
-                        }
-                    )
-                ], style={
-                    'textAlign': 'center',
-                    'marginBottom': '30px'
-                })
-            ]),
+        # Create enhanced personality card using the standalone function
+        return create_personality_card(
+            primary_type=personality_data.get('primary_type', 'Unknown'),
+            secondary_type=personality_data.get('secondary_type', 'Unknown'),
+            description=personality_data.get('description', 'No description available'),
+            recommendations=personality_data.get('recommendations', []),
+            metrics=personality_data.get('metrics', {})
+        )
 
-            # Description card
-            html.Div([
-                html.P(personality_data.get('description', 'No description available'),
-                    style={
-                        'color': SPOTIFY_WHITE,
-                        'fontSize': '1.2rem',
-                        'lineHeight': '1.6',
-                        'textAlign': 'center',
-                        'margin': '0 auto',
-                        'maxWidth': '800px'
-                    }
-                )
-            ], style={
-                'backgroundColor': '#181818',
-                'padding': '30px',
-                'borderRadius': '15px',
-                'marginBottom': '30px',
-                'boxShadow': '0 4px 12px rgba(0,0,0,0.3)'
-            }),
 
-            # Recommendations - Side by Side Layout
-            html.Div([
-                html.H3("🎯 Personalized Recommendations",
-                    style={
-                        'color': SPOTIFY_WHITE,
-                        'textAlign': 'center',
-                        'marginBottom': '20px',
-                        'fontSize': '1.5rem'
-                    }
-                ),
-                html.Div([
-                    # Left column
-                    html.Div([
-                        html.Div([
-                            html.I(className="fas fa-lightbulb",
-                                style={
-                                    'color': SPOTIFY_GREEN,
-                                    'fontSize': '1rem',
-                                    'marginRight': '8px'
-                                }
-                            ),
-                            html.Span(recommendation, style={'fontSize': '0.9rem'})
-                        ], style={
-                            'color': SPOTIFY_WHITE,
-                            'backgroundColor': '#1a1a1a',
-                            'padding': '15px',
-                            'borderRadius': '8px',
-                            'marginBottom': '10px',
-                            'border': f'1px solid {["#1DB954", "#FF6B35", "#1E90FF", "#FFD700", "#FF69B4"][i % 5]}',
-                            'display': 'flex',
-                            'alignItems': 'flex-start'
-                        }) for i, recommendation in enumerate(personality_data.get('recommendations', [])[::2])  # Even indices
-                    ], className="col-md-6"),
-
-                    # Right column
-                    html.Div([
-                        html.Div([
-                            html.I(className="fas fa-lightbulb",
-                                style={
-                                    'color': SPOTIFY_GREEN,
-                                    'fontSize': '1rem',
-                                    'marginRight': '8px'
-                                }
-                            ),
-                            html.Span(recommendation, style={'fontSize': '0.9rem'})
-                        ], style={
-                            'color': SPOTIFY_WHITE,
-                            'backgroundColor': '#1a1a1a',
-                            'padding': '15px',
-                            'borderRadius': '8px',
-                            'marginBottom': '10px',
-                            'border': f'1px solid {["#1DB954", "#FF6B35", "#1E90FF", "#FFD700", "#FF69B4"][(i*2+1) % 5]}',
-                            'display': 'flex',
-                            'alignItems': 'flex-start'
-                        }) for i, recommendation in enumerate(personality_data.get('recommendations', [])[1::2])  # Odd indices
-                    ], className="col-md-6")
-                ], className="row")
-            ], style={
-                'backgroundColor': '#181818',
-                'padding': '30px',
-                'borderRadius': '15px',
-                'boxShadow': '0 4px 12px rgba(0,0,0,0.3)'
-            })
-        ], style={
-            'padding': '40px',
-            'backgroundColor': '#121212',
-            'borderRadius': '20px',
-            'margin': '20px 0',
-            'boxShadow': '0 8px 16px rgba(0,0,0,0.4)'
-        })
 
     except Exception as e:
         print(f"Error updating personality analysis: {e}")

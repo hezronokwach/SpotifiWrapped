@@ -1309,6 +1309,128 @@ body {
     }
 }
 
+/* Enhanced Personality Card Styling */
+.futuristic-personality-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.futuristic-personality-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(139, 92, 246, 0.1), transparent, rgba(29, 185, 84, 0.1), transparent, rgba(244, 114, 182, 0.1), transparent);
+    animation: rotate 12s linear infinite;
+    z-index: 0;
+}
+
+.futuristic-personality-card:hover {
+    transform: translateY(-8px);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.5),
+        0 0 50px rgba(139,92,246,0.3);
+}
+
+.personality-bg-animation {
+    animation: personalityPulse 6s ease-in-out infinite;
+}
+
+@keyframes personalityPulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+/* Personality card content animations */
+.futuristic-personality-card .fas {
+    animation: glow 3s ease-in-out infinite alternate;
+}
+
+/* Enhanced radar chart styling */
+.futuristic-personality-card .plotly-graph-div {
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.futuristic-personality-card .plotly-graph-div:hover {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.1);
+}
+
+/* Recommendation items hover effects */
+.futuristic-personality-card div[style*="rgba(255,255,255,0.05)"]:hover {
+    background: rgba(139, 92, 246, 0.1) !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+    transition: all 0.3s ease;
+}
+
+/* Enhanced stats section styling */
+.futuristic-personality-card div[style*="space-around"] {
+    background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(29,185,84,0.05)) !important;
+    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+}
+
+.futuristic-personality-card div[style*="space-around"]:hover {
+    background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(29,185,84,0.1)) !important;
+    border-color: rgba(139, 92, 246, 0.4) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.2);
+}
+
+/* Typography enhancements */
+.futuristic-personality-card h2,
+.futuristic-personality-card h3 {
+    text-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+/* Responsive personality card */
+@media (max-width: 768px) {
+    .futuristic-personality-card {
+        padding: 20px !important;
+        margin: 16px 0 !important;
+    }
+
+    /* Stack recommendations vertically on mobile */
+    .futuristic-personality-card div[style*="display: flex"][style*="gap: 0px"] {
+        flex-direction: column !important;
+    }
+
+    .futuristic-personality-card div[style*="flex: 1"][style*="paddingRight: 12px"],
+    .futuristic-personality-card div[style*="flex: 1"][style*="paddingLeft: 12px"] {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-bottom: 12px;
+    }
+
+    /* Stack stats horizontally but smaller on mobile */
+    .futuristic-personality-card div[style*="space-around"] {
+        flex-wrap: wrap !important;
+        gap: 16px !important;
+    }
+
+    .futuristic-personality-card div[style*="space-around"] > div {
+        flex: 1 1 calc(50% - 8px) !important;
+        min-width: 120px !important;
+    }
+
+    .futuristic-personality-card h2 {
+        font-size: 24px !important;
+    }
+
+    .futuristic-personality-card h3 {
+        font-size: 18px !important;
+    }
+
+    .futuristic-personality-card h5 {
+        font-size: 18px !important;
+    }
+}
+
 /* Loading States */
 .loading-shimmer {
     background: linear-gradient(90deg,
