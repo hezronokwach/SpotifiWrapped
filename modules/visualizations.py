@@ -2017,9 +2017,63 @@ class SpotifyVisualizations:
                     'display': 'grid',
                     'gridTemplateColumns': 'repeat(3, 1fr)',
                     'gap': '20px',
-                    'marginBottom': '30px'
+                    'marginBottom': '20px'
                 })
             ]),
+
+                # Row 3: AI DJ and Sequential Listening
+                html.Div([
+                    # AI DJ Usage (renamed from DJ Mode)
+                    html.Div([
+                        html.I(className="fas fa-robot", style={'fontSize': '24px', 'color': '#00D4FF'}),
+                        html.H3(f"{summary_data.get('dj_stats', {}).get('percentage_of_listening', 0)}%", style={
+                            'color': '#FFFFFF',
+                            'margin': '10px 0 5px 0',
+                            'fontSize': '18px'
+                        }),
+                        html.P("AI DJ usage" if summary_data.get('dj_stats', {}).get('is_premium', False) else "Premium feature", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '20px',
+                        'background': 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,212,255,0.05))',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(0,212,255,0.3)',
+                        'transition': 'transform 0.3s ease',
+                        'cursor': 'pointer',
+                        'height': '120px',
+                        'display': 'flex',
+                        'flexDirection': 'column',
+                        'justifyContent': 'center'
+                    }, className='hover-lift'),
+
+                    # Sequential Listening
+                    html.Div([
+                        html.I(className="fas fa-list-ol", style={'fontSize': '24px', 'color': '#F472B6'}),
+                        html.H3(f"{summary_data.get('album_patterns', {}).get('sequential_listening_score', 0)}%", style={
+                            'color': '#FFFFFF',
+                            'margin': '10px 0 5px 0',
+                            'fontSize': '18px'
+                        }),
+                        html.P("sequential listening", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                    ], style={
+                        'textAlign': 'center',
+                        'padding': '20px',
+                        'background': 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(244,114,182,0.05))',
+                        'borderRadius': '12px',
+                        'border': '1px solid rgba(244,114,182,0.3)',
+                        'transition': 'transform 0.3s ease',
+                        'cursor': 'pointer',
+                        'height': '120px',
+                        'display': 'flex',
+                        'flexDirection': 'column',
+                        'justifyContent': 'center'
+                    }, className='hover-lift')
+                ], style={
+                    'display': 'grid',
+                    'gridTemplateColumns': 'repeat(2, 1fr)',
+                    'gap': '20px',
+                    'marginBottom': '30px'
+                }),
 
             # Enhanced fun fact section
             html.Div([

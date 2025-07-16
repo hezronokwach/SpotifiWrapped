@@ -1372,95 +1372,7 @@ def update_top_albums(n_intervals, n_clicks):
         return html.Div("Error loading album data",
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-# Callback for album listening patterns
-@app.callback(
-    Output('album-listening-patterns-container', 'children'),
-    Input('interval-component', 'n_intervals')
-)
-def update_album_listening_patterns(n_intervals):
-    """Update the album listening patterns section."""
-    user_data = spotify_api.get_user_profile()
-    if not user_data:
-        return html.Div("Log in to see your album listening patterns",
-                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-
-    try:
-        # Get patterns from database
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
-
-        # Calculate album completion rate and sequential listening
-        # Use a simpler query that doesn't rely on window functions
-        cursor.execute('''
-            SELECT
-                CASE WHEN COUNT(*) > 0
-                     THEN COUNT(CASE WHEN track_count > 1 THEN 1 END) * 100.0 / COUNT(*)
-                     ELSE 0 END as album_completion_rate,
-                CASE WHEN COUNT(*) > 0 THEN 50.0 ELSE 0 END as sequential_listening_score
-            FROM (
-                SELECT
-                    t.album,
-                    COUNT(DISTINCT t.track_id) as track_count
-                FROM listening_history h
-                JOIN tracks t ON h.track_id = t.track_id
-                WHERE h.user_id = ? AND t.album IS NOT NULL AND t.album != ''
-                GROUP BY t.album
-            )
-        ''', (user_data['id'],))
-
-        result = cursor.fetchone()
-        conn.close()
-
-        if result and result[0] is not None:
-            patterns = {
-                'album_completion_rate': round(result[0], 2),
-                'sequential_listening_score': round(result[1], 2),
-                'album_focused': result[1] > 40 or result[0] > 30,
-                'listening_style': get_listening_style(result[0], result[1])
-            }
-        else:
-            # Fallback to CSV data
-            patterns_df = data_processor.load_data('album_patterns.csv')
-            if patterns_df.empty:
-                return html.Div("No album patterns available",
-                              style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-            patterns = patterns_df.iloc[0].to_dict()
-
-        # Create stats cards
-        from modules.visualizations import create_stat_card
-
-        stats_cards = [
-            create_stat_card(
-                "Album Completion",
-                f"{patterns.get('album_completion_rate', 0)}%",
-                icon="fa-compact-disc",
-                color=SPOTIFY_GREEN
-            ),
-            create_stat_card(
-                "Sequential Listening",
-                f"{patterns.get('sequential_listening_score', 0)}%",
-                icon="fa-list-ol",
-                color="#1ED760"
-            ),
-            create_stat_card(
-                "Listening Style",
-                patterns.get('listening_style', 'Unknown'),
-                icon="fa-headphones",
-                color="#2D46B9"
-            )
-        ]
-
-        return html.Div(stats_cards, style={
-            'display': 'flex',
-            'flexWrap': 'wrap',
-            'justifyContent': 'space-around',
-            'padding': '20px'
-        })
-
-    except Exception as e:
-        print(f"Error updating album listening patterns: {e}")
-        return html.Div("Error loading album listening patterns",
-                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+# Album listening patterns are now part of the DNA section in wrapped summary
 
 def get_listening_style(completion_rate, sequential_score):
     """Determine listening style based on metrics."""
@@ -1566,131 +1478,7 @@ def update_personality_analysis(n_intervals, n_clicks):
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
 
-# New callback for DJ mode stats
-@app.callback(
-    Output('dj-mode-container', 'children'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
-)
-def update_dj_mode_stats(n_intervals, n_clicks):
-    """Update the DJ mode stats section."""
-    try:
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Log in to see your DJ mode statistics",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-
-        # Get data from database
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
-
-        # Calculate DJ mode usage based on track data - only count actual listening events
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute('''
-            SELECT
-                COUNT(*) as total_tracks,
-                SUM(t.duration_ms) / 60000 as total_minutes
-            FROM listening_history h
-            JOIN tracks t ON h.track_id = t.track_id
-            WHERE h.user_id = ?
-            AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
-            AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-        ''', (user_data['id'], current_date))
-
-        result = cursor.fetchone()
-        conn.close()
-
-        if result and result[0] > 0:
-            total_tracks = result[0]
-            total_minutes = result[1] or 0
-
-            # Spotify DJ is a premium-only feature, so we need to check if the user is premium
-            # Try to get the user's subscription status from the Spotify API
-            is_premium = False  # Default to not premium
-
-            # Try to get the user's subscription type from the API
-            try:
-                user_profile = spotify_api.sp.current_user()
-                product_type = user_profile.get('product', 'free')
-                is_premium = product_type == 'premium'
-                print(f"DEBUG: User subscription type: {product_type}, is_premium: {is_premium}")
-            except Exception as e:
-                print(f"DEBUG: Error getting user subscription type: {e}")
-                is_premium = False
-
-            # If the user is premium, calculate DJ mode usage
-            if is_premium:
-                # Estimate DJ mode usage (simplified for limited data)
-                estimated_minutes = max(1, int(total_minutes * 0.15))  # Assume 15% of listening is DJ mode
-                percentage_of_listening = min(100, max(5, int((estimated_minutes / max(1, total_minutes)) * 100)))
-                dj_mode_user = True  # Premium users can use DJ mode
-            else:
-                # For non-premium users, set default values
-                estimated_minutes = 0
-                percentage_of_listening = 0
-                dj_mode_user = False  # Not a DJ mode user since it's premium-only
-
-            dj_stats = {
-                'estimated_minutes': estimated_minutes,
-                'percentage_of_listening': percentage_of_listening,
-                'dj_mode_user': dj_mode_user,
-                'is_premium': is_premium
-            }
-        else:
-            # Default values for very limited data
-            # Try to get the user's subscription type from the API
-            is_premium = False
-            try:
-                user_profile = spotify_api.sp.current_user()
-                product_type = user_profile.get('product', 'free')
-                is_premium = product_type == 'premium'
-                print(f"DEBUG: User subscription type (no data): {product_type}, is_premium: {is_premium}")
-            except Exception as e:
-                print(f"DEBUG: Error getting user subscription type (no data): {e}")
-                is_premium = False
-
-            dj_stats = {
-                'estimated_minutes': 5 if is_premium else 0,
-                'percentage_of_listening': 10 if is_premium else 0,
-                'dj_mode_user': is_premium,  # Only premium users can use DJ mode
-                'is_premium': is_premium
-            }
-
-        # Create stats cards
-        from modules.visualizations import create_stat_card
-
-        stats_cards = [
-            create_stat_card(
-                "DJ Mode Minutes",
-                f"{dj_stats.get('estimated_minutes', 0)}",
-                icon="fa-robot",
-                color=SPOTIFY_GREEN
-            ),
-            create_stat_card(
-                "DJ Mode Usage",
-                f"{dj_stats.get('percentage_of_listening', 0)}%",
-                icon="fa-percentage",
-                color="#1ED760"
-            ),
-            create_stat_card(
-                "DJ Mode Status",
-                "Active User" if dj_stats.get('dj_mode_user', False) else ("Not Available" if not dj_stats.get('is_premium', False) else "Occasional User"),
-                icon="fa-user-check",
-                color="#2D46B9"
-            )
-        ]
-
-        return html.Div(stats_cards, style={
-            'display': 'flex',
-            'flexWrap': 'wrap',
-            'justifyContent': 'space-around',
-            'padding': '20px'
-        })
-
-    except Exception as e:
-        print(f"Error updating DJ mode stats: {e}")
-        return html.Div("Error loading DJ mode statistics",
-                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+# DJ mode stats are now part of the DNA section in wrapped summary
 
 # Update wrapped summary
 @app.callback(
@@ -1703,9 +1491,11 @@ def update_wrapped_summary(n_clicks, n_intervals):
     try:
         print(f"Updating wrapped summary - clicks: {n_clicks}, intervals: {n_intervals}")
 
-        # If refresh button was clicked, clear cache and regenerate
-        if n_clicks is not None and n_clicks > 0:
-            print("Refresh button clicked - clearing cache and regenerating summary")
+        # If refresh button was clicked OR every few intervals, clear cache and regenerate
+        should_regenerate = (n_clicks is not None and n_clicks > 0) or (n_intervals is not None and n_intervals % 3 == 0)
+
+        if should_regenerate:
+            print("Clearing cache and regenerating summary (refresh clicked or interval trigger)")
             try:
                 import os
                 cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
@@ -1717,7 +1507,7 @@ def update_wrapped_summary(n_clicks, n_intervals):
 
         # Generate summary from database
         summary = generate_wrapped_summary_from_db()
-        print(f"Generated summary: {summary}")
+        print(f"Generated summary with total_minutes: {summary.get('total_minutes', 'NOT_FOUND')}")
         return summary
     except Exception as e:
         print(f"Error updating wrapped summary: {e}")
@@ -1880,20 +1670,20 @@ def generate_wrapped_summary_from_db():
     """Generate a Spotify Wrapped style summary using database data."""
     print("Starting wrapped summary generation...")
 
-    # Try to load from cached file first (only if recent)
+    # Try to load from cached file first (only if very recent - 1 minute)
     try:
         import os
         import time
         cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
         if os.path.exists(cache_file):
-            # Check if cache is recent (less than 5 minutes old)
+            # Check if cache is very recent (less than 1 minute old)
             cache_age = time.time() - os.path.getmtime(cache_file)
-            if cache_age < 300:  # 5 minutes
+            if cache_age < 60:  # 1 minute only
                 with open(cache_file, 'r') as f:
                     import json
                     cached_summary = json.load(f)
-                    print(f"Using recent cached summary (age: {cache_age:.1f}s)")
-                    if cached_summary:  # If we have cached data, return it
+                    print(f"Using very recent cached summary (age: {cache_age:.1f}s)")
+                    if cached_summary and 'total_minutes' in cached_summary:  # Ensure it has the data we need
                         return cached_summary
             else:
                 print(f"Cache is too old ({cache_age:.1f}s), regenerating")
@@ -2098,6 +1888,50 @@ def generate_wrapped_summary_from_db():
         print("No listening time data found")
 
     conn.close()
+
+    # Add DJ stats and album patterns data
+    try:
+        # Get DJ stats (AI DJ usage)
+        is_premium = user_data.get('product', 'free') == 'premium'
+        if is_premium:
+            # Estimate AI DJ usage for premium users
+            estimated_minutes = max(1, int(summary.get('total_minutes', 0) * 0.15))  # 15% of listening
+            percentage_of_listening = min(100, max(5, int((estimated_minutes / max(1, summary.get('total_minutes', 1))) * 100)))
+            dj_mode_user = True
+        else:
+            estimated_minutes = 0
+            percentage_of_listening = 0
+            dj_mode_user = False
+
+        summary['dj_stats'] = {
+            'estimated_minutes': estimated_minutes,
+            'percentage_of_listening': percentage_of_listening,
+            'dj_mode_user': dj_mode_user,
+            'is_premium': is_premium
+        }
+
+        # Get album patterns (sequential listening)
+        from modules.top_albums import get_album_listening_patterns
+        album_patterns = get_album_listening_patterns(spotify_api)
+        summary['album_patterns'] = album_patterns
+
+        print(f"Added DJ stats: {summary['dj_stats']}")
+        print(f"Added album patterns: {summary['album_patterns']}")
+
+    except Exception as e:
+        print(f"Error adding DJ stats and album patterns: {e}")
+        # Set defaults if error
+        summary['dj_stats'] = {
+            'estimated_minutes': 0,
+            'percentage_of_listening': 0,
+            'dj_mode_user': False,
+            'is_premium': False
+        }
+        summary['album_patterns'] = {
+            'sequential_listening_score': 0,
+            'album_completion_rate': 0,
+            'listening_style': 'Unknown'
+        }
 
     # Save summary to cache
     try:

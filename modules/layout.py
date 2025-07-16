@@ -419,11 +419,7 @@ class DashboardLayout:
                 # Your Spotify Wrapped (enhanced with Sound Story data)
                 self.create_wrapped_summary_section(),
 
-                # Album listening patterns and DJ mode row
-                dbc.Row([
-                    dbc.Col(self.create_album_listening_patterns_section(), md=6),
-                    dbc.Col(self.create_dj_mode_section(), md=6)
-                ], className='mb-4'),
+                # Album listening patterns section removed - now part of DNA section
 
                 
 
