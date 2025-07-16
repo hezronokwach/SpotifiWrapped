@@ -314,7 +314,7 @@ class DashboardLayout:
                 width=3
             ),
             dbc.Col(
-                html.Div(id='music-variety-stat'),
+                html.Div(id='listening-sessions-stat'),
                 width=3
             ),
             dbc.Col(

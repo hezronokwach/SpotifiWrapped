@@ -446,13 +446,19 @@ class DataProcessor:
                     'energy': avg_energy
                 }
 
-            # Get top genre
+            # Get top genre from genres table linked to listening history (consistent with other components)
             cursor.execute('''
-                SELECT genre_name as genre,
-                    SUM(count) as count
-                FROM genres
-                GROUP BY genre_name
-                ORDER BY count DESC
+                SELECT g.genre_name as genre,
+                    COUNT(DISTINCT h.history_id) as play_count
+                FROM genres g
+                JOIN tracks t ON g.artist_name = t.artist
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE g.genre_name IS NOT NULL
+                AND g.genre_name != ''
+                AND g.genre_name != 'unknown'
+                AND h.source IN ('played', 'recently_played', 'current')
+                GROUP BY g.genre_name
+                ORDER BY play_count DESC
                 LIMIT 1
             ''')
             top_genre_row = cursor.fetchone()
@@ -460,7 +466,7 @@ class DataProcessor:
                 genre = dict(top_genre_row)
                 summary['genre_highlight'] = {
                     'name': genre['genre'],
-                    'count': int(genre['count'])
+                    'count': int(genre['play_count'])
                 }
 
             # Calculate total listening minutes from track durations

@@ -1085,16 +1085,39 @@ def update_genre_chart(n_intervals, n_clicks):
         if 'user_data' not in locals() or user_data is None:
             user_data = spotify_api.get_user_profile()
 
-        # Get genre data from the genres table with categorization
-        genre_data = db.get_top_genres(limit=10, exclude_unknown=True, categorize=True)
+        # Get genre data from genres table linked to listening history (consistent with wrapped summary)
+        conn = sqlite3.connect(db.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
+        cursor.execute('''
+            SELECT
+                g.genre_name as genre,
+                COUNT(DISTINCT h.history_id) as count
+            FROM genres g
+            JOIN tracks t ON g.artist_name = t.artist
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE g.genre_name IS NOT NULL
+            AND g.genre_name != ''
+            AND g.genre_name != 'unknown'
+            AND h.source IN ('played', 'recently_played', 'current')
+            AND date(h.played_at) <= ?
+            GROUP BY g.genre_name
+            ORDER BY count DESC
+            LIMIT 10
+        ''', (current_date,))
+
+        genre_data = [dict(row) for row in cursor.fetchall()]
+        conn.close()
 
         # Convert to DataFrame
         if genre_data:
             genre_df = pd.DataFrame(genre_data)
-            print(f"Genre data loaded from database: {len(genre_df)} genres")
+            print(f"Genre data loaded from listening history: {len(genre_df)} genres")
             print(f"Top genres: {genre_df['genre'].tolist()}")
         else:
-            print("No genre data in database")
+            print("No genre data in listening history")
             # Create an empty DataFrame
             genre_df = pd.DataFrame(columns=['genre', 'count'])
 
@@ -1672,17 +1695,30 @@ def update_dj_mode_stats(n_intervals, n_clicks):
 # Update wrapped summary
 @app.callback(
     Output('wrapped-summary-store', 'data'),
-    Input('refresh-button', 'n_clicks')
+    [Input('refresh-button', 'n_clicks'),
+     Input('interval-component', 'n_intervals')]
 )
-def update_wrapped_summary(n_clicks):
+def update_wrapped_summary(n_clicks, n_intervals):
     """Generate and store Spotify Wrapped style summary using only database data."""
     try:
-        # Generate summary from database
-        if n_clicks is not None and n_clicks > 0:
-            return generate_wrapped_summary_from_db()
+        print(f"Updating wrapped summary - clicks: {n_clicks}, intervals: {n_intervals}")
 
-        # For non-refresh updates, still use database
-        return generate_wrapped_summary_from_db()
+        # If refresh button was clicked, clear cache and regenerate
+        if n_clicks is not None and n_clicks > 0:
+            print("Refresh button clicked - clearing cache and regenerating summary")
+            try:
+                import os
+                cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
+                if os.path.exists(cache_file):
+                    os.remove(cache_file)
+                    print("Cleared cached summary file")
+            except Exception as e:
+                print(f"Error clearing cache: {e}")
+
+        # Generate summary from database
+        summary = generate_wrapped_summary_from_db()
+        print(f"Generated summary: {summary}")
+        return summary
     except Exception as e:
         print(f"Error updating wrapped summary: {e}")
         return {}
@@ -1738,7 +1774,7 @@ def update_wrapped_summary_display(summary):
     [
         Output('total-minutes-stat', 'children'),
         Output('unique-artists-stat', 'children'),
-        Output('music-variety-stat', 'children'),
+        Output('listening-sessions-stat', 'children'),
         Output('playlist-count-stat', 'children')
     ],
     Input('interval-component', 'n_intervals')
@@ -1753,7 +1789,7 @@ def update_stat_cards(n_intervals):
     conn = sqlite3.connect(db.db_path)
     cursor = conn.cursor()
 
-    # Calculate total minutes and music variety from database - only count actual listening events
+    # Calculate total minutes and music variety from database - use same calculation as wrapped summary
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT SUM(t.duration_ms) / 60000 as total_minutes,
@@ -1762,10 +1798,9 @@ def update_stat_cards(n_intervals):
                COUNT(DISTINCT t.album) as unique_albums
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
-        WHERE h.user_id = ?
-        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        WHERE h.source IN ('played', 'recently_played', 'current')  -- Same filter as wrapped summary
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-    ''', (user_data['id'], current_date))
+    ''', (current_date,))
 
     db_stats = cursor.fetchone()
     conn.close()
@@ -1776,28 +1811,17 @@ def update_stat_cards(n_intervals):
     unique_tracks = db_stats[2] or 0
     unique_albums = db_stats[3] or 0
 
-    # Calculate Music Variety Score (0-100 based on diversity)
-    # Formula: weighted combination of artist diversity, album diversity, and genre diversity
-    if unique_artists > 0 and unique_tracks > 0:
-        # Artist diversity: ratio of unique artists to total tracks (capped at 1.0)
-        artist_diversity = min(unique_artists / max(unique_tracks, 1), 1.0)
-
-        # Album diversity: ratio of unique albums to total tracks (capped at 1.0)
-        album_diversity = min(unique_albums / max(unique_tracks, 1), 1.0)
-
-        # Get genre count from genres table
-        cursor = sqlite3.connect(db.db_path).cursor()
-        cursor.execute('SELECT COUNT(DISTINCT genre_name) FROM genres')
-        genre_count = cursor.fetchone()[0] or 0
-        cursor.close()
-
-        # Genre diversity: normalized genre count (assuming 20+ genres = max diversity)
-        genre_diversity = min(genre_count / 20.0, 1.0)
-
-        # Weighted variety score: 40% artist + 30% album + 30% genre
-        variety_score = int((artist_diversity * 0.4 + album_diversity * 0.3 + genre_diversity * 0.3) * 100)
-    else:
-        variety_score = 0
+    # Calculate Total Listening Sessions (more meaningful than variety score)
+    # Count unique listening sessions based on distinct dates
+    cursor = sqlite3.connect(db.db_path).cursor()
+    cursor.execute('''
+        SELECT COUNT(DISTINCT DATE(played_at)) as session_count
+        FROM listening_history
+        WHERE source IN ('played', 'recently_played', 'current')
+    ''')
+    session_result = cursor.fetchone()
+    listening_sessions = session_result[0] if session_result and session_result[0] else 0
+    cursor.close()
 
     if total_minutes == 0:
         # Fallback to CSV data
@@ -1826,10 +1850,10 @@ def update_stat_cards(n_intervals):
         color="#1ED760"
     )
 
-    variety_score_card = create_stat_card(
-        "Music Variety",
-        f"{variety_score}%",
-        icon="fa-palette",
+    listening_sessions_card = create_stat_card(
+        "Listening Sessions",
+        str(listening_sessions),
+        icon="fa-calendar-day",
         color="#8b5cf6"
     )
 
@@ -1840,7 +1864,7 @@ def update_stat_cards(n_intervals):
         color="#F037A5"
     )
 
-    return total_minutes_card, unique_artists_card, variety_score_card, playlist_count_card
+    return total_minutes_card, unique_artists_card, listening_sessions_card, playlist_count_card
 
 def create_empty_stats():
     """Create empty stat cards when no user data is available."""
@@ -1854,8 +1878,31 @@ def create_empty_stats():
 
 def generate_wrapped_summary_from_db():
     """Generate a Spotify Wrapped style summary using database data."""
+    print("Starting wrapped summary generation...")
+
+    # Try to load from cached file first (only if recent)
+    try:
+        import os
+        import time
+        cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
+        if os.path.exists(cache_file):
+            # Check if cache is recent (less than 5 minutes old)
+            cache_age = time.time() - os.path.getmtime(cache_file)
+            if cache_age < 300:  # 5 minutes
+                with open(cache_file, 'r') as f:
+                    import json
+                    cached_summary = json.load(f)
+                    print(f"Using recent cached summary (age: {cache_age:.1f}s)")
+                    if cached_summary:  # If we have cached data, return it
+                        return cached_summary
+            else:
+                print(f"Cache is too old ({cache_age:.1f}s), regenerating")
+    except Exception as e:
+        print(f"Error loading cached summary: {e}")
+
     user_data = spotify_api.get_user_profile()
     if not user_data:
+        print("No user data available")
         return {}
 
     summary = {
@@ -1870,6 +1917,11 @@ def generate_wrapped_summary_from_db():
     conn = sqlite3.connect(db.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+
+    # Check if we have any data in the database
+    cursor.execute('SELECT COUNT(*) as count FROM listening_history')
+    history_count = cursor.fetchone()['count']
+    print(f"Database has {history_count} listening history entries")
 
     # Get top track - only count actual listening events
     current_date = datetime.now().strftime('%Y-%m-%d')
@@ -1993,26 +2045,30 @@ def generate_wrapped_summary_from_db():
             'energy': 0.5
         }
 
-    # Get top genre from the dedicated genres table, excluding "unknown" placeholder
-    # Since the genres table doesn't have track_id in our schema, we need a different approach
+    # Get top genre from genres table linked to listening history (consistent with genre chart)
     cursor.execute('''
         SELECT
-            genre_name as genre,
-            SUM(count) as count
-        FROM genres
-        WHERE genre_name != 'unknown'
-        AND genre_name != ''
-        GROUP BY genre_name
-        ORDER BY count DESC
+            g.genre_name as genre,
+            COUNT(DISTINCT h.history_id) as play_count
+        FROM genres g
+        JOIN tracks t ON g.artist_name = t.artist
+        JOIN listening_history h ON t.track_id = h.track_id
+        WHERE g.genre_name IS NOT NULL
+        AND g.genre_name != ''
+        AND g.genre_name != 'unknown'
+        AND h.source IN ('played', 'recently_played', 'current')
+        AND date(h.played_at) <= ?
+        GROUP BY g.genre_name
+        ORDER BY play_count DESC
         LIMIT 1
-    ''')
+    ''', (current_date,))
 
     top_genre_row = cursor.fetchone()
     if top_genre_row:
         top_genre = dict(top_genre_row)
         summary['genre_highlight'] = {
             'name': top_genre['genre'],
-            'count': top_genre['count']
+            'count': top_genre['play_count']
         }
     else:
         # Default genre highlight if none found
@@ -2021,8 +2077,40 @@ def generate_wrapped_summary_from_db():
             'count': 0
         }
 
+    # Calculate total listening minutes (same calculation as stats card)
+    cursor.execute('''
+        SELECT SUM(t.duration_ms) / 60000.0 as total_minutes
+        FROM tracks t
+        JOIN listening_history h ON t.track_id = h.track_id
+        WHERE h.source IN ('played', 'recently_played', 'current')
+        AND date(h.played_at) <= ?
+    ''', (current_date,))
+
+    minutes_row = cursor.fetchone()
+    if minutes_row and minutes_row['total_minutes']:
+        summary['total_minutes'] = round(minutes_row['total_minutes'])
+        summary['total_hours'] = round(minutes_row['total_minutes'] / 60, 1)
+        print(f"Calculated total minutes: {summary['total_minutes']}")
+        print(f"Calculated total hours: {summary['total_hours']}")
+    else:
+        summary['total_minutes'] = 0
+        summary['total_hours'] = 0
+        print("No listening time data found")
+
     conn.close()
 
+    # Save summary to cache
+    try:
+        import os
+        import json
+        cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
+        with open(cache_file, 'w') as f:
+            json.dump(summary, f, indent=2)
+        print(f"Saved summary to cache: {cache_file}")
+    except Exception as e:
+        print(f"Error saving summary to cache: {e}")
+
+    print(f"Final summary: {summary}")
     return summary
 
 # Error handling callback
