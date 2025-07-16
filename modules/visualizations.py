@@ -948,6 +948,175 @@ class SpotifyVisualizations:
 
         return self._apply_theme(fig)
 
+    def create_top_tracks_soundwave(self, df):
+        """Create sound wave visualization for top tracks."""
+        if df.empty or 'track' not in df.columns:
+            return self._create_soundwave_empty_state(
+                icon="fa-music",
+                title="Your top tracks will appear here as you listen to more music",
+                subtitle="This visualization shows your most frequently played tracks"
+            )
+
+        # Sort by rank if available, otherwise by popularity
+        if 'rank' in df.columns:
+            df = df.sort_values('rank')
+        elif 'popularity' in df.columns:
+            df = df.sort_values('popularity', ascending=False)
+
+        # Limit to top 10 tracks
+        df = df.head(10)
+
+        # Create sound wave items
+        soundwave_items = []
+        for i, row in df.iterrows():
+            soundwave_items.append(
+                self._create_soundwave_item(
+                    rank=row.get('rank', i + 1),
+                    title=row['track'],
+                    subtitle=f"{row.get('artist', 'Unknown Artist')} • {row.get('album', 'Unknown Album')}",
+                    score=row.get('popularity', 0),
+                    popularity=row.get('popularity', 50),
+                    image_url=row.get('image_url')
+                )
+            )
+
+        return html.Div(
+            soundwave_items,
+            className="soundwave-container soundwave-scrollable"
+        )
+
+    def create_top_artists_soundwave(self, df):
+        """Create sound wave visualization for top artists."""
+        if df.empty or 'artist' not in df.columns:
+            return self._create_soundwave_empty_state(
+                icon="fa-user-music",
+                title="Your top artists will appear here as you listen to more music",
+                subtitle="This visualization shows the artists you listen to most frequently"
+            )
+
+        # Sort by rank or popularity
+        if 'rank' in df.columns:
+            df = df.sort_values('rank')
+        elif 'popularity' in df.columns:
+            df = df.sort_values('popularity', ascending=False)
+
+        # Limit to top 10 artists
+        df = df.head(10)
+
+        # Create sound wave items
+        soundwave_items = []
+        for i, row in df.iterrows():
+            soundwave_items.append(
+                self._create_soundwave_item(
+                    rank=row.get('rank', i + 1),
+                    title=row['artist'],
+                    subtitle="Artist",
+                    score=row.get('popularity', 0),
+                    popularity=row.get('popularity', 50),
+                    image_url=row.get('image_url')
+                )
+            )
+
+        return html.Div(
+            soundwave_items,
+            className="soundwave-container soundwave-scrollable"
+        )
+
+    def _create_soundwave_item(self, rank, title, subtitle, score, popularity, image_url=None):
+        """Create individual sound wave item component."""
+        # Generate sound wave bars based on popularity
+        num_bars = 10
+        bars = []
+
+        # Create bars with varying heights based on popularity and some randomness for visual appeal
+        import random
+        random.seed(hash(title) % 1000)  # Consistent randomness based on title
+
+        for i in range(num_bars):
+            # Base height on popularity with some variation
+            base_height = max(20, (popularity / 100) * 40)
+            variation = random.uniform(0.6, 1.4)
+            height = min(40, base_height * variation)
+
+            bars.append(
+                html.Div(
+                    className="soundwave-bar",
+                    style={'height': f'{height}px'}
+                )
+            )
+
+        # Create image component if image_url is provided
+        image_component = None
+        if image_url and pd.notna(image_url) and image_url.strip():
+            image_component = html.Div([
+                html.Img(
+                    src=image_url,
+                    style={
+                        'width': '50px',
+                        'height': '50px',
+                        'borderRadius': '8px',
+                        'objectFit': 'cover',
+                        'border': '2px solid rgba(29, 185, 84, 0.3)',
+                        'boxShadow': '0 0 10px rgba(29, 185, 84, 0.2)'
+                    }
+                )
+            ], className="soundwave-image")
+
+        # Create user-friendly status indicator instead of confusing score
+        if rank == 1:
+            status_text = "🔥 Most Played"
+            status_class = "soundwave-status-top"
+        elif rank == 2:
+            status_text = "⭐ Fan Favorite"
+            status_class = "soundwave-status-high"
+        elif rank == 3:
+            status_text = "💎 Regular Hit"
+            status_class = "soundwave-status-medium"
+        elif rank == 4:
+            status_text = "🎵 Often Played"
+            status_class = "soundwave-status-good"
+        elif rank == 5:
+            status_text = "🎶 In Rotation"
+            status_class = "soundwave-status-normal"
+        elif rank <= 7:
+            status_text = "🎼 Liked Track"
+            status_class = "soundwave-status-liked"
+        elif rank <= 9:
+            status_text = "🎧 Occasional"
+            status_class = "soundwave-status-occasional"
+        else:
+            status_text = "📻 Discovery"
+            status_class = "soundwave-status-discovery"
+
+        # Build the item components
+        item_components = [
+            html.Div(f"#{rank}", className="soundwave-rank"),
+            html.Div(bars, className="soundwave-bars")
+        ]
+
+        # Add image if available
+        if image_component:
+            item_components.append(image_component)
+
+        # Add info section
+        item_components.extend([
+            html.Div([
+                html.H4(title, className="soundwave-title"),
+                html.P(subtitle, className="soundwave-subtitle")
+            ], className="soundwave-info"),
+            html.Div(status_text, className=f"soundwave-status {status_class}")
+        ])
+
+        return html.Div(item_components, className="soundwave-item")
+
+    def _create_soundwave_empty_state(self, icon, title, subtitle):
+        """Create empty state for sound wave visualizations."""
+        return html.Div([
+            html.I(className=f"fas {icon} soundwave-empty-icon"),
+            html.H3(title, className="soundwave-empty-title"),
+            html.P(subtitle, className="soundwave-empty-subtitle")
+        ], className="soundwave-empty")
+
     def create_saved_tracks_timeline(self, df):
         """Create a timeline of saved tracks."""
         if df.empty or 'added_at' not in df.columns:

@@ -320,7 +320,7 @@ def update_current_track_display(current_track):
 
 # Update top tracks chart
 @app.callback(
-    Output('top-tracks-chart', 'figure'),
+    Output('top-tracks-chart', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks')
 )
@@ -385,7 +385,7 @@ def update_top_tracks_chart(n_intervals, n_clicks):
         top_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'popularity', 'rank'])
 
     # Create visualization
-    return visualizations.create_top_tracks_chart(top_tracks_df)
+    return visualizations.create_top_tracks_soundwave(top_tracks_df)
 
 # Update saved tracks list
 @app.callback(
@@ -610,12 +610,14 @@ def update_audio_features_chart(n_intervals, n_clicks):
 
 # Update top artists chart
 @app.callback(
-    Output('top-artists-chart', 'figure'),
+    Output('top-artists-chart', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks')
 )
 def update_top_artists_chart(n_intervals, n_clicks):
     """Update the top artists chart."""
+    print(f"=== TOP ARTISTS CALLBACK TRIGGERED: intervals={n_intervals}, clicks={n_clicks} ===")
+
     # Fetch new data if refresh button clicked
     if n_clicks is not None and n_clicks > 0:
         user_data = spotify_api.get_user_profile()
@@ -668,13 +670,19 @@ def update_top_artists_chart(n_intervals, n_clicks):
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.artist
-        HAVING play_count >= 2  -- Minimum 2 plays to be considered
+        HAVING play_count >= 1  -- Minimum 1 play to be considered
         ORDER BY weighted_score DESC
         LIMIT 10
     ''', (current_date,))
 
     artists_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
+
+    # Debug: Print how many artists we found
+    print(f"Top artists query returned {len(artists_data)} artists")
+    if artists_data:
+        for i, artist in enumerate(artists_data[:5]):  # Print first 5 for debugging
+            print(f"  {i+1}. {artist['artist']} (plays: {artist['play_count']}, score: {artist['weighted_score']:.2f})")
 
     # Convert to DataFrame
     if artists_data:
@@ -686,7 +694,7 @@ def update_top_artists_chart(n_intervals, n_clicks):
         top_artists_df = pd.DataFrame(columns=['artist', 'popularity', 'image_url', 'rank'])
 
     # Create visualization
-    return visualizations.create_top_artists_chart(top_artists_df)
+    return visualizations.create_top_artists_soundwave(top_artists_df)
 
 # Update top track highlight
 @app.callback(

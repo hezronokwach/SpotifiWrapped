@@ -134,9 +134,9 @@ class DashboardLayout:
         """Create the top tracks section with enhanced futuristic styling."""
         return create_spotify_card(
             title="Your Top Tracks",
-            content=dcc.Graph(
+            content=html.Div(
                 id='top-tracks-chart',
-                config={'displayModeBar': False}
+                style={'minHeight': '400px'}
             ),
             icon="fa-music",
             card_type="neon",
@@ -186,9 +186,9 @@ class DashboardLayout:
         """Create the top artists section with enhanced futuristic styling."""
         return create_spotify_card(
             title="Your Top Artists",
-            content=dcc.Graph(
+            content=html.Div(
                 id='top-artists-chart',
-                config={'displayModeBar': False}
+                style={'minHeight': '400px'}
             ),
             icon="fa-user-music",
             card_type="glass",
