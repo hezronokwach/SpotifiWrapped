@@ -131,14 +131,16 @@ class DashboardLayout:
         )
 
     def create_top_tracks_section(self):
-        """Create the top tracks section."""
+        """Create the top tracks section with enhanced futuristic styling."""
         return create_spotify_card(
             title="Your Top Tracks",
             content=dcc.Graph(
                 id='top-tracks-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-music"
+            icon="fa-music",
+            card_type="neon",
+            className="futuristic-chart-card"
         )
 
     def create_saved_tracks_section(self):
@@ -181,14 +183,16 @@ class DashboardLayout:
         )
 
     def create_top_artists_section(self):
-        """Create the top artists section."""
+        """Create the top artists section with enhanced futuristic styling."""
         return create_spotify_card(
             title="Your Top Artists",
             content=dcc.Graph(
                 id='top-artists-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-user"
+            icon="fa-user-music",
+            card_type="glass",
+            className="futuristic-chart-card"
         )
 
     def create_genre_analysis_section(self):
@@ -266,8 +270,7 @@ class DashboardLayout:
         return create_spotify_card(
             title="Your Top Albums",
             content=html.Div(
-                id='top-albums-container',
-                className="album-grid-container"
+                id='top-albums-container'
             ),
             icon="fa-compact-disc"
         )
@@ -311,7 +314,7 @@ class DashboardLayout:
                 width=3
             ),
             dbc.Col(
-                html.Div(id='unique-tracks-stat'),
+                html.Div(id='music-variety-stat'),
                 width=3
             ),
             dbc.Col(

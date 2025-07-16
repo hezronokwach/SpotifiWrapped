@@ -1315,12 +1315,20 @@ def update_top_albums(n_intervals, n_clicks):
             )
             album_cards.append(album_card)
 
-        return html.Div(album_cards, style={
-            'display': 'grid',
-            'gridTemplateColumns': 'repeat(auto-fill, minmax(200px, 1fr))',
-            'gap': '20px',
-            'padding': '20px'
-        })
+        return html.Div(
+            album_cards,
+            style={
+                'display': 'flex',
+                'flexDirection': 'row',
+                'overflowX': 'auto',
+                'overflowY': 'hidden',
+                'gap': '20px',
+                'padding': '20px',
+                'scrollBehavior': 'smooth',
+                'WebkitOverflowScrolling': 'touch',
+                'minHeight': '320px'
+            }
+        )
     except Exception as e:
         print(f"Error updating top albums: {e}")
         return html.Div("Error loading album data",
@@ -1838,7 +1846,7 @@ def update_wrapped_summary_display(summary):
     [
         Output('total-minutes-stat', 'children'),
         Output('unique-artists-stat', 'children'),
-        Output('unique-tracks-stat', 'children'),
+        Output('music-variety-stat', 'children'),
         Output('playlist-count-stat', 'children')
     ],
     Input('interval-component', 'n_intervals')
@@ -1853,12 +1861,13 @@ def update_stat_cards(n_intervals):
     conn = sqlite3.connect(db.db_path)
     cursor = conn.cursor()
 
-    # Calculate total minutes from database - only count actual listening events
+    # Calculate total minutes and music variety from database - only count actual listening events
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT SUM(t.duration_ms) / 60000 as total_minutes,
                COUNT(DISTINCT t.artist) as unique_artists,
-               COUNT(DISTINCT h.track_id) as unique_tracks
+               COUNT(DISTINCT h.track_id) as unique_tracks,
+               COUNT(DISTINCT t.album) as unique_albums
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
         WHERE h.user_id = ?
@@ -1873,6 +1882,30 @@ def update_stat_cards(n_intervals):
     total_minutes = int(db_stats[0] or 0) if db_stats[0] else 0
     unique_artists = db_stats[1] or 0
     unique_tracks = db_stats[2] or 0
+    unique_albums = db_stats[3] or 0
+
+    # Calculate Music Variety Score (0-100 based on diversity)
+    # Formula: weighted combination of artist diversity, album diversity, and genre diversity
+    if unique_artists > 0 and unique_tracks > 0:
+        # Artist diversity: ratio of unique artists to total tracks (capped at 1.0)
+        artist_diversity = min(unique_artists / max(unique_tracks, 1), 1.0)
+
+        # Album diversity: ratio of unique albums to total tracks (capped at 1.0)
+        album_diversity = min(unique_albums / max(unique_tracks, 1), 1.0)
+
+        # Get genre count from genres table
+        cursor = sqlite3.connect(db.db_path).cursor()
+        cursor.execute('SELECT COUNT(DISTINCT genre_name) FROM genres')
+        genre_count = cursor.fetchone()[0] or 0
+        cursor.close()
+
+        # Genre diversity: normalized genre count (assuming 20+ genres = max diversity)
+        genre_diversity = min(genre_count / 20.0, 1.0)
+
+        # Weighted variety score: 40% artist + 30% album + 30% genre
+        variety_score = int((artist_diversity * 0.4 + album_diversity * 0.3 + genre_diversity * 0.3) * 100)
+    else:
+        variety_score = 0
 
     if total_minutes == 0:
         # Fallback to CSV data
@@ -1901,11 +1934,11 @@ def update_stat_cards(n_intervals):
         color="#1ED760"
     )
 
-    unique_tracks_card = create_stat_card(
-        "Unique Tracks",
-        str(unique_tracks),
-        icon="fa-music",
-        color="#2D46B9"
+    variety_score_card = create_stat_card(
+        "Music Variety",
+        f"{variety_score}%",
+        icon="fa-palette",
+        color="#8b5cf6"
     )
 
     playlist_count_card = create_stat_card(
@@ -1915,7 +1948,7 @@ def update_stat_cards(n_intervals):
         color="#F037A5"
     )
 
-    return total_minutes_card, unique_artists_card, unique_tracks_card, playlist_count_card
+    return total_minutes_card, unique_artists_card, variety_score_card, playlist_count_card
 
 def create_empty_stats():
     """Create empty stat cards when no user data is available."""
@@ -1923,7 +1956,7 @@ def create_empty_stats():
     return [
         create_stat_card("Minutes Listened", "0", icon="fa-clock", color=SPOTIFY_GREEN),
         create_stat_card("Unique Artists", "0", icon="fa-user", color="#1ED760"),
-        create_stat_card("Unique Tracks", "0", icon="fa-music", color="#2D46B9"),
+        create_stat_card("Music Variety", "0%", icon="fa-palette", color="#8b5cf6"),
         create_stat_card("Your Playlists", "0", icon="fa-list", color="#F037A5")
     ]
 

@@ -126,7 +126,7 @@ def create_stat_card(title, value, icon="fa-music", color=SPOTIFY_GREEN):
     })
 def create_album_card(album_name, artist_name, rank, image_url="", score=0):
     """
-    Create a card for displaying album information.
+    Create a futuristic album card with interactive design and animations.
 
     Args:
         album_name: Name of the album
@@ -136,49 +136,149 @@ def create_album_card(album_name, artist_name, rank, image_url="", score=0):
         score: Listening score for the album
 
     Returns:
-        A dbc.Card component
+        A futuristic album card component
     """
     # Use a default image if none provided
     if not image_url:
-        image_url = "https://via.placeholder.com/300?text=No+Image"
+        image_url = "https://via.placeholder.com/300x300/1a1a1a/1DB954?text=♪"
 
-    return dbc.Card(
-        [
-            dbc.CardImg(src=image_url, top=True, className="album-img"),
-            dbc.CardBody(
-                [
-                    html.Div(
-                        f"#{rank}",
-                        className="album-rank",
-                        style={
-                            "position": "absolute",
-                            "top": "10px",
-                            "left": "10px",
-                            "background-color": SPOTIFY_BLACK,
-                            "color": SPOTIFY_WHITE,
-                            "padding": "5px 10px",
-                            "border-radius": "15px",
-                            "font-weight": "bold"
-                        }
-                    ),
-                    html.H5(album_name, className="card-title text-truncate"),
-                    html.P(artist_name, className="card-text text-muted text-truncate"),
-                    html.Div(
-                        [
-                            html.Span("Listening Score: "),
-                            html.Span(
-                                f"{score}",
-                                style={"color": SPOTIFY_GREEN, "font-weight": "bold"}
-                            )
-                        ],
-                        className="mt-2"
-                    )
-                ]
-            )
-        ],
-        className="album-card h-100 shadow-sm",
-        style={"maxWidth": "200px", "margin": "10px"}
-    )
+    # Generate unique ID for this card
+    import uuid
+    card_id = f"album-card-{uuid.uuid4().hex[:8]}"
+
+    return html.Div([
+        # Album cover with overlay effects
+        html.Div([
+            html.Img(
+                src=image_url,
+                style={
+                    'width': '100%',
+                    'height': '160px',
+                    'objectFit': 'cover',
+                    'borderRadius': '12px 12px 0 0',
+                    'transition': 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                }
+            ),
+            # Rank badge with futuristic styling
+            html.Div(
+                f"#{rank}",
+                style={
+                    'position': 'absolute',
+                    'top': '12px',
+                    'left': '12px',
+                    'background': 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
+                    'color': 'white',
+                    'padding': '6px 12px',
+                    'borderRadius': '20px',
+                    'fontSize': '12px',
+                    'fontWeight': '700',
+                    'fontFamily': 'Orbitron, monospace',
+                    'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.4)',
+                    'border': '1px solid rgba(255, 255, 255, 0.2)',
+                    'backdropFilter': 'blur(10px)',
+                    'zIndex': '2'
+                }
+            ),
+            # Subtle hover overlay for visual feedback
+            html.Div(style={
+                'position': 'absolute',
+                'top': '0',
+                'left': '0',
+                'right': '0',
+                'bottom': '0',
+                'background': 'linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(0, 212, 255, 0.1))',
+                'borderRadius': '12px 12px 0 0',
+                'opacity': '0',
+                'transition': 'all 0.3s ease',
+                'pointerEvents': 'none'
+            }, className="album-hover-overlay")
+        ], style={
+            'position': 'relative',
+            'overflow': 'hidden'
+        }),
+
+        # Card content
+        html.Div([
+            html.H6(
+                album_name,
+                style={
+                    'margin': '0 0 6px 0',
+                    'fontSize': '13px',
+                    'fontWeight': '600',
+                    'color': 'var(--text-primary)',
+                    'lineHeight': '1.2',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'whiteSpace': 'nowrap'
+                }
+            ),
+            html.P(
+                artist_name,
+                style={
+                    'margin': '0 0 8px 0',
+                    'fontSize': '11px',
+                    'color': 'var(--text-secondary)',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'whiteSpace': 'nowrap'
+                }
+            ),
+            # Score with futuristic styling
+            html.Div([
+                html.Span("Score: ", style={
+                    'fontSize': '10px',
+                    'color': 'var(--text-muted)',
+                    'textTransform': 'uppercase',
+                    'letterSpacing': '0.5px'
+                }),
+                html.Span(
+                    f"{score}",
+                    style={
+                        'fontSize': '12px',
+                        'fontWeight': '700',
+                        'background': 'linear-gradient(45deg, var(--accent-primary), var(--accent-secondary))',
+                        'backgroundClip': 'text',
+                        'WebkitBackgroundClip': 'text',
+                        'WebkitTextFillColor': 'transparent',
+                        'fontFamily': 'Orbitron, monospace'
+                    }
+                )
+            ])
+        ], style={
+            'padding': '12px',
+            'background': 'var(--card-bg)',
+            'borderRadius': '0 0 12px 12px',
+            'height': '120px',
+            'display': 'flex',
+            'flexDirection': 'column',
+            'justifyContent': 'space-between'
+        })
+    ],
+    id=card_id,
+    className='futuristic-album-card',
+    style={
+        'background': 'var(--card-bg)',
+        'border': '1px solid rgba(255, 255, 255, 0.1)',
+        'borderRadius': '12px',
+        'overflow': 'hidden',
+        'transition': 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+        'cursor': 'pointer',
+        'position': 'relative',
+        'height': '280px',
+        'backdropFilter': 'blur(10px)',
+        'flexShrink': '0',
+        'width': '200px',
+        'minWidth': '200px'
+    },
+    # Accessibility attributes
+    **{
+        'role': 'button',
+        'tabIndex': '0',
+        'aria-label': f"Album: {album_name} by {artist_name}, ranked #{rank} with score {score}",
+        'data-album': album_name,
+        'data-artist': artist_name,
+        'data-rank': rank
+    })
 
 def create_personality_card(primary_type, secondary_type, description, recommendations, metrics):
     """
@@ -615,21 +715,37 @@ class SpotifyVisualizations:
         # Limit to top 10 tracks
         df = df.head(10)
 
-        # Create horizontal bar chart
-        fig = px.bar(
-            df,
-            y='track',
-            x='popularity' if 'popularity' in df.columns else [1] * len(df),
+        # Create horizontal bar chart with futuristic styling
+        fig = go.Figure()
+
+        # Create gradient colors for each bar
+        colors = []
+        for i in range(len(df)):
+            # Create gradient from primary to secondary accent colors
+            color_start = f"rgba(29, 185, 84, 0.8)"  # Spotify green
+            color_end = f"rgba(0, 212, 255, 0.6)"    # Accent tertiary
+            colors.append(color_start if i % 2 == 0 else color_end)
+
+        # Add bars with custom styling
+        fig.add_trace(go.Bar(
+            y=df['track'],
+            x=df['popularity'] if 'popularity' in df.columns else [1] * len(df),
             orientation='h',
-            color='artist',
-            color_discrete_sequence=SPOTIFY_PALETTE,
-            labels={
-                'track': '',
-                'popularity': 'Popularity Score',
-                'artist': 'Artist'
-            },
-            title='Your Top Tracks'
-        )
+            marker=dict(
+                color=colors,
+                line=dict(
+                    color='rgba(255, 255, 255, 0.2)',
+                    width=1
+                ),
+                cornerradius=8  # Rounded corners
+            ),
+            hovertemplate=(
+                "<b>%{y}</b><br>" +
+                "Score: %{x}<br>" +
+                "<extra></extra>"
+            ),
+            name=""
+        ))
 
         # Add rank numbers if available
         if 'rank' in df.columns:
@@ -658,13 +774,36 @@ class SpotifyVisualizations:
                         )
                     )
 
-        # Update layout for better appearance
+        # Update layout with futuristic styling
         fig.update_layout(
             height=600,
             xaxis_title="",
             yaxis_title="",
-            legend_title_text="",
-            yaxis={'categoryorder': 'array', 'categoryarray': df['track'].tolist()[::-1]}
+            showlegend=False,
+            yaxis={
+                'categoryorder': 'array',
+                'categoryarray': df['track'].tolist()[::-1],
+                'tickfont': dict(color=self.theme['text_color'], size=12)
+            },
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(255, 255, 255, 0.1)',
+                gridwidth=1,
+                tickfont=dict(color=self.theme['secondary_color'], size=10)
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=20, t=40, b=20),
+            title={
+                'text': 'Your Top Tracks',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {
+                    'size': 20,
+                    'color': self.theme['accent_color'],
+                    'family': 'Orbitron, monospace'
+                }
+            }
         )
 
         # Add hover template with more info
@@ -949,30 +1088,76 @@ class SpotifyVisualizations:
                 axis=1
             )
 
-        # Create bar chart
-        fig = px.bar(
-            df,
-            x='playlist',
-            y='total_tracks',
-            color='visibility' if 'visibility' in df.columns else None,
-            color_discrete_sequence=SPOTIFY_PALETTE,
-            labels={
-                'playlist': 'Playlist',
-                'total_tracks': 'Number of Tracks',
-                'visibility': 'Visibility'
-            },
-            title='Your Playlists'
-        )
+        # Create vertical bar chart with futuristic styling
+        fig = go.Figure()
 
-        # Update layout for better appearance
+        # Create gradient colors based on visibility or default pattern
+        colors = []
+        for i, row in df.iterrows():
+            if 'visibility' in df.columns:
+                visibility = row.get('visibility', 'Private')
+                if visibility == 'Public':
+                    color = f"rgba(29, 185, 84, 0.8)"    # Green for public
+                elif visibility == 'Collaborative':
+                    color = f"rgba(0, 212, 255, 0.8)"    # Blue for collaborative
+                else:
+                    color = f"rgba(139, 92, 246, 0.8)"   # Purple for private
+            else:
+                # Default gradient pattern
+                color = f"rgba(29, 185, 84, {0.8 - (i * 0.1)})"
+            colors.append(color)
+
+        # Add bars with custom styling
+        fig.add_trace(go.Bar(
+            x=df['playlist'],
+            y=df['total_tracks'],
+            marker=dict(
+                color=colors,
+                line=dict(
+                    color='rgba(255, 255, 255, 0.2)',
+                    width=1
+                ),
+                cornerradius=8  # Rounded corners
+            ),
+            hovertemplate=(
+                "<b>%{x}</b><br>" +
+                "Tracks: %{y}<br>" +
+                "<extra></extra>"
+            ),
+            name=""
+        ))
+
+        # Update layout with futuristic styling
         fig.update_layout(
             height=500,
             xaxis_title="",
-            yaxis_title="Number of Tracks"
+            yaxis_title="Number of Tracks",
+            showlegend=False,
+            xaxis=dict(
+                tickangle=45,
+                tickfont=dict(color=self.theme['text_color'], size=11),
+                showgrid=False
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(255, 255, 255, 0.1)',
+                gridwidth=1,
+                tickfont=dict(color=self.theme['secondary_color'], size=10)
+            ),
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=20, t=40, b=60),
+            title={
+                'text': 'Your Playlists',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {
+                    'size': 20,
+                    'color': self.theme['accent_color'],
+                    'family': 'Orbitron, monospace'
+                }
+            }
         )
-
-        # Rotate x-axis labels for better readability
-        fig.update_xaxes(tickangle=45)
 
         return self._apply_theme(fig)
 
@@ -1340,20 +1525,41 @@ class SpotifyVisualizations:
         # Limit to top 10 artists
         df = df.head(10)
 
-        # Create horizontal bar chart
-        fig = px.bar(
-            df,
-            y='artist',
-            x='popularity' if 'popularity' in df.columns else [1] * len(df),
+        # Create horizontal bar chart with futuristic styling
+        fig = go.Figure()
+
+        # Create gradient colors for each bar
+        colors = []
+        for i in range(len(df)):
+            # Alternate between different accent colors
+            if i % 3 == 0:
+                color = f"rgba(29, 185, 84, 0.8)"    # Spotify green
+            elif i % 3 == 1:
+                color = f"rgba(139, 92, 246, 0.8)"   # Purple
+            else:
+                color = f"rgba(244, 114, 182, 0.8)"  # Pink
+            colors.append(color)
+
+        # Add bars with custom styling
+        fig.add_trace(go.Bar(
+            y=df['artist'],
+            x=df['popularity'] if 'popularity' in df.columns else [1] * len(df),
             orientation='h',
-            color='artist',
-            color_discrete_sequence=SPOTIFY_PALETTE,
-            labels={
-                'artist': '',
-                'popularity': 'Popularity Score'
-            },
-            title='Your Top Artists'
-        )
+            marker=dict(
+                color=colors,
+                line=dict(
+                    color='rgba(255, 255, 255, 0.2)',
+                    width=1
+                ),
+                cornerradius=8  # Rounded corners
+            ),
+            hovertemplate=(
+                "<b>%{y}</b><br>" +
+                "Score: %{x}<br>" +
+                "<extra></extra>"
+            ),
+            name=""
+        ))
 
         # Add rank numbers if available
         if 'rank' in df.columns:
@@ -1802,141 +2008,283 @@ class SpotifyVisualizations:
         return random.choice(facts) if facts else "Your unique musical journey is creating its own story!"
 
     def create_top_track_highlight_component(self, track_data):
-        """Create a highlight component for the top track."""
+        """Create an enhanced futuristic highlight component for the top track."""
         return html.Div([
-            # Track image
-            html.Div([
-                html.Img(
-                    src=track_data.get('image_url', ''),
-                    style={
-                        'width': '120px',
-                        'height': '120px',
-                        'borderRadius': '12px',
-                        'objectFit': 'cover',
-                        'border': f'3px solid {SPOTIFY_GREEN}',
-                        'boxShadow': f'0 0 20px {SPOTIFY_GREEN}50'
-                    }
-                ) if track_data.get('image_url') else html.Div([
-                    html.I(className="fas fa-music", style={
-                        'fontSize': '48px',
-                        'color': SPOTIFY_GREEN
-                    })
-                ], style={
-                    'width': '120px',
-                    'height': '120px',
-                    'borderRadius': '12px',
-                    'backgroundColor': SPOTIFY_GRAY,
-                    'display': 'flex',
-                    'alignItems': 'center',
-                    'justifyContent': 'center',
-                    'border': f'3px solid {SPOTIFY_GREEN}'
-                })
-            ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+            # Animated background elements
+            html.Div(className="highlight-bg-animation", style={
+                'position': 'absolute',
+                'top': '0',
+                'left': '0',
+                'right': '0',
+                'bottom': '0',
+                'background': 'linear-gradient(135deg, rgba(29,185,84,0.1), rgba(0,212,255,0.1), rgba(139,92,246,0.1))',
+                'borderRadius': '20px',
+                'opacity': '0.7'
+            }),
 
-            # Track info
+            # Content container
             html.Div([
-                html.H3(track_data['track'], style={
-                    'color': SPOTIFY_WHITE,
-                    'fontSize': '20px',
-                    'fontWeight': 'bold',
-                    'marginBottom': '8px',
-                    'textAlign': 'center'
-                }),
-                html.P(f"by {track_data['artist']}", style={
-                    'color': SPOTIFY_GRAY,
-                    'fontSize': '16px',
-                    'marginBottom': '8px',
-                    'textAlign': 'center'
-                }),
-                html.P(f"Album: {track_data.get('album', 'Unknown')}", style={
-                    'color': SPOTIFY_GRAY,
-                    'fontSize': '14px',
-                    'marginBottom': '12px',
-                    'textAlign': 'center'
-                }),
+                # Track image with enhanced styling
                 html.Div([
-                    html.Span("🎵 Your Most Played Track", style={
-                        'color': SPOTIFY_GREEN,
-                        'fontSize': '14px',
-                        'fontWeight': 'bold'
+                    html.Img(
+                        src=track_data.get('image_url', ''),
+                        style={
+                            'width': '100px',
+                            'height': '100px',
+                            'borderRadius': '16px',
+                            'objectFit': 'cover',
+                            'border': '3px solid transparent',
+                            'background': 'linear-gradient(45deg, #1DB954, #00D4FF, #8B5CF6) border-box',
+                            'backgroundClip': 'padding-box, border-box',
+                            'boxShadow': '0 0 30px rgba(29, 185, 84, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                        }
+                    ) if track_data.get('image_url') else html.Div([
+                        html.I(className="fas fa-crown", style={
+                            'fontSize': '40px',
+                            'background': 'linear-gradient(45deg, #1DB954, #00D4FF)',
+                            'backgroundClip': 'text',
+                            'WebkitBackgroundClip': 'text',
+                            'WebkitTextFillColor': 'transparent'
+                        })
+                    ], style={
+                        'width': '100px',
+                        'height': '100px',
+                        'borderRadius': '16px',
+                        'background': 'linear-gradient(135deg, rgba(29,185,84,0.2), rgba(0,212,255,0.2))',
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'justifyContent': 'center',
+                        'border': '3px solid rgba(29, 185, 84, 0.5)'
                     })
-                ], style={'textAlign': 'center'})
-            ])
-        ], style={
-            'padding': '20px',
-            'textAlign': 'center',
-            'background': 'linear-gradient(135deg, rgba(29,185,84,0.1), rgba(29,185,84,0.05))',
-            'borderRadius': '16px',
-            'border': f'1px solid {SPOTIFY_GREEN}30'
+                ], style={'marginRight': '20px'}),
+
+                # Track info with enhanced typography
+                html.Div([
+                    # Crown icon and title
+                    html.Div([
+                        html.I(className="fas fa-crown", style={
+                            'fontSize': '16px',
+                            'color': '#FFD700',
+                            'marginRight': '8px',
+                            'filter': 'drop-shadow(0 0 5px rgba(255, 215, 0, 0.5))'
+                        }),
+                        html.Span("#1 TRACK", style={
+                            'fontSize': '12px',
+                            'fontWeight': '700',
+                            'color': '#FFD700',
+                            'letterSpacing': '1px',
+                            'fontFamily': 'Orbitron, monospace'
+                        })
+                    ], style={'marginBottom': '8px'}),
+
+                    html.H3(track_data.get('track', 'Unknown Track'), style={
+                        'color': 'white',
+                        'margin': '0 0 6px 0',
+                        'fontSize': '18px',
+                        'fontWeight': '700',
+                        'lineHeight': '1.2',
+                        'textShadow': '0 0 10px rgba(255, 255, 255, 0.3)'
+                    }),
+                    html.P(f"by {track_data.get('artist', 'Unknown Artist')}", style={
+                        'background': 'linear-gradient(45deg, #1DB954, #00D4FF)',
+                        'backgroundClip': 'text',
+                        'WebkitBackgroundClip': 'text',
+                        'WebkitTextFillColor': 'transparent',
+                        'margin': '0 0 12px 0',
+                        'fontSize': '14px',
+                        'fontWeight': '600'
+                    }),
+
+                    # Stats row
+                    html.Div([
+                        html.Div([
+                            html.Span(f"{track_data.get('play_count', 0)}", style={
+                                'fontSize': '20px',
+                                'fontWeight': '700',
+                                'color': '#1DB954',
+                                'fontFamily': 'Orbitron, monospace'
+                            }),
+                            html.Br(),
+                            html.Span("PLAYS", style={
+                                'fontSize': '10px',
+                                'color': 'rgba(255,255,255,0.7)',
+                                'letterSpacing': '0.5px'
+                            })
+                        ], style={'textAlign': 'center', 'marginRight': '20px'}),
+
+                        html.Div([
+                            html.Span(f"{track_data.get('popularity', 0)}", style={
+                                'fontSize': '20px',
+                                'fontWeight': '700',
+                                'color': '#00D4FF',
+                                'fontFamily': 'Orbitron, monospace'
+                            }),
+                            html.Br(),
+                            html.Span("POPULARITY", style={
+                                'fontSize': '10px',
+                                'color': 'rgba(255,255,255,0.7)',
+                                'letterSpacing': '0.5px'
+                            })
+                        ], style={'textAlign': 'center'})
+                    ], style={'display': 'flex', 'alignItems': 'center'})
+                ], style={'flex': '1'})
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'position': 'relative',
+                'zIndex': '2'
+            })
+        ], className="top-track-highlight", style={
+            'position': 'relative',
+            'padding': '24px',
+            'background': 'linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9))',
+            'borderRadius': '20px',
+            'border': '2px solid transparent',
+            'backgroundImage': 'linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9)), linear-gradient(45deg, #1DB954, #00D4FF, #8B5CF6)',
+            'backgroundOrigin': 'border-box',
+            'backgroundClip': 'padding-box, border-box',
+            'boxShadow': '0 10px 40px rgba(0,0,0,0.3), 0 0 30px rgba(29,185,84,0.2)',
+            'overflow': 'hidden'
         })
 
     def create_top_artist_highlight_component(self, artist_data):
-        """Create a highlight component for the top artist."""
+        """Create an enhanced futuristic highlight component for the top artist."""
         return html.Div([
-            # Artist image
-            html.Div([
-                html.Img(
-                    src=artist_data.get('image_url', ''),
-                    style={
-                        'width': '120px',
-                        'height': '120px',
-                        'borderRadius': '50%',
-                        'objectFit': 'cover',
-                        'border': f'3px solid {SPOTIFY_GREEN}',
-                        'boxShadow': f'0 0 20px {SPOTIFY_GREEN}50'
-                    }
-                ) if artist_data.get('image_url') else html.Div([
-                    html.I(className="fas fa-microphone", style={
-                        'fontSize': '48px',
-                        'color': SPOTIFY_GREEN
-                    })
-                ], style={
-                    'width': '120px',
-                    'height': '120px',
-                    'borderRadius': '50%',
-                    'backgroundColor': SPOTIFY_GRAY,
-                    'display': 'flex',
-                    'alignItems': 'center',
-                    'justifyContent': 'center',
-                    'border': f'3px solid {SPOTIFY_GREEN}'
-                })
-            ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+            # Animated background elements
+            html.Div(className="highlight-bg-animation", style={
+                'position': 'absolute',
+                'top': '0',
+                'left': '0',
+                'right': '0',
+                'bottom': '0',
+                'background': 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(244,114,182,0.1), rgba(29,185,84,0.1))',
+                'borderRadius': '20px',
+                'opacity': '0.7'
+            }),
 
-            # Artist info
+            # Content container
             html.Div([
-                html.H3(artist_data['artist'], style={
-                    'color': SPOTIFY_WHITE,
-                    'fontSize': '20px',
-                    'fontWeight': 'bold',
-                    'marginBottom': '8px',
-                    'textAlign': 'center'
-                }),
-                html.P(f"{artist_data.get('play_count', 0)} plays", style={
-                    'color': SPOTIFY_GRAY,
-                    'fontSize': '16px',
-                    'marginBottom': '8px',
-                    'textAlign': 'center'
-                }),
-                html.P(f"Popularity: {artist_data.get('popularity', 0)}/100", style={
-                    'color': SPOTIFY_GRAY,
-                    'fontSize': '14px',
-                    'marginBottom': '12px',
-                    'textAlign': 'center'
-                }),
+                # Artist image with enhanced styling
                 html.Div([
-                    html.Span("🎤 Your Top Artist", style={
-                        'color': SPOTIFY_GREEN,
-                        'fontSize': '14px',
-                        'fontWeight': 'bold'
+                    html.Img(
+                        src=artist_data.get('image_url', ''),
+                        style={
+                            'width': '100px',
+                            'height': '100px',
+                            'borderRadius': '50%',
+                            'objectFit': 'cover',
+                            'border': '3px solid transparent',
+                            'background': 'linear-gradient(45deg, #8B5CF6, #F472B6, #1DB954) border-box',
+                            'backgroundClip': 'padding-box, border-box',
+                            'boxShadow': '0 0 30px rgba(139, 92, 246, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                        }
+                    ) if artist_data.get('image_url') else html.Div([
+                        html.I(className="fas fa-star", style={
+                            'fontSize': '40px',
+                            'background': 'linear-gradient(45deg, #8B5CF6, #F472B6)',
+                            'backgroundClip': 'text',
+                            'WebkitBackgroundClip': 'text',
+                            'WebkitTextFillColor': 'transparent'
+                        })
+                    ], style={
+                        'width': '100px',
+                        'height': '100px',
+                        'borderRadius': '50%',
+                        'background': 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(244,114,182,0.2))',
+                        'display': 'flex',
+                        'alignItems': 'center',
+                        'justifyContent': 'center',
+                        'border': '3px solid rgba(139, 92, 246, 0.5)'
                     })
-                ], style={'textAlign': 'center'})
-            ])
-        ], style={
-            'padding': '20px',
-            'textAlign': 'center',
-            'background': 'linear-gradient(135deg, rgba(29,185,84,0.1), rgba(29,185,84,0.05))',
-            'borderRadius': '16px',
-            'border': f'1px solid {SPOTIFY_GREEN}30'
+                ], style={'marginRight': '20px'}),
+
+                # Artist info with enhanced typography
+                html.Div([
+                    # Star icon and title
+                    html.Div([
+                        html.I(className="fas fa-star", style={
+                            'fontSize': '16px',
+                            'color': '#F472B6',
+                            'marginRight': '8px',
+                            'filter': 'drop-shadow(0 0 5px rgba(244, 114, 182, 0.5))'
+                        }),
+                        html.Span("#1 ARTIST", style={
+                            'fontSize': '12px',
+                            'fontWeight': '700',
+                            'color': '#F472B6',
+                            'letterSpacing': '1px',
+                            'fontFamily': 'Orbitron, monospace'
+                        })
+                    ], style={'marginBottom': '8px'}),
+
+                    html.H3(artist_data.get('artist', 'Unknown Artist'), style={
+                        'color': 'white',
+                        'margin': '0 0 6px 0',
+                        'fontSize': '18px',
+                        'fontWeight': '700',
+                        'lineHeight': '1.2',
+                        'textShadow': '0 0 10px rgba(255, 255, 255, 0.3)'
+                    }),
+                    html.P("Your most listened artist", style={
+                        'background': 'linear-gradient(45deg, #8B5CF6, #F472B6)',
+                        'backgroundClip': 'text',
+                        'WebkitBackgroundClip': 'text',
+                        'WebkitTextFillColor': 'transparent',
+                        'margin': '0 0 12px 0',
+                        'fontSize': '14px',
+                        'fontWeight': '600'
+                    }),
+
+                    # Stats row
+                    html.Div([
+                        html.Div([
+                            html.Span(f"{artist_data.get('play_count', 0)}", style={
+                                'fontSize': '20px',
+                                'fontWeight': '700',
+                                'color': '#8B5CF6',
+                                'fontFamily': 'Orbitron, monospace'
+                            }),
+                            html.Br(),
+                            html.Span("PLAYS", style={
+                                'fontSize': '10px',
+                                'color': 'rgba(255,255,255,0.7)',
+                                'letterSpacing': '0.5px'
+                            })
+                        ], style={'textAlign': 'center', 'marginRight': '20px'}),
+
+                        html.Div([
+                            html.Span(f"{artist_data.get('popularity', 0)}", style={
+                                'fontSize': '20px',
+                                'fontWeight': '700',
+                                'color': '#F472B6',
+                                'fontFamily': 'Orbitron, monospace'
+                            }),
+                            html.Br(),
+                            html.Span("POPULARITY", style={
+                                'fontSize': '10px',
+                                'color': 'rgba(255,255,255,0.7)',
+                                'letterSpacing': '0.5px'
+                            })
+                        ], style={'textAlign': 'center'})
+                    ], style={'display': 'flex', 'alignItems': 'center'})
+                ], style={'flex': '1'})
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'position': 'relative',
+                'zIndex': '2'
+            })
+        ], className="top-artist-highlight", style={
+            'position': 'relative',
+            'padding': '24px',
+            'background': 'linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9))',
+            'borderRadius': '20px',
+            'border': '2px solid transparent',
+            'backgroundImage': 'linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9)), linear-gradient(45deg, #8B5CF6, #F472B6, #1DB954)',
+            'backgroundOrigin': 'border-box',
+            'backgroundClip': 'padding-box, border-box',
+            'boxShadow': '0 10px 40px rgba(0,0,0,0.3), 0 0 30px rgba(139,92,246,0.2)',
+            'overflow': 'hidden'
         })
 
 
