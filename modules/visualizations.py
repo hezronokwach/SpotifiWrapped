@@ -1692,15 +1692,11 @@ class SpotifyVisualizations:
                 # Try to convert string hours to integers
                 df['hour_of_day'] = pd.to_numeric(df['hour_of_day'], errors='coerce').fillna(0).astype(int)
 
-            # Create pivot table for heatmap - prefer minutes_played if available
-            if 'minutes_played' in df.columns:
-                value_column = 'minutes_played'
-                title_suffix = ' (Estimated Minutes)'
-                hover_label = 'Est. Minutes'
-            elif 'play_count' in df.columns:
+            # Always use play_count instead of minutes to avoid impossible values (>60 min/hour)
+            if 'play_count' in df.columns:
                 value_column = 'play_count'
-                title_suffix = ' (Play Count)'
-                hover_label = 'Plays'
+                title_suffix = ' (Tracks Played)'
+                hover_label = 'Tracks'
             else:
                 value_column = None
                 title_suffix = ''
