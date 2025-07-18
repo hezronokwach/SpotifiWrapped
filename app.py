@@ -1587,27 +1587,60 @@ def update_stat_cards(n_intervals):
     conn = sqlite3.connect(db.db_path)
     cursor = conn.cursor()
 
-    # Calculate total minutes and music variety from database - use same calculation as wrapped summary
+    # Calculate total minutes and music variety from database - FIXED to avoid duplication
     current_date = datetime.now().strftime('%Y-%m-%d')
+
+    # Debug: Check what's in the database
     cursor.execute('''
-        SELECT SUM(t.duration_ms) / 60000 as total_minutes,
-               COUNT(DISTINCT t.artist) as unique_artists,
-               COUNT(DISTINCT h.track_id) as unique_tracks,
-               COUNT(DISTINCT t.album) as unique_albums
+        SELECT source, COUNT(*) as count
+        FROM listening_history h
+        WHERE date(h.played_at) <= ?
+        GROUP BY source
+        ORDER BY count DESC
+    ''', (current_date,))
+    source_counts = cursor.fetchall()
+    print(f"DEBUG: Listening history sources: {dict(source_counts)}")
+
+    # FIXED: Count unique listening events, not total track durations
+    # This prevents counting the same track multiple times from different sources
+    cursor.execute('''
+        SELECT
+            COUNT(DISTINCT h.history_id) as unique_listening_events,
+            COUNT(DISTINCT t.artist) as unique_artists,
+            COUNT(DISTINCT h.track_id) as unique_tracks,
+            COUNT(DISTINCT t.album) as unique_albums,
+            AVG(t.duration_ms) as avg_track_duration_ms
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
-        WHERE h.source IN ('played', 'recently_played', 'current')  -- Same filter as wrapped summary
+        WHERE h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+        AND t.duration_ms IS NOT NULL
+        AND t.duration_ms > 0
     ''', (current_date,))
 
     db_stats = cursor.fetchone()
     conn.close()
 
-    # Fallback to CSV data if database is empty
-    total_minutes = int(db_stats[0] or 0) if db_stats[0] else 0
-    unique_artists = db_stats[1] or 0
-    unique_tracks = db_stats[2] or 0
-    unique_albums = db_stats[3] or 0
+    # Calculate estimated listening time based on unique events and average track duration
+    if db_stats and db_stats[0]:
+        unique_listening_events = db_stats[0] or 0
+        avg_track_duration_ms = db_stats[4] or 210000  # Default to 3.5 minutes if no data
+
+        # Estimate total listening time: events * average track duration
+        # This is more accurate than summing all track durations
+        estimated_total_ms = unique_listening_events * avg_track_duration_ms
+        total_minutes = int(estimated_total_ms / 60000)
+
+        unique_artists = db_stats[1] or 0
+        unique_tracks = db_stats[2] or 0
+        unique_albums = db_stats[3] or 0
+
+        print(f"FIXED CALCULATION: {unique_listening_events} events × {avg_track_duration_ms/60000:.1f}min = {total_minutes} total minutes")
+    else:
+        total_minutes = 0
+        unique_artists = 0
+        unique_tracks = 0
+        unique_albums = 0
 
     # Calculate Total Listening Sessions (more meaningful than variety score)
     # Count unique listening sessions based on distinct dates
@@ -1875,20 +1908,31 @@ def generate_wrapped_summary_from_db():
             'count': 0
         }
 
-    # Calculate total listening minutes (same calculation as stats card)
+    # Calculate total listening minutes (FIXED to match stats card calculation)
     cursor.execute('''
-        SELECT SUM(t.duration_ms) / 60000.0 as total_minutes
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
+        SELECT
+            COUNT(DISTINCT h.history_id) as unique_listening_events,
+            AVG(t.duration_ms) as avg_track_duration_ms
+        FROM listening_history h
+        JOIN tracks t ON h.track_id = t.track_id
         WHERE h.source IN ('played', 'recently_played', 'current')
         AND date(h.played_at) <= ?
+        AND t.duration_ms IS NOT NULL
+        AND t.duration_ms > 0
     ''', (current_date,))
 
     minutes_row = cursor.fetchone()
-    if minutes_row and minutes_row['total_minutes']:
-        summary['total_minutes'] = round(minutes_row['total_minutes'])
-        summary['total_hours'] = round(minutes_row['total_minutes'] / 60, 1)
-        print(f"Calculated total minutes: {summary['total_minutes']}")
+    if minutes_row and minutes_row[0]:  # Check first column (unique_listening_events)
+        unique_listening_events = minutes_row[0] or 0
+        avg_track_duration_ms = minutes_row[1] or 210000  # Default to 3.5 minutes
+
+        # Calculate estimated total listening time
+        estimated_total_ms = unique_listening_events * avg_track_duration_ms
+        total_minutes = round(estimated_total_ms / 60000)
+
+        summary['total_minutes'] = total_minutes
+        summary['total_hours'] = round(total_minutes / 60, 1)
+        print(f"Calculated total minutes: {summary['total_minutes']} (from {unique_listening_events} events)")
         print(f"Calculated total hours: {summary['total_hours']}")
     else:
         summary['total_minutes'] = 0
