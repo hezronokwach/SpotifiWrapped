@@ -1222,12 +1222,32 @@ def update_listening_patterns_chart(n_intervals):
     print(f"TIMEZONE DEBUG: Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"TIMEZONE DEBUG: Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
 
+    # First, get the user's average track duration for more accurate estimation
+    cursor.execute('''
+        SELECT AVG(t.duration_ms) as avg_duration_ms
+        FROM listening_history h
+        JOIN tracks t ON h.track_id = t.track_id
+        WHERE h.user_id = ?
+        AND h.source IN ('played', 'recently_played', 'current')
+        AND t.duration_ms IS NOT NULL
+        AND t.duration_ms > 0
+    ''', (user_data['id'],))
+
+    avg_result = cursor.fetchone()
+    avg_duration_minutes = 3.5  # Default fallback
+    if avg_result and avg_result[0]:
+        avg_duration_minutes = round(avg_result[0] / 60000, 2)  # Convert ms to minutes
+
+    print(f"Using average track duration: {avg_duration_minutes} minutes")
+
     cursor.execute('''
         SELECT
             strftime('%w', datetime(played_at, 'localtime')) as day_of_week,
             strftime('%H', datetime(played_at, 'localtime')) as hour_of_day,
             COUNT(*) as play_count,
-            SUM(CASE WHEN t.duration_ms IS NOT NULL THEN t.duration_ms ELSE 0 END) as total_duration_ms
+            -- Calculate estimated listening minutes: count * user's average track duration
+            -- This is more realistic than summing all track durations
+            ROUND(COUNT(*) * ?, 2) as estimated_minutes
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
         WHERE h.user_id = ?
@@ -1237,7 +1257,7 @@ def update_listening_patterns_chart(n_intervals):
         AND datetime(h.played_at) >= datetime('now', '-7 days')  -- Only last 7 days
         GROUP BY day_of_week, hour_of_day
         ORDER BY day_of_week, hour_of_day
-    ''', (user_data['id'],))
+    ''', (avg_duration_minutes, user_data['id']))
 
     patterns_data = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -1248,8 +1268,8 @@ def update_listening_patterns_chart(n_intervals):
         patterns_df = pd.DataFrame(patterns_data)
         patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
 
-        # Calculate minutes played
-        patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
+        # Use the estimated minutes from the SQL query
+        patterns_df['minutes_played'] = patterns_df['estimated_minutes']
 
         print(f"Listening patterns data: {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
         return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)
@@ -1281,12 +1301,30 @@ def update_listening_patterns_chart(n_intervals):
         print(f"TIMEZONE DEBUG (retry): Current local time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"TIMEZONE DEBUG (retry): Current UTC time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
 
+        # Get the user's average track duration for more accurate estimation
+        cursor.execute('''
+            SELECT AVG(t.duration_ms) as avg_duration_ms
+            FROM listening_history h
+            JOIN tracks t ON h.track_id = t.track_id
+            WHERE h.user_id = ?
+            AND h.source IN ('played', 'recently_played', 'current')
+            AND t.duration_ms IS NOT NULL
+            AND t.duration_ms > 0
+        ''', (user_data['id'],))
+
+        avg_result = cursor.fetchone()
+        avg_duration_minutes = 3.5  # Default fallback
+        if avg_result and avg_result[0]:
+            avg_duration_minutes = round(avg_result[0] / 60000, 2)  # Convert ms to minutes
+
         cursor.execute('''
             SELECT
                 strftime('%w', datetime(played_at, 'localtime')) as day_of_week,
                 strftime('%H', datetime(played_at, 'localtime')) as hour_of_day,
                 COUNT(*) as play_count,
-                SUM(CASE WHEN t.duration_ms IS NOT NULL THEN t.duration_ms ELSE 0 END) as total_duration_ms
+                -- Calculate estimated listening minutes: count * user's average track duration
+                -- This is more realistic than summing all track durations
+                ROUND(COUNT(*) * ?, 2) as estimated_minutes
             FROM listening_history h
             JOIN tracks t ON h.track_id = t.track_id
             WHERE h.user_id = ?
@@ -1296,7 +1334,7 @@ def update_listening_patterns_chart(n_intervals):
             AND datetime(h.played_at) >= datetime('now', '-7 days')  -- Only last 7 days
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        ''', (user_data['id'],))
+        ''', (avg_duration_minutes, user_data['id']))
 
         patterns_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -1306,8 +1344,8 @@ def update_listening_patterns_chart(n_intervals):
             patterns_df = pd.DataFrame(patterns_data)
             patterns_df['day_name'] = patterns_df['day_of_week'].astype(int).map(lambda x: day_names[x])
 
-            # Calculate minutes played
-            patterns_df['minutes_played'] = patterns_df['total_duration_ms'].apply(calculate_duration_minutes)
+            # Use the estimated minutes from the SQL query
+            patterns_df['minutes_played'] = patterns_df['estimated_minutes']
 
             print(f"Listening patterns data (retry): {len(patterns_df)} time slots with total {patterns_df['minutes_played'].sum():.1f} minutes")
             return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)

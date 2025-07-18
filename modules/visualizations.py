@@ -1695,8 +1695,8 @@ class SpotifyVisualizations:
             # Create pivot table for heatmap - prefer minutes_played if available
             if 'minutes_played' in df.columns:
                 value_column = 'minutes_played'
-                title_suffix = ' (Minutes Played)'
-                hover_label = 'Minutes'
+                title_suffix = ' (Estimated Minutes)'
+                hover_label = 'Est. Minutes'
             elif 'play_count' in df.columns:
                 value_column = 'play_count'
                 title_suffix = ' (Play Count)'
