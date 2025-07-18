@@ -383,6 +383,79 @@ class SpotifyDatabase:
         finally:
             conn.close()
 
+    def cleanup_listening_history(self, user_id: str) -> dict:
+        """Clean up listening history data to remove duplicates and fix data quality issues."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        try:
+            # Get initial count
+            cursor.execute('SELECT COUNT(*) FROM listening_history WHERE user_id = ?', (user_id,))
+            initial_count = cursor.fetchone()[0]
+
+            # 1. Remove exact duplicates (same user, track, and timestamp)
+            cursor.execute('''
+                DELETE FROM listening_history
+                WHERE history_id NOT IN (
+                    SELECT MIN(history_id)
+                    FROM listening_history
+                    WHERE user_id = ?
+                    GROUP BY user_id, track_id, played_at
+                )
+                AND user_id = ?
+            ''', (user_id, user_id))
+
+            duplicates_removed = cursor.rowcount
+
+            # 2. Remove entries with invalid timestamps (future dates)
+            cursor.execute('''
+                DELETE FROM listening_history
+                WHERE user_id = ?
+                AND datetime(played_at) > datetime('now')
+            ''', (user_id,))
+
+            future_entries_removed = cursor.rowcount
+
+            # 3. Remove entries where the same track appears multiple times in the same hour
+            # Keep only the first occurrence per hour to prevent inflated listening time
+            cursor.execute('''
+                DELETE FROM listening_history
+                WHERE history_id NOT IN (
+                    SELECT MIN(history_id)
+                    FROM listening_history
+                    WHERE user_id = ?
+                    GROUP BY user_id, track_id, strftime('%Y-%m-%d %H', played_at)
+                )
+                AND user_id = ?
+            ''', (user_id, user_id))
+
+            hourly_duplicates_removed = cursor.rowcount
+
+            # Get final count
+            cursor.execute('SELECT COUNT(*) FROM listening_history WHERE user_id = ?', (user_id,))
+            final_count = cursor.fetchone()[0]
+
+            conn.commit()
+
+            cleanup_stats = {
+                'initial_count': initial_count,
+                'final_count': final_count,
+                'total_removed': initial_count - final_count,
+                'duplicates_removed': duplicates_removed,
+                'future_entries_removed': future_entries_removed,
+                'hourly_duplicates_removed': hourly_duplicates_removed
+            }
+
+            logger.info(f"Cleanup completed for user {user_id}: {cleanup_stats}")
+            return cleanup_stats
+
+        except sqlite3.Error as e:
+            logger.error(f"Error during cleanup: {e}")
+            conn.rollback()
+            return {'error': str(e)}
+        finally:
+            conn.close()
+
     def get_collection_status(self, user_id: str) -> dict:
         """Get the current data collection status for a user."""
         conn = sqlite3.connect(self.db_path)

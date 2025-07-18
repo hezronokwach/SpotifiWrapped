@@ -1157,6 +1157,27 @@ def update_genre_chart(n_intervals, n_clicks):
         )
         return fig
 
+def cleanup_historical_data():
+    """Clean up historical listening data to fix unrealistic minute calculations."""
+    user_data = spotify_api.get_user_profile()
+    if not user_data:
+        print("No user data available for cleanup")
+        return
+
+    print("Starting historical data cleanup...")
+    cleanup_stats = db.cleanup_listening_history(user_data['id'])
+
+    if 'error' in cleanup_stats:
+        print(f"Cleanup failed: {cleanup_stats['error']}")
+    else:
+        print(f"Cleanup completed successfully:")
+        print(f"  - Initial entries: {cleanup_stats['initial_count']}")
+        print(f"  - Final entries: {cleanup_stats['final_count']}")
+        print(f"  - Total removed: {cleanup_stats['total_removed']}")
+        print(f"  - Exact duplicates removed: {cleanup_stats['duplicates_removed']}")
+        print(f"  - Future entries removed: {cleanup_stats['future_entries_removed']}")
+        print(f"  - Hourly duplicates removed: {cleanup_stats['hourly_duplicates_removed']}")
+
 # Update listening patterns chart
 @app.callback(
     Output('listening-patterns-chart', 'figure'),
@@ -2191,6 +2212,14 @@ if __name__ == '__main__':
     import threading
     collector_thread = threading.Thread(target=background_data_collector, daemon=True)
     collector_thread.start()
+
+    # Check if cleanup is requested
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == '--cleanup':
+        print("Running historical data cleanup...")
+        cleanup_historical_data()
+        print("Cleanup completed. You can now run the app normally.")
+        sys.exit(0)
 
     # Run the app
     app.run(debug=True)
