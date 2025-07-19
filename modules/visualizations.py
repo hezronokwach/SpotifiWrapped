@@ -1729,14 +1729,45 @@ class SpotifyVisualizations:
             # Sort columns (hours)
             pivot_df = pivot_df.reindex(columns=sorted(pivot_df.columns))
 
-            # Create heatmap using go.Heatmap instead of px.imshow for more control
+            # Create futuristic heatmap with custom colorscale
+            custom_colorscale = [
+                [0.0, 'rgba(26, 26, 26, 0.8)'],      # Dark background
+                [0.1, 'rgba(29, 185, 84, 0.2)'],     # Light green
+                [0.3, 'rgba(29, 185, 84, 0.4)'],     # Medium green
+                [0.5, 'rgba(29, 185, 84, 0.6)'],     # Bright green
+                [0.7, 'rgba(0, 212, 255, 0.6)'],     # Cyan
+                [0.9, 'rgba(139, 92, 246, 0.8)'],    # Purple
+                [1.0, 'rgba(244, 114, 182, 1.0)']    # Pink
+            ]
+
             fig = go.Figure(data=go.Heatmap(
                 z=pivot_df.values,
-                x=[str(hour) for hour in pivot_df.columns],
+                x=[f"{hour:02d}:00" for hour in pivot_df.columns],
                 y=pivot_df.index,
-                colorscale='Viridis',
+                colorscale=custom_colorscale,
                 hoverongaps=False,
-                hovertemplate=f'Day: %{{y}}<br>Hour: %{{x}}<br>{hover_label}: %{{z}}<extra></extra>'
+                hovertemplate=f'<b>%{{y}}</b><br>Time: %{{x}}<br>{hover_label}: <b>%{{z}}</b><extra></extra>',
+                showscale=True,
+                colorbar=dict(
+                    title=dict(
+                        text=hover_label,
+                        font=dict(
+                            family="Orbitron, monospace",
+                            size=14,
+                            color="rgba(255, 255, 255, 0.8)"
+                        )
+                    ),
+                    tickfont=dict(
+                        family="Orbitron, monospace",
+                        size=12,
+                        color="rgba(255, 255, 255, 0.7)"
+                    ),
+                    bgcolor="rgba(26, 26, 26, 0.8)",
+                    bordercolor="rgba(29, 185, 84, 0.3)",
+                    borderwidth=1,
+                    thickness=15,
+                    len=0.8
+                )
             ))
 
             # Create title with date range
@@ -1745,17 +1776,59 @@ class SpotifyVisualizations:
             start_date = end_date - timedelta(days=date_range_days)
             date_range_text = f" ({start_date.strftime('%b %d')} - {end_date.strftime('%b %d')})"
 
-            # Update layout for better appearance
+            # Update layout with futuristic styling
             fig.update_layout(
-                title=f'Your Listening Patterns{title_suffix}{date_range_text}',
-                xaxis_title='Hour of Day',
-                yaxis_title='Day of Week',
-                height=500,
+                title=dict(
+                    text=f'Your Listening Patterns{title_suffix}{date_range_text}',
+                    font=dict(
+                        family="Orbitron, monospace",
+                        size=20,
+                        color="rgba(29, 185, 84, 0.9)"
+                    ),
+                    x=0.5,
+                    xanchor='center'
+                ),
                 xaxis=dict(
+                    title=dict(
+                        text='Hour of Day',
+                        font=dict(
+                            family="Orbitron, monospace",
+                            size=14,
+                            color="rgba(255, 255, 255, 0.8)"
+                        )
+                    ),
                     tickmode='array',
-                    tickvals=[str(hour) for hour in range(24)],
-                    ticktext=[f"{hour}:00" for hour in range(24)]
-                )
+                    tickvals=[f"{hour:02d}:00" for hour in range(24)],
+                    ticktext=[f"{hour:02d}:00" for hour in range(24)],
+                    tickfont=dict(
+                        family="Orbitron, monospace",
+                        size=10,
+                        color="rgba(255, 255, 255, 0.7)"
+                    ),
+                    gridcolor="rgba(29, 185, 84, 0.2)",
+                    linecolor="rgba(29, 185, 84, 0.3)"
+                ),
+                yaxis=dict(
+                    title=dict(
+                        text='Day of Week',
+                        font=dict(
+                            family="Orbitron, monospace",
+                            size=14,
+                            color="rgba(255, 255, 255, 0.8)"
+                        )
+                    ),
+                    tickfont=dict(
+                        family="Orbitron, monospace",
+                        size=11,
+                        color="rgba(255, 255, 255, 0.7)"
+                    ),
+                    gridcolor="rgba(29, 185, 84, 0.2)",
+                    linecolor="rgba(29, 185, 84, 0.3)"
+                ),
+                height=450,
+                margin=dict(t=80, b=60, l=100, r=120),
+                plot_bgcolor='rgba(26, 26, 26, 0.8)',
+                paper_bgcolor='rgba(26, 26, 26, 0.95)'
             )
 
             return self._apply_theme(fig)

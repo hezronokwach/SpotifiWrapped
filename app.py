@@ -349,7 +349,7 @@ def update_top_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks based on frequency in listening history - only count actual listening events
+    # Enhanced top tracks ranking with duration weighting and improved scoring
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -359,14 +359,29 @@ def update_top_tracks_chart(n_intervals, n_clicks):
             t.album,
             t.popularity,
             t.image_url,
+            t.duration_ms,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            AVG(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as avg_duration_ms,
+            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.5) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (t.popularity / 100.0 * 0.2)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        GROUP BY t.track_id
+        AND t.name IS NOT NULL AND t.name != ''
+        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 10
@@ -545,7 +560,7 @@ def update_audio_features_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks using the same improved ranking system
+    # Query for top tracks using enhanced ranking system (consistent with main top tracks)
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -554,13 +569,23 @@ def update_audio_features_chart(n_intervals, n_clicks):
             t.artist,
             t.album,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.5) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (t.popularity / 100.0 * 0.2)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        GROUP BY t.track_id
+        AND t.name IS NOT NULL AND t.name != ''
+        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 5
@@ -654,7 +679,7 @@ def update_top_artists_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top artists - only count actual listening events
+    # Enhanced top artists ranking with listening time and track diversity
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -662,7 +687,19 @@ def update_top_artists_chart(n_intervals, n_clicks):
             MAX(t.popularity) as popularity,
             MAX(t.image_url) as image_url,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.8 + (MAX(t.popularity) / 100.0) * 0.2) as weighted_score
+            COUNT(DISTINCT t.track_id) as unique_tracks,
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            AVG(t.popularity) as avg_popularity,
+            -- Enhanced weighted score: play frequency (40%) + listening time (30%) + track diversity (20%) + popularity (10%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.4) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (COUNT(DISTINCT t.track_id) * 0.2) +
+                (MAX(t.popularity) / 100.0 * 0.1)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
@@ -670,7 +707,7 @@ def update_top_artists_chart(n_intervals, n_clicks):
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.artist
-        HAVING play_count >= 1  -- Minimum 1 play to be considered
+        HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 10
     ''', (current_date,))

@@ -1117,27 +1117,45 @@ body {
 .futuristic-chart-card {
     position: relative;
     overflow: hidden;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 40px rgba(29, 185, 84, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .futuristic-chart-card::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg,
-        rgba(29, 185, 84, 0.05) 0%,
-        rgba(0, 212, 255, 0.05) 50%,
-        rgba(139, 92, 246, 0.05) 100%);
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg,
+        rgba(29, 185, 84, 0.3) 0%,
+        rgba(0, 212, 255, 0.3) 25%,
+        rgba(139, 92, 246, 0.3) 50%,
+        rgba(244, 114, 182, 0.3) 75%,
+        rgba(29, 185, 84, 0.3) 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    border-radius: 16px;
+    z-index: -1;
     opacity: 0;
     transition: opacity 0.4s ease;
-    pointer-events: none;
-    z-index: 1;
 }
 
 .futuristic-chart-card:hover::before {
     opacity: 1;
+}
+
+.futuristic-chart-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(29, 185, 84, 0.6);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 60px rgba(29, 185, 84, 0.3);
 }
 
 .futuristic-chart-card .plotly-graph-div {
@@ -1145,9 +1163,12 @@ body {
     z-index: 2;
     border-radius: 12px;
     overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.4s ease;
 }
 
 .futuristic-chart-card:hover .plotly-graph-div {
+    background: rgba(255, 255, 255, 0.05);
     box-shadow:
         inset 0 0 30px rgba(29, 185, 84, 0.1),
         0 0 40px rgba(29, 185, 84, 0.2);
@@ -1155,27 +1176,121 @@ body {
 
 /* Enhanced chart title styling */
 .futuristic-chart-card .card-title {
-    background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6);
+    background-size: 200% 200%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-family: 'Orbitron', monospace;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     position: relative;
+    animation: titleGradient 4s ease infinite;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
 }
 
 .futuristic-chart-card .card-title::after {
     content: '';
     position: absolute;
-    bottom: -4px;
+    bottom: -6px;
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+    background: linear-gradient(90deg, transparent, #1DB954, #00D4FF, transparent);
     border-radius: 1px;
-    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+    box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+    animation: titleUnderlineGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes titleUnderlineGlow {
+    0% {
+        box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+        opacity: 0.8;
+    }
+    100% {
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.9);
+        opacity: 1;
+    }
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Enhanced Heatmap Styling for Listening Patterns */
+.futuristic-patterns-card .plotly-graph-div .plot-container .plotly {
+    background: radial-gradient(circle at center, rgba(29, 185, 84, 0.03), transparent);
+}
+
+.futuristic-patterns-card .plotly-graph-div .hoverlayer .hovertext {
+    background: rgba(26, 26, 26, 0.95) !important;
+    border: 1px solid rgba(29, 185, 84, 0.6) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(15px) !important;
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Enhanced heatmap cell styling */
+.futuristic-patterns-card .plotly-graph-div .heatmaplayer .hm {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.futuristic-patterns-card .plotly-graph-div .heatmaplayer .hm:hover {
+    filter: brightness(1.3) drop-shadow(0 0 10px rgba(29, 185, 84, 0.6));
+    transform: scale(1.05);
+}
+
+/* Enhanced axis styling for heatmap */
+.futuristic-patterns-card .plotly-graph-div .xtick text,
+.futuristic-patterns-card .plotly-graph-div .ytick text {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 500 !important;
+    fill: rgba(255, 255, 255, 0.8) !important;
+}
+
+.futuristic-patterns-card .plotly-graph-div .xtitle,
+.futuristic-patterns-card .plotly-graph-div .ytitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    fill: rgba(29, 185, 84, 0.9) !important;
+}
+
+/* Enhanced heatmap grid styling */
+.futuristic-patterns-card .plotly-graph-div .cartesianlayer .subplot .xgrid line,
+.futuristic-patterns-card .plotly-graph-div .cartesianlayer .subplot .ygrid line {
+    stroke: rgba(29, 185, 84, 0.2) !important;
+    stroke-width: 1px !important;
+}
+
+/* Enhanced heatmap title styling */
+.futuristic-patterns-card .plotly-graph-div .gtitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 700 !important;
+    fill: rgba(29, 185, 84, 0.9) !important;
+    text-shadow: 0 0 10px rgba(29, 185, 84, 0.3) !important;
+}
+
+/* Colorbar styling */
+.futuristic-patterns-card .plotly-graph-div .colorbar .cbtitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    fill: rgba(255, 255, 255, 0.8) !important;
+}
+
+.futuristic-patterns-card .plotly-graph-div .colorbar .cbtick text {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 500 !important;
+    fill: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* Chart container glow animation */
@@ -1749,6 +1864,72 @@ body {
     }
 }
 
+/* Enhanced Listening Patterns Card Styling */
+.futuristic-patterns-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 40px rgba(29, 185, 84, 0.1);
+}
+
+.futuristic-patterns-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg,
+        rgba(29, 185, 84, 0.3),
+        rgba(0, 212, 255, 0.3),
+        rgba(139, 92, 246, 0.3),
+        rgba(29, 185, 84, 0.3));
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    border-radius: 16px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.futuristic-patterns-card:hover::before {
+    opacity: 1;
+}
+
+.futuristic-patterns-card .card-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    position: relative;
+}
+
+.futuristic-patterns-card .card-title::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #1DB954, transparent);
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+    animation: titleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+    0% { box-shadow: 0 0 10px rgba(29, 185, 84, 0.5); }
+    100% { box-shadow: 0 0 20px rgba(29, 185, 84, 0.8); }
+}
+
 /* Enhanced Personality Card Styling */
 .futuristic-personality-card {
     position: relative;
@@ -1941,6 +2122,199 @@ body {
     .spotify-card {
         border: 2px solid #ffffff;
     }
+}
+
+/* Enhanced Stat Cards Styling */
+.spotify-card.card-glass {
+    position: relative;
+    background: linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9));
+    border: 1px solid rgba(29, 185, 84, 0.2);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 20px rgba(29, 185, 84, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.spotify-card.card-glass:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(29, 185, 84, 0.5);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 40px rgba(29, 185, 84, 0.3);
+}
+
+.spotify-card.card-glass::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg,
+        rgba(29, 185, 84, 0.05),
+        rgba(0, 212, 255, 0.05),
+        rgba(139, 92, 246, 0.05));
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    border-radius: 16px;
+    pointer-events: none;
+}
+
+.spotify-card.card-glass:hover::before {
+    opacity: 1;
+}
+
+/* Stat card number animation */
+.spotify-card.card-glass .card-body h3 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 2.2rem;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    transition: all 0.4s ease;
+}
+
+.spotify-card.card-glass:hover .card-body h3 {
+    transform: scale(1.1);
+    text-shadow: 0 0 30px rgba(29, 185, 84, 0.5);
+}
+
+/* Stat card icon enhancement */
+.spotify-card.card-glass .fas,
+.spotify-card.card-glass .fa {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.3));
+}
+
+.spotify-card.card-glass:hover .fas,
+.spotify-card.card-glass:hover .fa {
+    transform: scale(1.2) rotate(5deg);
+    filter: drop-shadow(0 0 20px rgba(29, 185, 84, 0.6));
+}
+
+/* Stat card title enhancement */
+.spotify-card.card-glass .card-body p {
+    font-family: 'Orbitron', monospace;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.8);
+    transition: color 0.4s ease;
+}
+
+.spotify-card.card-glass:hover .card-body p {
+    color: rgba(29, 185, 84, 0.9);
+}
+
+/* Enhanced Header Styling */
+.futuristic-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border-radius: 20px;
+    padding: 30px;
+    margin: 20px 0;
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.3),
+        0 0 30px rgba(29, 185, 84, 0.1);
+    overflow: hidden;
+}
+
+.futuristic-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg,
+        transparent,
+        rgba(29, 185, 84, 0.1),
+        transparent,
+        rgba(0, 212, 255, 0.1),
+        transparent);
+    animation: rotate 20s linear infinite;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+.futuristic-header > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Enhanced Avatar Styling */
+.futuristic-avatar {
+    position: relative;
+    cursor: pointer;
+}
+
+.futuristic-avatar:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 0 40px rgba(29, 185, 84, 0.6), 0 0 80px rgba(29, 185, 84, 0.3) !important;
+}
+
+.futuristic-avatar::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    background: conic-gradient(from 0deg,
+        rgba(29, 185, 84, 0.8),
+        rgba(0, 212, 255, 0.8),
+        rgba(139, 92, 246, 0.8),
+        rgba(244, 114, 182, 0.8),
+        rgba(29, 185, 84, 0.8));
+    border-radius: 50%;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    animation: rotate 8s linear infinite;
+}
+
+.futuristic-avatar:hover::before {
+    opacity: 0.7;
+}
+
+/* Enhanced Stat Box Styling */
+.futuristic-stat-box {
+    position: relative;
+    overflow: hidden;
+}
+
+.futuristic-stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.futuristic-stat-box:hover::before {
+    left: 100%;
+}
+
+.futuristic-stat-box:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3) !important;
+    border-color: rgba(29, 185, 84, 0.6) !important;
+}
+
+.futuristic-stat-box:nth-child(2):hover {
+    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3) !important;
+    border-color: rgba(0, 212, 255, 0.6) !important;
 }
 
 /* Section Headers */
