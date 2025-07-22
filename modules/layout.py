@@ -438,19 +438,6 @@ class DashboardLayout:
     def create_layout(self):
         """Create the complete dashboard layout."""
         layout = html.Div([
-            # Auto-refresh component
-            dcc.Interval(
-                id='interval-component',
-                interval=30*1000,  # in milliseconds (30 seconds)
-                n_intervals=0
-            ),
-
-            # Store components for data
-            dcc.Store(id='user-data-store'),
-            dcc.Store(id='current-track-store'),
-            dcc.Store(id='wrapped-summary-store'),
-            dcc.Store(id='personality-data-store'),
-
             # Error message
             self.create_error_message(),
 
