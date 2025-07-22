@@ -34,6 +34,8 @@ from modules.genre_extractor import GenreExtractor
 from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
 from modules.genre_evolution_tracker import GenreEvolutionTracker
 from modules.wellness_analyzer import WellnessAnalyzer
+from modules.enhanced_stress_detector import EnhancedStressDetector
+from modules.stress_visualizations import create_enhanced_stress_analysis_card
 
 # Load environment variables
 load_dotenv()
@@ -60,6 +62,7 @@ genre_extractor = GenreExtractor(spotify_api, db)
 enhanced_personality_analyzer = EnhancedPersonalityAnalyzer()
 genre_evolution_tracker = GenreEvolutionTracker()
 wellness_analyzer = WellnessAnalyzer()
+enhanced_stress_detector = EnhancedStressDetector()
 
 # Initialize Dash app
 app = dash.Dash(
@@ -2307,7 +2310,7 @@ def update_genre_evolution_chart(pathname):
     Input('url', 'pathname')
 )
 def update_wellness_analysis_card(pathname):
-    """Update wellness analysis card."""
+    """Update wellness analysis card with enhanced stress detection."""
     if pathname != '/ai-insights':
         return html.Div()
 
@@ -2318,34 +2321,39 @@ def update_wellness_analysis_card(pathname):
 
         user_id = user_data['id']
 
-        # Get wellness analysis
-        wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+        # Get enhanced stress analysis
+        stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
 
-        return create_spotify_card(
-            title="🏥 Wellness Analysis",
-            content=html.Div([
-                html.Div([
-                    html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
-                    html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
-                ]),
-
-                html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
-
-                html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
-                html.Div([
-                    html.Div([
-                        html.H6(suggestion['title'], className="therapeutic-suggestion"),
-                        html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
-                    ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
-                ])
-            ]),
-            icon="fa-heart",
-            card_type="glass"
-        )
+        # Use the enhanced visualization
+        return create_enhanced_stress_analysis_card(stress_data)
 
     except Exception as e:
         print(f"Error updating wellness analysis card: {e}")
-        return html.Div(f"Error loading wellness analysis: {str(e)}", className="alert alert-danger")
+        # Fallback to basic wellness analysis
+        try:
+            wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+            return create_spotify_card(
+                title="🏥 Wellness Analysis",
+                content=html.Div([
+                    html.Div([
+                        html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
+                        html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
+                    ]),
+                    html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
+                    html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
+                    html.Div([
+                        html.Div([
+                            html.H6(suggestion['title'], className="therapeutic-suggestion"),
+                            html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
+                        ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
+                    ])
+                ]),
+                icon="fa-heart",
+                card_type="glass"
+            )
+        except Exception as fallback_error:
+            print(f"Fallback wellness analysis also failed: {fallback_error}")
+            return html.Div(f"Error loading stress analysis: {str(e)}", className="alert alert-danger")
 
 @app.callback(
     Output('advanced-recommendations-card', 'children'),
