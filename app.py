@@ -94,8 +94,8 @@ app.layout = html.Div([
         n_intervals=0
     ),
 
-    # Hidden global refresh button (for callbacks)
-    html.Button(id='refresh-button', style={'display': 'none'}),
+    # Hidden global refresh button (for callbacks) - always available
+    html.Button(id='refresh-button', style={'display': 'none'}, n_clicks=0),
 
     html.Div([
         # Header with navigation
@@ -117,6 +117,18 @@ app.layout = html.Div([
 ])
 
 # --- Callbacks ---
+
+# Sync visible refresh button with hidden refresh button
+@app.callback(
+    Output('refresh-button', 'n_clicks'),
+    Input('visible-refresh-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def sync_refresh_buttons(visible_clicks):
+    """Sync the visible refresh button with the hidden global refresh button."""
+    if visible_clicks is None:
+        return 0
+    return visible_clicks
 
 # Update user data
 @app.callback(

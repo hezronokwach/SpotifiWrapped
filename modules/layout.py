@@ -413,7 +413,7 @@ class DashboardLayout:
         return html.Div([
             create_spotify_button(
                 "Refresh Data",
-                id='refresh-button'
+                id='visible-refresh-button'
             )
         ], style={
             'textAlign': 'center',
