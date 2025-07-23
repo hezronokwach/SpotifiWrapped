@@ -2489,7 +2489,7 @@ def display_page(pathname):
         return dashboard_layout.create_layout()  # Main dashboard
 
 def create_ai_insights_page():
-    """Create the dedicated AI insights page."""
+    """Create the dedicated AI insights page with balanced masonry grid."""
     return html.Div([
         # Hidden components needed for callbacks (but not displayed)
         html.Div([
@@ -2506,28 +2506,60 @@ def create_ai_insights_page():
                    className="ai-page-subtitle")
         ], className="ai-page-header"),
 
-        # AI insights grid
+        # Balanced Masonry Grid Container
         html.Div([
-            # Row 1: Enhanced Personality + Genre Evolution
+            # Left Column - Balanced with multiple shorter cards
             html.Div([
+                # AI Personality Enhancement Card (Short - ~400px)
                 html.Div([
-                    html.Div(id='ai-personality-card')
-                ], className="col-md-6"),
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-brain", style={'marginRight': '12px'}),
+                            html.H3("AI-Enhanced Personality", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='ai-personality-card')
+                    ])
+                ], className="ai-insights-card ai-card-personality"),
+                
+                # Genre Evolution Card (Medium - ~500px)
                 html.Div([
-                    dcc.Graph(id='genre-evolution-chart')
-                ], className="col-md-6")
-            ], className="row ai-insights-row"),
-
-            # Row 2: Wellness Analysis + Advanced Recommendations
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-chart-line", style={'marginRight': '12px'}),
+                            html.H3("Genre Evolution", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div([
+                            dcc.Graph(id='genre-evolution-chart', style={'height': '400px'})
+                        ])
+                    ])
+                ], className="ai-insights-card ai-card-genre-evolution"),
+                
+                # Advanced Recommendations Card (Medium - ~400px)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-magic", style={'marginRight': '12px'}),
+                            html.H3("Advanced Recommendations", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='advanced-recommendations-card')
+                    ])
+                ], className="ai-insights-card ai-card-wellness")
+            ], className="ai-insights-left-column"),
+            
+            # Right Column - Single long card
             html.Div([
+                # Stress Analysis Card (Very Long - ~1000px)
                 html.Div([
-                    html.Div(id='wellness-analysis-card')
-                ], className="col-md-6"),
-                html.Div([
-                    html.Div(id='advanced-recommendations-card')
-                ], className="col-md-6")
-            ], className="row ai-insights-row")
-        ], className="ai-insights-grid")
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-brain", style={'marginRight': '12px'}),
+                            html.H3("Enhanced Stress Analysis", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='wellness-analysis-card')
+                    ])
+                ], className="ai-insights-card ai-card-stress")
+            ], className="ai-insights-right-column")
+        ], className="ai-insights-masonry-container")
     ], className="ai-insights-page")
 
 # Main entry point
