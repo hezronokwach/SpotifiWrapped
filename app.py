@@ -2323,13 +2323,26 @@ def update_wellness_analysis_card(pathname):
 
         # Try enhanced stress analysis first, fallback to basic if needed
         try:
+            print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
             stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
+            print(f"DEBUG: Enhanced stress analysis successful, stress_score: {stress_data.get('stress_score', 'NOT_FOUND')}")
             # Use the enhanced visualization
             return create_enhanced_stress_analysis_card(stress_data)
         except Exception as enhanced_error:
             print(f"Enhanced stress detector failed: {enhanced_error}")
+            import traceback
+            traceback.print_exc()
             # Fallback to basic wellness analysis
+            print(f"DEBUG: Falling back to wellness analyzer")
             wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+            print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
+            
+            # Convert wellness data to stress data format for compatibility
+            if 'wellness_score' in wellness_data:
+                # Convert wellness score (higher = better) to stress score (higher = worse)
+                stress_score = max(0, 100 - wellness_data['wellness_score'])
+                wellness_data['stress_score'] = stress_score
+                print(f"DEBUG: Converted wellness_score {wellness_data['wellness_score']} to stress_score {stress_score}")
             # Create basic wellness card with enhanced styling
             return create_spotify_card(
                 title="🏥 Wellness Analysis",

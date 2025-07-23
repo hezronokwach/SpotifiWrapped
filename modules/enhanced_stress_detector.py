@@ -27,6 +27,8 @@ class EnhancedStressDetector:
     def analyze_stress_patterns(self, user_id: str, days: int = 30) -> Dict:
         """Comprehensive stress pattern analysis with ML enhancement."""
         try:
+            print(f"DEBUG: Starting enhanced stress analysis for user {user_id}")
+            
             # Get comprehensive listening data with retry logic
             query = '''
                 SELECT
@@ -46,18 +48,25 @@ class EnhancedStressDetector:
                 ORDER BY h.played_at DESC
             '''.format(days)
 
+            print(f"DEBUG: Executing query for user {user_id}")
             df = self._execute_query_with_retry(query, (user_id,))
+            print(f"DEBUG: Query returned {len(df)} rows")
             
             if df.empty:
+                print(f"DEBUG: No data found, returning default response")
                 return self._default_stress_response()
             
+            print(f"DEBUG: Detecting stress patterns...")
             # Enhanced stress analysis
             stress_indicators = self._detect_advanced_stress_patterns(df)
+            print(f"DEBUG: Calculating weighted stress score...")
             stress_score = self._calculate_weighted_stress_score(stress_indicators)
+            print(f"DEBUG: Creating stress timeline...")
             stress_timeline = self._create_stress_timeline(df)
+            print(f"DEBUG: Identifying triggers...")
             personalized_triggers = self._identify_stress_triggers(df)
             
-            return {
+            result = {
                 'stress_score': stress_score,
                 'stress_level': self._categorize_stress_level(stress_score),
                 'stress_indicators': stress_indicators,
@@ -67,8 +76,14 @@ class EnhancedStressDetector:
                 'confidence': self._calculate_confidence(df, stress_indicators)
             }
             
+            print(f"DEBUG: Enhanced stress analysis completed successfully with score: {stress_score}")
+            return result
+            
         except Exception as e:
             print(f"Error in enhanced stress analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"DEBUG: Returning default stress response due to error")
             return self._default_stress_response()
     
     def _detect_advanced_stress_patterns(self, df: pd.DataFrame) -> Dict:
@@ -164,9 +179,14 @@ class EnhancedStressDetector:
         """Calculate weighted stress score from multiple indicators."""
         score = 0
         
-        # Agitated listening component
-        agitated_score = min(indicators['agitated_listening']['frequency'] / 20, 1.0)
+        # Agitated listening component - Fixed normalization threshold
+        # Use more appropriate threshold based on typical listening patterns
+        agitated_frequency = indicators['agitated_listening']['frequency']
+        agitated_score = min(agitated_frequency / 100, 1.0)  # Increased threshold from 20 to 100
         score += agitated_score * self.stress_weights['agitated_listening']
+        
+        # Debug logging for calculation verification
+        print(f"DEBUG: Agitated listening - frequency: {agitated_frequency}, normalized: {agitated_score:.3f}, weighted: {agitated_score * self.stress_weights['agitated_listening']:.3f}")
         
         # Repetitive behavior component - Updated to use research-based stress rumination
         # Focus on stress-related repetitive listening only (sad/low-energy songs)
@@ -174,19 +194,33 @@ class EnhancedStressDetector:
         repetitive_score = min(stress_repetitive_count / 5, 1.0)  # Normalize based on stress-related tracks
         score += repetitive_score * self.stress_weights['repetitive_behavior']
         
+        print(f"DEBUG: Repetitive behavior - stress tracks: {stress_repetitive_count}, normalized: {repetitive_score:.3f}, weighted: {repetitive_score * self.stress_weights['repetitive_behavior']:.3f}")
+        
         # Late night patterns component
-        late_night_score = min(indicators['late_night_patterns']['frequency'] / 15, 1.0)
+        late_night_frequency = indicators['late_night_patterns']['frequency']
+        late_night_score = min(late_night_frequency / 15, 1.0)
         score += late_night_score * self.stress_weights['late_night_patterns']
         
+        print(f"DEBUG: Late night - frequency: {late_night_frequency}, normalized: {late_night_score:.3f}, weighted: {late_night_score * self.stress_weights['late_night_patterns']:.3f}")
+        
         # Mood volatility component
-        volatility_score = min(indicators['mood_volatility']['daily_volatility'] / 0.4, 1.0)
+        volatility_value = indicators['mood_volatility']['daily_volatility']
+        volatility_score = min(volatility_value / 0.4, 1.0)
         score += volatility_score * self.stress_weights['mood_volatility']
         
+        print(f"DEBUG: Mood volatility - value: {volatility_value:.6f}, normalized: {volatility_score:.3f}, weighted: {volatility_score * self.stress_weights['mood_volatility']:.3f}")
+        
         # Energy crashes component
-        crash_score = min(indicators['energy_crashes']['crash_frequency'] / 10, 1.0)
+        crash_frequency = indicators['energy_crashes']['crash_frequency']
+        crash_score = min(crash_frequency / 10, 1.0)
         score += crash_score * self.stress_weights['energy_crashes']
         
-        return min(score * 100, 100)  # Convert to 0-100 scale
+        print(f"DEBUG: Energy crashes - frequency: {crash_frequency}, normalized: {crash_score:.3f}, weighted: {crash_score * self.stress_weights['energy_crashes']:.3f}")
+        
+        final_score = min(score * 100, 100)
+        print(f"DEBUG: Total weighted score: {score:.3f}, final score: {final_score:.1f}")
+        
+        return final_score  # Convert to 0-100 scale
     
     def _create_stress_timeline(self, df: pd.DataFrame) -> List[Dict]:
         """Create a timeline of stress indicators over time."""

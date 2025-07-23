@@ -258,7 +258,7 @@ def create_stress_indicators_breakdown(indicators: dict) -> html.Div:
             })
         )
     
-    # Repetitive behavior - Research-based display
+    # Repetitive behavior - Enhanced research-based display
     if 'repetitive_behavior' in indicators:
         repetitive = indicators['repetitive_behavior']
         unique_tracks = repetitive.get('unique_repeated_tracks', 0)
@@ -266,30 +266,51 @@ def create_stress_indicators_breakdown(indicators: dict) -> html.Div:
         happy_tracks = repetitive.get('happy_repetitive_tracks', 0)
         max_reps = repetitive.get('max_repetitions', 0)
 
+        # Enhanced display with detailed breakdown
         indicator_items.append(
             html.Div([
                 html.Div([
                     html.Span("🔄 Repetitive Listening", style={'fontWeight': 'bold'}),
-                    html.Span(f" ({unique_tracks} total: {stress_tracks} sad, {happy_tracks} happy)",
-                             style={'color': LIGHT_GRAY, 'fontSize': '0.9rem'})
-                ]),
-                html.Div(
-                    "Stress Rumination" if stress_tracks > 0 else "Healthy Pattern",
-                    style={
-                        'backgroundColor': '#FF6B6B' if stress_tracks > 0 else SPOTIFY_GREEN,
-                        'color': SPOTIFY_WHITE if stress_tracks > 0 else SPOTIFY_BLACK,
-                        'padding': '2px 8px',
-                        'borderRadius': '12px',
-                        'fontSize': '0.8rem',
-                        'fontWeight': 'bold'
-                    }
-                )
+                    html.Br(),
+                    html.Span(f"Total: {unique_tracks} tracks", style={'color': LIGHT_GRAY, 'fontSize': '0.85rem'}),
+                    html.Br(),
+                    html.Span(f"🔴 Stress-Related (Sad + Low-Energy): {stress_tracks} tracks",
+                             style={'color': '#FF6B6B' if stress_tracks > 0 else LIGHT_GRAY, 'fontSize': '0.85rem'}),
+                    html.Br(),
+                    html.Span(f"🟢 Happy Repetitive (Healthy): {happy_tracks} tracks",
+                             style={'color': SPOTIFY_GREEN if happy_tracks > 0 else LIGHT_GRAY, 'fontSize': '0.85rem'})
+                ], style={'flex': '1'}),
+                html.Div([
+                    html.Div(
+                        "Stress Rumination" if stress_tracks > 0 else "Healthy Pattern",
+                        style={
+                            'backgroundColor': '#FF6B6B' if stress_tracks > 0 else SPOTIFY_GREEN,
+                            'color': SPOTIFY_WHITE if stress_tracks > 0 else SPOTIFY_BLACK,
+                            'padding': '4px 10px',
+                            'borderRadius': '12px',
+                            'fontSize': '0.8rem',
+                            'fontWeight': 'bold',
+                            'textAlign': 'center',
+                            'minWidth': '100px'
+                        }
+                    ),
+                    html.Div(
+                        f"Max: {max_reps} plays" if max_reps > 0 else "No repetition",
+                        style={
+                            'fontSize': '0.7rem',
+                            'color': LIGHT_GRAY,
+                            'textAlign': 'center',
+                            'marginTop': '4px'
+                        }
+                    )
+                ], style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'})
             ], style={
                 'display': 'flex',
                 'justifyContent': 'space-between',
-                'alignItems': 'center',
-                'padding': '8px 0',
-                'borderBottom': '1px solid rgba(255,255,255,0.1)'
+                'alignItems': 'flex-start',
+                'padding': '12px 0',
+                'borderBottom': '1px solid rgba(255,255,255,0.1)',
+                'minHeight': '80px'
             })
         )
     
