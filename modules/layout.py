@@ -40,83 +40,149 @@ class DashboardLayout:
                 })
             ], style={'padding': '20px 0'})
 
-        # Header with user profile
+        # Header with user profile - Enhanced futuristic styling
         return html.Div([
-            # User profile section
+            # User profile section with enhanced styling
             html.Div([
-                # User image
+                # User image with futuristic glow
                 html.Div([
                     html.Img(
                         src=user_data.get('image_url', ''),
                         style={
-                            'width': '100px',
-                            'height': '100px',
+                            'width': '120px',
+                            'height': '120px',
                             'borderRadius': '50%',
-                            'border': f'3px solid {self.theme["accent_color"]}'
-                        }
+                            'border': '3px solid rgba(29, 185, 84, 0.8)',
+                            'boxShadow': '0 0 30px rgba(29, 185, 84, 0.4), 0 0 60px rgba(29, 185, 84, 0.2)',
+                            'transition': 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                            'filter': 'brightness(1.1)'
+                        },
+                        className='futuristic-avatar'
                     ) if user_data.get('image_url') else html.Div([
-                        # Stylish avatar with user's initials
+                        # Enhanced stylish avatar with user's initials
                         html.Div(
                             user_data.get('display_name', 'S')[0].upper(),
                             style={
-                                'width': '100px',
-                                'height': '100px',
+                                'width': '120px',
+                                'height': '120px',
                                 'borderRadius': '50%',
-                                'backgroundColor': SPOTIFY_GREEN,
-                                'color': SPOTIFY_BLACK,
+                                'background': 'linear-gradient(135deg, #1DB954, #00D4FF)',
+                                'color': '#000000',
                                 'display': 'flex',
                                 'alignItems': 'center',
                                 'justifyContent': 'center',
-                                'fontSize': '40px',
+                                'fontSize': '48px',
                                 'fontWeight': 'bold',
-                                'border': f'3px solid {self.theme["accent_color"]}',
-                                'boxShadow': '0 4px 8px rgba(0,0,0,0.3)'
-                            }
+                                'fontFamily': "'Orbitron', monospace",
+                                'border': '3px solid rgba(29, 185, 84, 0.8)',
+                                'boxShadow': '0 0 30px rgba(29, 185, 84, 0.4), 0 0 60px rgba(29, 185, 84, 0.2)',
+                                'transition': 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                'textShadow': '0 0 10px rgba(0, 0, 0, 0.5)'
+                            },
+                            className='futuristic-avatar'
                         )
                     ])
                 ], style={'display': 'inline-block', 'verticalAlign': 'middle'}),
 
-                # User info
+                # Enhanced user info
                 html.Div([
                     html.H1(f"Welcome, {user_data.get('display_name', 'Spotify User')}", style={
-                        'color': self.theme['text_color'],
-                        'margin': '0 0 10px 0'
+                        'color': 'rgba(255, 255, 255, 0.95)',
+                        'margin': '0 0 15px 0',
+                        'fontFamily': "'Orbitron', monospace",
+                        'fontWeight': '700',
+                        'fontSize': '2.5rem',
+                        'textShadow': '0 0 20px rgba(29, 185, 84, 0.3)',
+                        'background': 'linear-gradient(45deg, #FFFFFF, #1DB954)',
+                        'backgroundClip': 'text',
+                        'WebkitBackgroundClip': 'text',
+                        'WebkitTextFillColor': 'transparent'
                     }),
                     html.Div([
-                        # Followers and following stats
-                        html.Span([
-                            html.Strong(f"{user_data.get('followers', 0)}"),
-                            " followers"
+                        # Enhanced followers and following stats
+                        html.Div([
+                            html.Div([
+                                html.Strong(f"{user_data.get('followers', 0):,}", style={
+                                    'fontSize': '1.8rem',
+                                    'fontFamily': "'Orbitron', monospace",
+                                    'fontWeight': '700',
+                                    'color': '#1DB954',
+                                    'textShadow': '0 0 10px rgba(29, 185, 84, 0.5)'
+                                }),
+                                html.Div("FOLLOWERS", style={
+                                    'fontSize': '0.9rem',
+                                    'fontFamily': "'Orbitron', monospace",
+                                    'fontWeight': '500',
+                                    'color': 'rgba(255, 255, 255, 0.7)',
+                                    'letterSpacing': '1px',
+                                    'marginTop': '2px'
+                                })
+                            ], style={
+                                'textAlign': 'center',
+                                'padding': '15px 25px',
+                                'background': 'linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(29, 185, 84, 0.05))',
+                                'border': '1px solid rgba(29, 185, 84, 0.3)',
+                                'borderRadius': '12px',
+                                'marginRight': '20px',
+                                'transition': 'all 0.3s ease',
+                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.1)'
+                            }, className='futuristic-stat-box'),
+
+                            html.Div([
+                                html.Strong(f"{user_data.get('following', 0):,}", style={
+                                    'fontSize': '1.8rem',
+                                    'fontFamily': "'Orbitron', monospace",
+                                    'fontWeight': '700',
+                                    'color': '#00D4FF',
+                                    'textShadow': '0 0 10px rgba(0, 212, 255, 0.5)'
+                                }),
+                                html.Div("FOLLOWING", style={
+                                    'fontSize': '0.9rem',
+                                    'fontFamily': "'Orbitron', monospace",
+                                    'fontWeight': '500',
+                                    'color': 'rgba(255, 255, 255, 0.7)',
+                                    'letterSpacing': '1px',
+                                    'marginTop': '2px'
+                                })
+                            ], style={
+                                'textAlign': 'center',
+                                'padding': '15px 25px',
+                                'background': 'linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 212, 255, 0.05))',
+                                'border': '1px solid rgba(0, 212, 255, 0.3)',
+                                'borderRadius': '12px',
+                                'transition': 'all 0.3s ease',
+                                'boxShadow': '0 4px 15px rgba(0, 212, 255, 0.1)'
+                            }, className='futuristic-stat-box')
                         ], style={
-                            'marginRight': '15px',
-                            'color': self.theme['secondary_color'],
-                            'fontSize': '1.1rem',
-                            'fontWeight': '500'
-                        }),
-                        html.Span([
-                            html.Strong(f"{user_data.get('following', 0)}"),
-                            " following"
-                        ], style={
-                            'color': self.theme['secondary_color'],
-                            'fontSize': '1.1rem',
-                            'fontWeight': '500'
+                            'display': 'flex',
+                            'justifyContent': 'center',
+                            'alignItems': 'center'
                         })
-                    ]),
+                    ], style={'marginTop': '10px'}),
                 ], style={
                     'display': 'inline-block',
                     'verticalAlign': 'middle',
-                    'marginLeft': '20px'
+                    'marginLeft': '30px'
                 })
-            ], style={'textAlign': 'center', 'margin': '20px 0'}),
+            ], style={'textAlign': 'center', 'margin': '30px 0'}),
 
-            # Dashboard title
+            # Dashboard title with futuristic styling
             html.H2("Your Personal Spotify Dashboard", style={
                 'textAlign': 'center',
                 'color': self.theme['accent_color'],
                 'marginTop': '20px',
-                'fontFamily': self.theme['font_family']
+                'fontFamily': "'Orbitron', monospace",
+                'fontWeight': '700',
+                'fontSize': '2.2rem',
+                'textTransform': 'uppercase',
+                'letterSpacing': '2px',
+                'textShadow': '0 0 20px rgba(29, 185, 84, 0.5)',
+                'background': 'linear-gradient(45deg, #1DB954, #00D4FF)',
+                'backgroundClip': 'text',
+                'WebkitBackgroundClip': 'text',
+                'WebkitTextFillColor': 'transparent'
             })
-        ], style={'padding': '20px 0'})
+        ], style={'padding': '20px 0'}, className='futuristic-header')
 
     def create_currently_playing_section(self):
         """Create the currently playing section."""
@@ -171,7 +237,7 @@ class DashboardLayout:
         )
 
     def create_audio_features_section(self):
-        """Create the audio features section."""
+        """Create the audio features section with futuristic styling."""
         return create_spotify_card(
             title="Audio Features Analysis",
             content=dcc.Graph(
@@ -179,7 +245,8 @@ class DashboardLayout:
                 config={'displayModeBar': False}
             ),
             icon="fa-chart-radar",
-            className="consistent-height-card"
+            card_type="glass",
+            className="consistent-height-card futuristic-chart-card"
         )
 
     def create_top_artists_section(self):
@@ -196,7 +263,7 @@ class DashboardLayout:
         )
 
     def create_genre_analysis_section(self):
-        """Create the genre analysis section."""
+        """Create the genre analysis section with futuristic styling."""
         return create_spotify_card(
             title="Genre Analysis",
             content=dcc.Graph(
@@ -204,18 +271,21 @@ class DashboardLayout:
                 config={'displayModeBar': False}
             ),
             icon="fa-tag",
-            className="consistent-height-card"
+            card_type="neon",
+            className="consistent-height-card futuristic-chart-card"
         )
 
     def create_listening_patterns_section(self):
-        """Create the listening patterns section."""
+        """Create the listening patterns section with futuristic styling."""
         return create_spotify_card(
             title="Listening Patterns",
             content=dcc.Graph(
                 id='listening-patterns-chart',
                 config={'displayModeBar': False}
             ),
-            icon="fa-clock"
+            icon="fa-clock",
+            card_type="neon",
+            className="futuristic-chart-card futuristic-patterns-card"
         )
 
     def create_top_track_highlight_section(self):
@@ -343,7 +413,7 @@ class DashboardLayout:
         return html.Div([
             create_spotify_button(
                 "Refresh Data",
-                id='refresh-button'
+                id='visible-refresh-button'
             )
         ], style={
             'textAlign': 'center',
@@ -368,19 +438,6 @@ class DashboardLayout:
     def create_layout(self):
         """Create the complete dashboard layout."""
         layout = html.Div([
-            # Auto-refresh component
-            dcc.Interval(
-                id='interval-component',
-                interval=30*1000,  # in milliseconds (30 seconds)
-                n_intervals=0
-            ),
-
-            # Store components for data
-            dcc.Store(id='user-data-store'),
-            dcc.Store(id='current-track-store'),
-            dcc.Store(id='wrapped-summary-store'),
-            dcc.Store(id='personality-data-store'),
-
             # Error message
             self.create_error_message(),
 

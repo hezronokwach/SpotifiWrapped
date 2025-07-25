@@ -17,7 +17,7 @@ from modules.layout import DashboardLayout
 from modules.visualizations import (
     SpotifyVisualizations, SpotifyAnimations,
     SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY,
-    create_album_card, create_personality_card
+    create_album_card, create_personality_card, create_spotify_card
 )
 
 # Import data storage modules
@@ -29,6 +29,13 @@ from modules.top_albums import get_top_albums, get_album_listening_patterns
 from modules.analyzer import ListeningPersonalityAnalyzer
 from modules.recent_tracks_collector import RecentTracksCollector
 from modules.genre_extractor import GenreExtractor
+
+# Import AI modules
+from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
+from modules.genre_evolution_tracker import GenreEvolutionTracker
+from modules.wellness_analyzer import WellnessAnalyzer
+from modules.enhanced_stress_detector import EnhancedStressDetector
+from modules.stress_visualizations import create_enhanced_stress_analysis_card
 
 # Load environment variables
 load_dotenv()
@@ -51,22 +58,80 @@ personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
 recent_tracks_collector = RecentTracksCollector(spotify_api, db)
 genre_extractor = GenreExtractor(spotify_api, db)
 
+# Initialize AI modules
+enhanced_personality_analyzer = EnhancedPersonalityAnalyzer()
+genre_evolution_tracker = GenreEvolutionTracker()
+wellness_analyzer = WellnessAnalyzer()
+enhanced_stress_detector = EnhancedStressDetector()
+
 # Initialize Dash app
 app = dash.Dash(
     __name__,
     external_stylesheets=[
         dbc.themes.BOOTSTRAP,
-        'https://use.fontawesome.com/releases/v5.15.4/css/all.css'
+        'https://use.fontawesome.com/releases/v5.15.4/css/all.css',
+        'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap'
     ],
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"}
-    ]
+    ],
+    suppress_callback_exceptions=True  # Allow callbacks to components not in initial layout
 )
 
 app.title = "Spotify Wrapped Remix"
-app.layout = dashboard_layout.create_layout()
+
+# Multi-page layout with navigation
+app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
+
+    # Global store components (available on all pages)
+    dcc.Store(id='user-data-store'),
+    dcc.Store(id='current-track-store'),
+    dcc.Store(id='wrapped-summary-store'),
+    dcc.Store(id='personality-data-store'),
+
+    # Auto-refresh component (global)
+    dcc.Interval(
+        id='interval-component',
+        interval=30*1000,  # in milliseconds (30 seconds)
+        n_intervals=0
+    ),
+
+    # Hidden global refresh button (for callbacks) - always available
+    html.Button(id='refresh-button', style={'display': 'none'}, n_clicks=0),
+
+    html.Div([
+        # Header with navigation
+        html.Div([
+            html.H1("Spotify Wrapped Remix", style={
+                'color': '#1DB954',
+                'fontFamily': 'Orbitron, monospace',
+                'fontWeight': '700',
+                'margin': '0'
+            }),
+            html.Div([
+                dcc.Link("🏠 Dashboard", href="/", className="nav-link"),
+                dcc.Link("🤖 AI Insights", href="/ai-insights", className="nav-link ai-nav-link")
+            ], className="nav-links")
+        ], className="header-with-nav"),
+
+        html.Div(id='page-content')
+    ])
+])
 
 # --- Callbacks ---
+
+# Sync visible refresh button with hidden refresh button
+@app.callback(
+    Output('refresh-button', 'n_clicks'),
+    Input('visible-refresh-button', 'n_clicks'),
+    prevent_initial_call=True
+)
+def sync_refresh_buttons(visible_clicks):
+    """Sync the visible refresh button with the hidden global refresh button."""
+    if visible_clicks is None:
+        return 0
+    return visible_clicks
 
 # Update user data
 @app.callback(
@@ -349,7 +414,7 @@ def update_top_tracks_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks based on frequency in listening history - only count actual listening events
+    # Enhanced top tracks ranking with duration weighting and improved scoring
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -359,14 +424,29 @@ def update_top_tracks_chart(n_intervals, n_clicks):
             t.album,
             t.popularity,
             t.image_url,
+            t.duration_ms,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            AVG(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as avg_duration_ms,
+            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.5) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (t.popularity / 100.0 * 0.2)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        GROUP BY t.track_id
+        AND t.name IS NOT NULL AND t.name != ''
+        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 10
@@ -545,7 +625,7 @@ def update_audio_features_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top tracks using the same improved ranking system
+    # Query for top tracks using enhanced ranking system (consistent with main top tracks)
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -554,13 +634,23 @@ def update_audio_features_chart(n_intervals, n_clicks):
             t.artist,
             t.album,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.7 + (t.popularity / 100.0) * 0.3) as weighted_score
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.5) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (t.popularity / 100.0 * 0.2)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
         AND date(h.played_at) <= ?
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        GROUP BY t.track_id
+        AND t.name IS NOT NULL AND t.name != ''
+        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
         HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 5
@@ -654,7 +744,7 @@ def update_top_artists_chart(n_intervals, n_clicks):
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Query for top artists - only count actual listening events
+    # Enhanced top artists ranking with listening time and track diversity
     current_date = datetime.now().strftime('%Y-%m-%d')
     cursor.execute('''
         SELECT
@@ -662,7 +752,19 @@ def update_top_artists_chart(n_intervals, n_clicks):
             MAX(t.popularity) as popularity,
             MAX(t.image_url) as image_url,
             COUNT(DISTINCT h.history_id) as play_count,
-            (COUNT(DISTINCT h.history_id) * 0.8 + (MAX(t.popularity) / 100.0) * 0.2) as weighted_score
+            COUNT(DISTINCT t.track_id) as unique_tracks,
+            SUM(CASE
+                WHEN t.duration_ms > 0 THEN t.duration_ms
+                ELSE 180000
+            END) as total_listening_time_ms,
+            AVG(t.popularity) as avg_popularity,
+            -- Enhanced weighted score: play frequency (40%) + listening time (30%) + track diversity (20%) + popularity (10%)
+            (
+                (COUNT(DISTINCT h.history_id) * 0.4) +
+                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                (COUNT(DISTINCT t.track_id) * 0.2) +
+                (MAX(t.popularity) / 100.0 * 0.1)
+            ) as weighted_score
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
         WHERE t.artist IS NOT NULL AND t.artist != ''
@@ -670,7 +772,7 @@ def update_top_artists_chart(n_intervals, n_clicks):
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         GROUP BY t.artist
-        HAVING play_count >= 1  -- Minimum 1 play to be considered
+        HAVING play_count >= 2  -- Minimum 2 plays to be considered
         ORDER BY weighted_score DESC
         LIMIT 10
     ''', (current_date,))
@@ -1420,8 +1522,12 @@ def get_listening_style(completion_rate, sequential_score):
 )
 
 def update_personality_analysis(n_intervals, n_clicks):
-    """Update the personality analysis section."""
+    """Update the personality analysis section with AI enhancements."""
     try:
+        # Get user data for AI analysis
+        user_data = spotify_api.get_user_profile()
+        user_id = user_data.get('id') if user_data else None
+
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
             personality_data = personality_analyzer.analyze()
@@ -1486,14 +1592,47 @@ def update_personality_analysis(n_intervals, n_clicks):
                 if 'listening_style' not in personality_data['metrics'] or personality_data['metrics']['listening_style'] == 'Unknown':
                     personality_data['metrics']['listening_style'] = album_patterns.get('listening_style', 'Unknown')
 
-        # Create enhanced personality card using the standalone function
-        return create_personality_card(
+        # Create enhanced personality card with AI recommendations
+        enhanced_card = create_personality_card(
             primary_type=personality_data.get('primary_type', 'Unknown'),
             secondary_type=personality_data.get('secondary_type', 'Unknown'),
             description=personality_data.get('description', 'No description available'),
             recommendations=personality_data.get('recommendations', []),
             metrics=personality_data.get('metrics', {})
         )
+
+        # Add AI recommendations section if user_id is available
+        if user_id:
+            try:
+                ai_recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=3)
+                if ai_recommendations:
+                    ai_section = html.Div([
+                        html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
+                        html.H4("🎵 Your Music DNA Suggests", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace', 'marginBottom': '15px'}),
+                        html.Div([
+                            html.Div([
+                                html.Strong(f"{rec['name']} by {rec['artist']}"),
+                                html.Br(),
+                                html.Small(rec['reason'], style={'color': '#1DB954', 'fontSize': '0.85rem'})
+                            ], className="compact-recommendation") for rec in ai_recommendations
+                        ], className="compact-recommendations-list"),
+
+                        # Link to full AI insights page
+                        html.Div([
+                            dcc.Link(
+                                "🤖 See More AI Insights →",
+                                href="/ai-insights",
+                                className="ai-insights-link"
+                            )
+                        ], style={'textAlign': 'center', 'marginTop': '15px'})
+                    ], className="ai-recommendations-section")
+
+                    # Combine the original card with AI section
+                    return html.Div([enhanced_card, ai_section])
+            except Exception as e:
+                print(f"Error adding AI recommendations to personality card: {e}")
+
+        return enhanced_card
 
 
 
@@ -2088,6 +2227,354 @@ def update_collection_status(n_intervals):
 
     return html.Div("Data collection in progress...", className="alert alert-info")
 
+# AI Insights Page Callbacks
+@app.callback(
+    Output('ai-personality-card', 'children'),
+    Input('url', 'pathname')
+)
+def update_ai_personality_card(pathname):
+    """Update AI personality card with enhanced descriptions."""
+    if pathname != '/ai-insights':
+        return html.Div()
+
+    try:
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+
+        user_id = user_data['id']
+
+        # Get AI-enhanced personality analysis
+        ai_personality = enhanced_personality_analyzer.generate_enhanced_personality(user_id)
+
+        return create_spotify_card(
+            title="🧠 AI-Enhanced Personality",
+            content=html.Div([
+                html.Div([
+                    html.H4(ai_personality.get('personality_type', 'Music Explorer'),
+                           style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
+                    html.Div(f"Confidence: {ai_personality.get('confidence_score', 0.5):.0%}",
+                           className="confidence-badge")
+                ], style={'display': 'flex', 'justifyContent': 'space-between', 'alignItems': 'center', 'marginBottom': '15px'}),
+
+                html.Div(ai_personality.get('ai_description', 'No description available'),
+                        className="ai-description"),
+
+                html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
+
+                html.H5("🎵 AI Recommendations", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
+                html.Div([
+                    html.Div([
+                        html.Strong(f"{rec['name']} by {rec['artist']}"),
+                        html.Br(),
+                        html.Small(rec['reason'], style={'color': '#00D4FF', 'fontSize': '0.9rem'})
+                    ], style={'marginBottom': '10px'}) for rec in ai_personality.get('recommendations', [])[:3]
+                ])
+            ]),
+            icon="fa-brain",
+            card_type="glass"
+        )
+
+    except Exception as e:
+        print(f"Error updating AI personality card: {e}")
+        return html.Div(f"Error loading AI personality: {str(e)}", className="alert alert-danger")
+
+@app.callback(
+    Output('genre-evolution-chart', 'figure'),
+    Input('url', 'pathname')
+)
+def update_genre_evolution_chart(pathname):
+    """Update genre evolution chart."""
+    if pathname != '/ai-insights':
+        return {}
+
+    try:
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return {}
+
+        user_id = user_data['id']
+
+        # Get genre evolution data
+        evolution_data = genre_evolution_tracker.get_genre_evolution_data(user_id)
+
+        # Create visualization
+        return genre_evolution_tracker.create_evolution_visualization(evolution_data)
+
+    except Exception as e:
+        print(f"Error updating genre evolution chart: {e}")
+        return {}
+
+@app.callback(
+    Output('wellness-analysis-card', 'children'),
+    Input('url', 'pathname')
+)
+def update_wellness_analysis_card(pathname):
+    """Update wellness analysis card with enhanced stress detection."""
+    if pathname != '/ai-insights':
+        return html.Div()
+
+    try:
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+
+        user_id = user_data['id']
+
+        # Try enhanced stress analysis first, fallback to basic if needed
+        try:
+            print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
+            stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
+            print(f"DEBUG: Enhanced stress analysis successful, stress_score: {stress_data.get('stress_score', 'NOT_FOUND')}")
+            # Use the enhanced visualization
+            return create_enhanced_stress_analysis_card(stress_data)
+        except Exception as enhanced_error:
+            print(f"Enhanced stress detector failed: {enhanced_error}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to basic wellness analysis
+            print(f"DEBUG: Falling back to wellness analyzer")
+            wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+            print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
+            
+            # Convert wellness data to stress data format for compatibility
+            if 'wellness_score' in wellness_data:
+                # Convert wellness score (higher = better) to stress score (higher = worse)
+                stress_score = max(0, 100 - wellness_data['wellness_score'])
+                wellness_data['stress_score'] = stress_score
+                print(f"DEBUG: Converted wellness_score {wellness_data['wellness_score']} to stress_score {stress_score}")
+            # Create basic wellness card with enhanced styling
+            return create_spotify_card(
+                title="🏥 Wellness Analysis",
+                content=html.Div([
+                    html.Div([
+                        html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
+                        html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
+                    ]),
+                    html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
+                    html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
+                    html.Div([
+                        html.Div([
+                            html.H6(suggestion['title'], className="therapeutic-suggestion"),
+                            html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
+                        ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
+                    ])
+                ]),
+                icon="fa-heart",
+                card_type="glass"
+            )
+
+    except Exception as e:
+        print(f"Error updating wellness analysis card: {e}")
+        # Fallback to basic wellness analysis
+        try:
+            wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+            return create_spotify_card(
+                title="🏥 Wellness Analysis",
+                content=html.Div([
+                    html.Div([
+                        html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
+                        html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
+                    ]),
+                    html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
+                    html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
+                    html.Div([
+                        html.Div([
+                            html.H6(suggestion['title'], className="therapeutic-suggestion"),
+                            html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
+                        ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
+                    ])
+                ]),
+                icon="fa-heart",
+                card_type="glass"
+            )
+        except Exception as fallback_error:
+            print(f"Fallback wellness analysis also failed: {fallback_error}")
+            return html.Div(f"Error loading stress analysis: {str(e)}", className="alert alert-danger")
+
+@app.callback(
+    Output('advanced-recommendations-card', 'children'),
+    Input('url', 'pathname')
+)
+def update_advanced_recommendations_card(pathname):
+    """Update advanced recommendations card."""
+    if pathname != '/ai-insights':
+        return html.Div()
+
+    try:
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+
+        user_id = user_data['id']
+
+        # Get content-based recommendations
+        recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
+        print(f"DEBUG: Got {len(recommendations)} recommendations for user {user_id}")
+
+        # Create content based on whether we have recommendations
+        if recommendations:
+            content = html.Div([
+                html.P("Based on your music DNA and listening patterns",
+                      style={'color': 'rgba(255,255,255,0.7)', 'marginBottom': '20px'}),
+
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.Img(src=rec.get('image_url', ''),
+                                   style={'width': '40px', 'height': '40px', 'borderRadius': '4px', 'marginRight': '10px'}),
+                            html.Div([
+                                html.Strong(rec['name']),
+                                html.Br(),
+                                html.Small(rec['artist'], style={'color': 'rgba(255,255,255,0.7)'}),
+                                html.Br(),
+                                html.Small(rec['reason'], style={'color': '#1DB954', 'fontSize': '0.8rem'})
+                            ])
+                        ], style={'display': 'flex', 'alignItems': 'center', 'padding': '10px',
+                                'backgroundColor': 'rgba(255,255,255,0.05)', 'borderRadius': '8px', 'marginBottom': '8px'})
+                    ]) for rec in recommendations
+                ])
+            ])
+        else:
+            # Get user's music DNA for display
+            try:
+                user_data = enhanced_personality_analyzer._get_user_listening_data(user_id)
+                content = html.Div([
+                    html.H4("🧬 Your Music DNA Profile", style={'color': '#1DB954', 'textAlign': 'center', 'marginBottom': '20px'}),
+
+                    # Show user's preferences
+                    html.Div([
+                        html.Div([
+                            html.Strong("🕺 Danceability: "),
+                            html.Span(f"{user_data.get('avg_danceability', 0.5):.1%}", style={'color': '#00D4FF'})
+                        ], style={'marginBottom': '8px'}),
+                        html.Div([
+                            html.Strong("⚡ Energy: "),
+                            html.Span(f"{user_data.get('avg_energy', 0.5):.1%}", style={'color': '#00D4FF'})
+                        ], style={'marginBottom': '8px'}),
+                        html.Div([
+                            html.Strong("😊 Mood: "),
+                            html.Span(f"{user_data.get('avg_valence', 0.5):.1%}", style={'color': '#00D4FF'})
+                        ], style={'marginBottom': '8px'}),
+                        html.Div([
+                            html.Strong("🎭 Top Genre: "),
+                            html.Span(user_data.get('top_genre', 'Mixed'), style={'color': '#1DB954'})
+                        ], style={'marginBottom': '15px'})
+                    ], style={'backgroundColor': 'rgba(29, 185, 84, 0.1)', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px'}),
+
+                    html.P("🎵 Your music DNA is ready, but we need more diverse tracks in our database to find perfect matches!",
+                          style={'color': 'rgba(255,255,255,0.8)', 'textAlign': 'center', 'marginBottom': '10px'}),
+                    html.P("The algorithm is looking for tracks that match your preferences but you haven't heard yet.",
+                          style={'color': 'rgba(255,255,255,0.6)', 'fontSize': '0.9rem', 'textAlign': 'center', 'fontStyle': 'italic'})
+                ])
+            except:
+                content = html.Div([
+                    html.P("🎵 Building your music DNA...",
+                          style={'color': 'rgba(255,255,255,0.7)', 'marginBottom': '15px', 'textAlign': 'center'}),
+                    html.P("We need more listening data to generate personalized recommendations. Keep listening to music and check back soon!",
+                          style={'color': 'rgba(255,255,255,0.6)', 'fontSize': '0.9rem', 'textAlign': 'center', 'fontStyle': 'italic'}),
+                    html.Div([
+                        html.I(className="fas fa-dna", style={'fontSize': '3rem', 'color': '#1DB954', 'opacity': '0.3'})
+                    ], style={'textAlign': 'center', 'margin': '20px 0'})
+                ])
+
+        return create_spotify_card(
+            title="🎯 Advanced Recommendations",
+            content=content,
+            icon="fa-magic",
+            card_type="glass"
+        )
+
+    except Exception as e:
+        print(f"Error updating advanced recommendations card: {e}")
+        return html.Div(f"Error loading recommendations: {str(e)}", className="alert alert-danger")
+
+# Page routing callback
+@app.callback(
+    Output('page-content', 'children'),
+    Input('url', 'pathname')
+)
+def display_page(pathname):
+    """Display the appropriate page based on the URL pathname."""
+    if pathname == '/ai-insights':
+        return create_ai_insights_page()
+    else:
+        return dashboard_layout.create_layout()  # Main dashboard
+
+def create_ai_insights_page():
+    """Create the dedicated AI insights page with balanced masonry grid."""
+    return html.Div([
+        # Hidden components needed for callbacks (but not displayed)
+        html.Div([
+            html.Div(id='header-container', style={'display': 'none'}),
+            html.Div(id='collection-status', style={'display': 'none'}),
+            html.Div(id='wrapped-summary-container', style={'display': 'none'}),
+            html.Div(id='personality-container', style={'display': 'none'})
+        ], style={'display': 'none'}),
+
+        # Page header
+        html.Div([
+            html.H1("🤖 AI Music Insights", className="ai-page-title"),
+            html.P("Discover how AI understands your music taste and get personalized insights",
+                   className="ai-page-subtitle")
+        ], className="ai-page-header"),
+
+        # Balanced Masonry Grid Container
+        html.Div([
+            # Left Column - Balanced with multiple shorter cards
+            html.Div([
+                # AI Personality Enhancement Card (Short - ~400px)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-brain", style={'marginRight': '12px'}),
+                            html.H3("AI-Enhanced Personality", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='ai-personality-card')
+                    ])
+                ], className="ai-insights-card ai-card-personality"),
+                
+                # Genre Evolution Card (Medium - ~500px)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-chart-line", style={'marginRight': '12px'}),
+                            html.H3("Genre Evolution", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div([
+                            dcc.Graph(id='genre-evolution-chart', style={'height': '400px'})
+                        ])
+                    ])
+                ], className="ai-insights-card ai-card-genre-evolution"),
+                
+                # Advanced Recommendations Card (Medium - ~400px)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-magic", style={'marginRight': '12px'}),
+                            html.H3("Advanced Recommendations", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='advanced-recommendations-card')
+                    ])
+                ], className="ai-insights-card ai-card-wellness")
+            ], className="ai-insights-left-column"),
+            
+            # Right Column - Single long card
+            html.Div([
+                # Stress Analysis Card (Very Long - ~1000px)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.I(className="fas fa-brain", style={'marginRight': '12px'}),
+                            html.H3("Enhanced Stress Analysis", style={'margin': '0'})
+                        ], className="ai-card-header"),
+                        html.Div(id='wellness-analysis-card')
+                    ])
+                ], className="ai-insights-card ai-card-stress")
+            ], className="ai-insights-right-column")
+        ], className="ai-insights-masonry-container")
+    ], className="ai-insights-page")
+
 # Main entry point
 if __name__ == '__main__':
     # Initial data fetch
@@ -2180,4 +2667,4 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Run the app
-    app.run(debug=True)
+    app.run(debug=True, port=8051)

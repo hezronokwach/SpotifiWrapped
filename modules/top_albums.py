@@ -6,27 +6,151 @@ from modules.api import SpotifyAPI
 
 def get_top_albums(spotify_api, limit=10):
     """
-    Extract top albums from user's listening history.
-    
+    Get top albums based on comprehensive listening metrics from database.
+
     Args:
         spotify_api: SpotifyAPI instance
-        limit: Number of top albums to return
-        
+        limit: Number of albums to return
+
     Returns:
-        DataFrame with album data
+        DataFrame with enhanced album data including completion rates and listening time
+    """
+    from modules.database import SpotifyDatabase
+    import sqlite3
+    from datetime import datetime
+
+    try:
+        # Get database connection
+        db = SpotifyDatabase()
+        conn = sqlite3.connect(db.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        current_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Enhanced album ranking query with completion rate and listening time
+        cursor.execute('''
+            WITH album_stats AS (
+                SELECT
+                    t.album,
+                    t.artist,
+                    MAX(t.image_url) as image_url,
+                    COUNT(DISTINCT h.history_id) as total_plays,
+                    COUNT(DISTINCT t.track_id) as unique_tracks_played,
+                    SUM(CASE
+                        WHEN t.duration_ms > 0 THEN t.duration_ms
+                        ELSE 180000
+                    END) as total_listening_time_ms,
+                    AVG(CASE
+                        WHEN t.duration_ms > 0 THEN t.duration_ms
+                        ELSE 180000
+                    END) as avg_track_duration_ms,
+                    MAX(t.popularity) as max_popularity,
+                    AVG(t.popularity) as avg_popularity
+                FROM tracks t
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE t.album IS NOT NULL
+                AND t.album != ''
+                AND t.track_id NOT LIKE 'artist-%'
+                AND t.track_id NOT LIKE 'genre-%'
+                AND date(h.played_at) <= ?
+                AND h.source IN ('played', 'recently_played', 'current', 'saved')
+                GROUP BY t.album, t.artist
+                HAVING total_plays >= 2  -- Minimum 2 plays per album
+            ),
+            album_completion AS (
+                SELECT
+                    album,
+                    artist,
+                    -- Estimate album completion rate based on unique tracks vs typical album size
+                    CASE
+                        WHEN unique_tracks_played >= 10 THEN 1.0  -- Full album listening
+                        WHEN unique_tracks_played >= 5 THEN 0.8   -- Most of album
+                        WHEN unique_tracks_played >= 3 THEN 0.6   -- Half album
+                        WHEN unique_tracks_played >= 2 THEN 0.4   -- Few tracks
+                        ELSE 0.2  -- Single track
+                    END as completion_rate,
+                    -- Calculate listening intensity (plays per unique track)
+                    CAST(total_plays AS FLOAT) / unique_tracks_played as listening_intensity,
+                    -- Calculate total listening time in minutes
+                    total_listening_time_ms / 60000.0 as total_listening_minutes,
+                    -- Enhanced weighted score:
+                    -- Listening time (40%) + Play frequency (30%) + Completion rate (20%) + Popularity (10%)
+                    (
+                        (total_listening_time_ms / 1000000.0 * 0.4) +
+                        (total_plays * 0.3) +
+                        (CASE
+                            WHEN unique_tracks_played >= 10 THEN 1.0
+                            WHEN unique_tracks_played >= 5 THEN 0.8
+                            WHEN unique_tracks_played >= 3 THEN 0.6
+                            WHEN unique_tracks_played >= 2 THEN 0.4
+                            ELSE 0.2
+                        END * 0.2) +
+                        (avg_popularity / 100.0 * 0.1)
+                    ) as weighted_score,
+                    *
+                FROM album_stats
+            )
+            SELECT
+                album,
+                artist,
+                image_url,
+                total_plays,
+                unique_tracks_played,
+                completion_rate,
+                listening_intensity,
+                total_listening_minutes,
+                weighted_score,
+                ROUND(weighted_score * 100 / (SELECT MAX(weighted_score) FROM album_completion)) as normalized_score
+            FROM album_completion
+            ORDER BY weighted_score DESC
+            LIMIT ?
+        ''', (current_date, limit))
+
+        albums_data = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        # Convert to DataFrame and add rank
+        if albums_data:
+            albums_df = pd.DataFrame(albums_data)
+            albums_df['rank'] = range(1, len(albums_df) + 1)
+
+            # Rename normalized_score to total_count for compatibility
+            albums_df['total_count'] = albums_df['normalized_score']
+
+            print(f"Enhanced album ranking returned {len(albums_df)} albums")
+            if len(albums_df) > 0:
+                for i, album in albums_df.head(5).iterrows():
+                    print(f"  {album['rank']}. {album['album']} by {album['artist']}")
+                    print(f"     Plays: {album['total_plays']}, Tracks: {album['unique_tracks_played']}, "
+                          f"Completion: {album['completion_rate']:.1%}, Time: {album['total_listening_minutes']:.1f}min")
+
+            return albums_df
+        else:
+            print("No albums found in database, falling back to legacy method")
+            return get_top_albums_legacy(spotify_api, limit)
+
+    except Exception as e:
+        print(f"Error in enhanced album ranking: {e}")
+        print("Falling back to legacy method")
+        return get_top_albums_legacy(spotify_api, limit)
+
+def get_top_albums_legacy(spotify_api, limit=10):
+    """
+    Legacy API-based top albums function (kept for fallback).
     """
     # Get recently played tracks to analyze album frequency
     recently_played = spotify_api.get_recently_played(limit=50)
-    
+
     # Get saved tracks as they indicate user preference
     saved_tracks = spotify_api.get_saved_tracks(limit=50)
-    
+
     # Get top tracks to extract their albums
     top_tracks = spotify_api.get_top_tracks(limit=50)
-    
+
     # Combine all data sources
     all_tracks = []
-    
+
     if recently_played:
         for track in recently_played:
             all_tracks.append({
@@ -36,7 +160,7 @@ def get_top_albums(spotify_api, limit=10):
                 'source': 'recently_played',
                 'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
-    
+
     if saved_tracks:
         for track in saved_tracks:
             all_tracks.append({
@@ -46,7 +170,7 @@ def get_top_albums(spotify_api, limit=10):
                 'source': 'saved_tracks',
                 'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
-    
+
     if top_tracks:
         for track in top_tracks:
             all_tracks.append({
@@ -56,30 +180,33 @@ def get_top_albums(spotify_api, limit=10):
                 'source': 'top_tracks',
                 'image_url': track.get('album_image_url', track.get('image_url', ''))
             })
-    
+
     # Create DataFrame
     df = pd.DataFrame(all_tracks)
-    
+
+    if df.empty:
+        return pd.DataFrame(columns=['album', 'artist', 'image_url', 'total_count', 'rank'])
+
     # Group by album and sum the counts
     album_counts = df.groupby(['album', 'artist', 'image_url']).agg(
         total_count=('count', 'sum'),
         sources=('source', lambda x: ', '.join(set(x)))
     ).reset_index()
-    
+
     # Normalize listening scores to be between 0-100
     if not album_counts.empty:
         max_count = album_counts['total_count'].max()
         album_counts['total_count'] = (album_counts['total_count'] / max_count * 100).round()
-    
+
     # Sort by count in descending order
     album_counts = album_counts.sort_values('total_count', ascending=False)
-    
+
     # Get top albums
     top_albums = album_counts.head(limit)
-    
+
     # Add rank
     top_albums['rank'] = range(1, len(top_albums) + 1)
-    
+
     return top_albums
 
 def visualize_top_albums(spotify_api, limit=10, save_path=None):

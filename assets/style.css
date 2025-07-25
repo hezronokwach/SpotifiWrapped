@@ -1117,27 +1117,45 @@ body {
 .futuristic-chart-card {
     position: relative;
     overflow: hidden;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 40px rgba(29, 185, 84, 0.1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .futuristic-chart-card::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg,
-        rgba(29, 185, 84, 0.05) 0%,
-        rgba(0, 212, 255, 0.05) 50%,
-        rgba(139, 92, 246, 0.05) 100%);
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg,
+        rgba(29, 185, 84, 0.3) 0%,
+        rgba(0, 212, 255, 0.3) 25%,
+        rgba(139, 92, 246, 0.3) 50%,
+        rgba(244, 114, 182, 0.3) 75%,
+        rgba(29, 185, 84, 0.3) 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    border-radius: 16px;
+    z-index: -1;
     opacity: 0;
     transition: opacity 0.4s ease;
-    pointer-events: none;
-    z-index: 1;
 }
 
 .futuristic-chart-card:hover::before {
     opacity: 1;
+}
+
+.futuristic-chart-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(29, 185, 84, 0.6);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 60px rgba(29, 185, 84, 0.3);
 }
 
 .futuristic-chart-card .plotly-graph-div {
@@ -1145,9 +1163,12 @@ body {
     z-index: 2;
     border-radius: 12px;
     overflow: hidden;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.4s ease;
 }
 
 .futuristic-chart-card:hover .plotly-graph-div {
+    background: rgba(255, 255, 255, 0.05);
     box-shadow:
         inset 0 0 30px rgba(29, 185, 84, 0.1),
         0 0 40px rgba(29, 185, 84, 0.2);
@@ -1155,27 +1176,121 @@ body {
 
 /* Enhanced chart title styling */
 .futuristic-chart-card .card-title {
-    background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6);
+    background-size: 200% 200%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-family: 'Orbitron', monospace;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     position: relative;
+    animation: titleGradient 4s ease infinite;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
 }
 
 .futuristic-chart-card .card-title::after {
     content: '';
     position: absolute;
-    bottom: -4px;
+    bottom: -6px;
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+    background: linear-gradient(90deg, transparent, #1DB954, #00D4FF, transparent);
     border-radius: 1px;
-    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+    box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+    animation: titleUnderlineGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+@keyframes titleUnderlineGlow {
+    0% {
+        box-shadow: 0 0 15px rgba(29, 185, 84, 0.6);
+        opacity: 0.8;
+    }
+    100% {
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.9);
+        opacity: 1;
+    }
+}
+
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Enhanced Heatmap Styling for Listening Patterns */
+.futuristic-patterns-card .plotly-graph-div .plot-container .plotly {
+    background: radial-gradient(circle at center, rgba(29, 185, 84, 0.03), transparent);
+}
+
+.futuristic-patterns-card .plotly-graph-div .hoverlayer .hovertext {
+    background: rgba(26, 26, 26, 0.95) !important;
+    border: 1px solid rgba(29, 185, 84, 0.6) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(15px) !important;
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Enhanced heatmap cell styling */
+.futuristic-patterns-card .plotly-graph-div .heatmaplayer .hm {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.futuristic-patterns-card .plotly-graph-div .heatmaplayer .hm:hover {
+    filter: brightness(1.3) drop-shadow(0 0 10px rgba(29, 185, 84, 0.6));
+    transform: scale(1.05);
+}
+
+/* Enhanced axis styling for heatmap */
+.futuristic-patterns-card .plotly-graph-div .xtick text,
+.futuristic-patterns-card .plotly-graph-div .ytick text {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 500 !important;
+    fill: rgba(255, 255, 255, 0.8) !important;
+}
+
+.futuristic-patterns-card .plotly-graph-div .xtitle,
+.futuristic-patterns-card .plotly-graph-div .ytitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    fill: rgba(29, 185, 84, 0.9) !important;
+}
+
+/* Enhanced heatmap grid styling */
+.futuristic-patterns-card .plotly-graph-div .cartesianlayer .subplot .xgrid line,
+.futuristic-patterns-card .plotly-graph-div .cartesianlayer .subplot .ygrid line {
+    stroke: rgba(29, 185, 84, 0.2) !important;
+    stroke-width: 1px !important;
+}
+
+/* Enhanced heatmap title styling */
+.futuristic-patterns-card .plotly-graph-div .gtitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 700 !important;
+    fill: rgba(29, 185, 84, 0.9) !important;
+    text-shadow: 0 0 10px rgba(29, 185, 84, 0.3) !important;
+}
+
+/* Colorbar styling */
+.futuristic-patterns-card .plotly-graph-div .colorbar .cbtitle {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 600 !important;
+    fill: rgba(255, 255, 255, 0.8) !important;
+}
+
+.futuristic-patterns-card .plotly-graph-div .colorbar .cbtick text {
+    font-family: 'Orbitron', monospace !important;
+    font-weight: 500 !important;
+    fill: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* Chart container glow animation */
@@ -1749,6 +1864,72 @@ body {
     }
 }
 
+/* Enhanced Listening Patterns Card Styling */
+.futuristic-patterns-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 40px rgba(29, 185, 84, 0.1);
+}
+
+.futuristic-patterns-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg,
+        rgba(29, 185, 84, 0.3),
+        rgba(0, 212, 255, 0.3),
+        rgba(139, 92, 246, 0.3),
+        rgba(29, 185, 84, 0.3));
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    border-radius: 16px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.futuristic-patterns-card:hover::before {
+    opacity: 1;
+}
+
+.futuristic-patterns-card .card-title {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    position: relative;
+}
+
+.futuristic-patterns-card .card-title::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #1DB954, transparent);
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+    animation: titleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes titleGlow {
+    0% { box-shadow: 0 0 10px rgba(29, 185, 84, 0.5); }
+    100% { box-shadow: 0 0 20px rgba(29, 185, 84, 0.8); }
+}
+
 /* Enhanced Personality Card Styling */
 .futuristic-personality-card {
     position: relative;
@@ -1943,6 +2124,199 @@ body {
     }
 }
 
+/* Enhanced Stat Cards Styling */
+.spotify-card.card-glass {
+    position: relative;
+    background: linear-gradient(135deg, rgba(26,26,26,0.9), rgba(18,18,18,0.9));
+    border: 1px solid rgba(29, 185, 84, 0.2);
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.3),
+        0 0 20px rgba(29, 185, 84, 0.1);
+    backdrop-filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.spotify-card.card-glass:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(29, 185, 84, 0.5);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 40px rgba(29, 185, 84, 0.3);
+}
+
+.spotify-card.card-glass::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg,
+        rgba(29, 185, 84, 0.05),
+        rgba(0, 212, 255, 0.05),
+        rgba(139, 92, 246, 0.05));
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    border-radius: 16px;
+    pointer-events: none;
+}
+
+.spotify-card.card-glass:hover::before {
+    opacity: 1;
+}
+
+/* Stat card number animation */
+.spotify-card.card-glass .card-body h3 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 2.2rem;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    transition: all 0.4s ease;
+}
+
+.spotify-card.card-glass:hover .card-body h3 {
+    transform: scale(1.1);
+    text-shadow: 0 0 30px rgba(29, 185, 84, 0.5);
+}
+
+/* Stat card icon enhancement */
+.spotify-card.card-glass .fas,
+.spotify-card.card-glass .fa {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.3));
+}
+
+.spotify-card.card-glass:hover .fas,
+.spotify-card.card-glass:hover .fa {
+    transform: scale(1.2) rotate(5deg);
+    filter: drop-shadow(0 0 20px rgba(29, 185, 84, 0.6));
+}
+
+/* Stat card title enhancement */
+.spotify-card.card-glass .card-body p {
+    font-family: 'Orbitron', monospace;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.8);
+    transition: color 0.4s ease;
+}
+
+.spotify-card.card-glass:hover .card-body p {
+    color: rgba(29, 185, 84, 0.9);
+}
+
+/* Enhanced Header Styling */
+.futuristic-header {
+    position: relative;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border-radius: 20px;
+    padding: 30px;
+    margin: 20px 0;
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.3),
+        0 0 30px rgba(29, 185, 84, 0.1);
+    overflow: hidden;
+}
+
+.futuristic-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg,
+        transparent,
+        rgba(29, 185, 84, 0.1),
+        transparent,
+        rgba(0, 212, 255, 0.1),
+        transparent);
+    animation: rotate 20s linear infinite;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+.futuristic-header > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Enhanced Avatar Styling */
+.futuristic-avatar {
+    position: relative;
+    cursor: pointer;
+}
+
+.futuristic-avatar:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 0 40px rgba(29, 185, 84, 0.6), 0 0 80px rgba(29, 185, 84, 0.3) !important;
+}
+
+.futuristic-avatar::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    background: conic-gradient(from 0deg,
+        rgba(29, 185, 84, 0.8),
+        rgba(0, 212, 255, 0.8),
+        rgba(139, 92, 246, 0.8),
+        rgba(244, 114, 182, 0.8),
+        rgba(29, 185, 84, 0.8));
+    border-radius: 50%;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    animation: rotate 8s linear infinite;
+}
+
+.futuristic-avatar:hover::before {
+    opacity: 0.7;
+}
+
+/* Enhanced Stat Box Styling */
+.futuristic-stat-box {
+    position: relative;
+    overflow: hidden;
+}
+
+.futuristic-stat-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.futuristic-stat-box:hover::before {
+    left: 100%;
+}
+
+.futuristic-stat-box:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 10px 30px rgba(29, 185, 84, 0.3) !important;
+    border-color: rgba(29, 185, 84, 0.6) !important;
+}
+
+.futuristic-stat-box:nth-child(2):hover {
+    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3) !important;
+    border-color: rgba(0, 212, 255, 0.6) !important;
+}
+
 /* Section Headers */
 .section-header {
     font-family: 'Orbitron', monospace;
@@ -2033,4 +2407,470 @@ body {
     border-radius: var(--border-radius-large);
     padding: 30px;
     border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+/* AI Features Styling */
+
+/* Navigation Styling */
+.header-with-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(29, 185, 84, 0.3);
+    margin-bottom: 30px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    font-family: 'Orbitron', monospace;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover, .nav-link.ai-nav-link {
+    color: #1DB954;
+    background: rgba(29, 185, 84, 0.1);
+}
+
+/* AI Insights Page Styling */
+.ai-insights-page {
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    min-height: 100vh;
+}
+
+.ai-page-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 3rem;
+    font-weight: 700;
+    text-align: center;
+    background: linear-gradient(45deg, #1DB954, #00D4FF, #8B5CF6);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+}
+
+.ai-page-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.2rem;
+    margin-bottom: 40px;
+}
+
+.ai-insights-row {
+    margin-bottom: 30px;
+}
+
+/* AI Card Styling */
+.ai-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.9);
+    font-style: italic;
+    margin: 15px 0;
+    padding: 15px;
+    background: linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(0, 212, 255, 0.1));
+    border-left: 3px solid #1DB954;
+    border-radius: 8px;
+}
+
+.confidence-badge {
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    color: #000;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: 'Orbitron', monospace;
+}
+
+.wellness-score {
+    font-size: 3rem;
+    font-weight: 700;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.therapeutic-suggestion {
+    color: #1DB954;
+    margin: 0 0 5px 0;
+    font-family: 'Orbitron', monospace;
+}
+
+/* Main Dashboard AI Enhancements */
+.enhanced-sound-story-card .compact-recommendation {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(29, 185, 84, 0.1);
+}
+
+.enhanced-sound-story-card .compact-recommendation:last-child {
+    border-bottom: none;
+}
+
+.ai-insights-link {
+    color: #1DB954;
+    text-decoration: none;
+    font-weight: 600;
+    font-family: 'Orbitron', monospace;
+    padding: 8px 16px;
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.ai-insights-link:hover {
+    background: rgba(29, 185, 84, 0.1);
+    border-color: rgba(29, 185, 84, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+}
+
+/* AI Insights Balanced Masonry Grid Layout */
+.ai-insights-masonry-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    padding: 20px;
+    min-height: 100vh;
+    align-items: start;
+}
+
+.ai-insights-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    animation: slideInLeft 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-insights-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    animation: slideInRight 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* AI Card Specific Styling */
+.ai-card-personality {
+    order: 1;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+    min-height: 400px;
+    max-height: 500px;
+}
+
+.ai-card-genre-evolution {
+    order: 2;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+    min-height: 500px;
+    max-height: 600px;
+}
+
+.ai-card-wellness {
+    order: 3;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+    min-height: 600px;
+    max-height: 700px;
+}
+
+.ai-card-stress {
+    order: 1;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
+    min-height: 800px;
+    position: sticky;
+    top: 20px;
+}
+
+/* Enhanced AI Card Styling */
+.ai-insights-card {
+    background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.3),
+        0 0 30px rgba(29, 185, 84, 0.1);
+    backdrop-filter: blur(15px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-insights-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg,
+        rgba(29, 185, 84, 0.3) 0%,
+        rgba(0, 212, 255, 0.3) 25%,
+        rgba(139, 92, 246, 0.3) 50%,
+        rgba(244, 114, 182, 0.3) 75%,
+        rgba(29, 185, 84, 0.3) 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+    border-radius: 20px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.ai-insights-card:hover::before {
+    opacity: 1;
+}
+
+.ai-insights-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(29, 185, 84, 0.6);
+    box-shadow:
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 60px rgba(29, 185, 84, 0.3);
+}
+
+/* AI Card Headers */
+.ai-card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(29, 185, 84, 0.3);
+    position: relative;
+}
+
+.ai-card-header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, #1DB954, #00D4FF);
+    border-radius: 1px;
+    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+}
+
+.ai-card-icon {
+    font-size: 2rem;
+    margin-right: 15px;
+    background: linear-gradient(45deg, #1DB954, #00D4FF);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.3));
+    animation: glow 3s ease-in-out infinite alternate;
+}
+
+.ai-card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6);
+    background-size: 200% 200%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: titleGradient 4s ease infinite;
+    text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+    margin: 0;
+}
+
+/* Responsive Design for AI Insights */
+@media (max-width: 1199px) {
+    .ai-insights-masonry-container {
+        grid-template-columns: 1fr;
+        gap: 25px;
+        padding: 16px;
+    }
+    
+    .ai-insights-left-column,
+    .ai-insights-right-column {
+        animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .ai-card-stress {
+        position: static;
+        order: 1;
+    }
+    
+    .ai-card-personality {
+        order: 2;
+    }
+    
+    .ai-card-wellness {
+        order: 3;
+    }
+    
+    .ai-card-genre-evolution {
+        order: 4;
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-insights-masonry-container {
+        gap: 20px;
+        padding: 12px;
+    }
+    
+    .ai-insights-card {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .ai-card-header {
+        margin-bottom: 15px;
+        padding-bottom: 12px;
+    }
+    
+    .ai-card-icon {
+        font-size: 1.5rem;
+        margin-right: 12px;
+    }
+    
+    .ai-card-title {
+        font-size: 1.2rem;
+    }
+    
+    /* Adjust card heights for mobile */
+    .ai-card-personality,
+    .ai-card-genre-evolution,
+    .ai-card-wellness,
+    .ai-card-stress {
+        min-height: auto;
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .ai-insights-masonry-container {
+        gap: 16px;
+        padding: 8px;
+    }
+    
+    .ai-insights-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .ai-card-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+    
+    .ai-card-icon {
+        font-size: 1.3rem;
+        margin-right: 10px;
+    }
+    
+    .ai-card-title {
+        font-size: 1.1rem;
+    }
+}
+
+/* Loading States for AI Cards */
+.ai-card-loading {
+    background: linear-gradient(90deg,
+        rgba(255,255,255,0.1) 25%,
+        rgba(255,255,255,0.2) 50%,
+        rgba(255,255,255,0.1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    min-height: 200px;
+    border-radius: 20px;
+}
+
+/* Staggered Animation Delays */
+.ai-insights-left-column .ai-insights-card:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.ai-insights-left-column .ai-insights-card:nth-child(2) {
+    animation-delay: 0.3s;
+}
+
+.ai-insights-left-column .ai-insights-card:nth-child(3) {
+    animation-delay: 0.5s;
+}
+
+.ai-insights-right-column .ai-insights-card:nth-child(1) {
+    animation-delay: 0.2s;
+}
+
+/* Enhanced Hover Effects for Different Card Types */
+.ai-card-personality:hover {
+    box-shadow:
+        0 20px 60px rgba(139, 92, 246, 0.4),
+        0 0 60px rgba(139, 92, 246, 0.3);
+    border-color: rgba(139, 92, 246, 0.6);
+}
+
+.ai-card-wellness:hover {
+    box-shadow:
+        0 20px 60px rgba(0, 212, 255, 0.4),
+        0 0 60px rgba(0, 212, 255, 0.3);
+    border-color: rgba(0, 212, 255, 0.6);
+}
+
+.ai-card-genre-evolution:hover {
+    box-shadow:
+        0 20px 60px rgba(244, 114, 182, 0.4),
+        0 0 60px rgba(244, 114, 182, 0.3);
+    border-color: rgba(244, 114, 182, 0.6);
+}
+
+.ai-card-stress:hover {
+    box-shadow:
+        0 20px 60px rgba(255, 69, 0, 0.4),
+        0 0 60px rgba(255, 69, 0, 0.3);
+    border-color: rgba(255, 69, 0, 0.6);
+}
+
+/* Accessibility Enhancements */
+@media (prefers-reduced-motion: reduce) {
+    .ai-insights-card,
+    .ai-insights-card::before,
+    .ai-card-icon,
+    .ai-card-title {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    .ai-insights-card:hover {
+        transform: none !important;
+    }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+    .ai-insights-card {
+        border: 2px solid #ffffff !important;
+        background: #000000 !important;
+    }
+    
+    .ai-insights-card:hover {
+        border-color: var(--accent-primary) !important;
+        box-shadow: 0 0 0 3px rgba(29, 185, 84, 0.5) !important;
+    }
+}
+
+/* Focus States for Keyboard Navigation */
+.ai-insights-card:focus,
+.ai-insights-card:focus-within {
+    outline: 3px solid var(--accent-primary);
+    outline-offset: 4px;
+    box-shadow: 0 0 0 6px rgba(29, 185, 84, 0.3);
 }
