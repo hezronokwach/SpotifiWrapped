@@ -520,3 +520,184 @@ class DashboardLayout:
         # Since we're using the assets folder for CSS, we don't need to add inline styles
         # This is just a placeholder that returns an empty div
         return html.Div(id="css-container", style={"display": "none"})
+
+def create_onboarding_page():
+    """Create the layout for the onboarding page."""
+    return html.Div([
+        html.Div([
+            html.H2("Welcome to Spotify Wrapped Remix!", style={'color': SPOTIFY_GREEN, 'textAlign': 'center', 'marginBottom': '20px'}),
+            html.P("To get started, please provide your Spotify API credentials or choose to use sample data.", style={'color': SPOTIFY_WHITE, 'textAlign': 'center', 'marginBottom': '30px'}),
+
+            dbc.Card([
+                dbc.CardBody([
+                    html.H4("Connect Your Spotify Account", className="card-title", style={'color': SPOTIFY_GREEN}),
+                    html.P("Enter your Spotify Developer Client ID and Client Secret below. You can get these from the Spotify Developer Dashboard.", className="card-text", style={'color': SPOTIFY_WHITE}),
+
+                    # Important note about redirect URI
+                    dbc.Alert([
+                        html.Strong("Important: "),
+                        "Make sure your Spotify app's redirect URI is set to: ",
+                        html.Code("http://127.0.0.1:8000/callback", style={'backgroundColor': '#404040', 'padding': '2px 6px', 'borderRadius': '4px'}),
+                        html.Br(),
+                        html.Small("(This should match exactly what you have in your Spotify Developer Dashboard)", style={'opacity': '0.8'})
+                    ], color="info", className="mb-3", style={'backgroundColor': 'rgba(0, 123, 255, 0.1)', 'border': '1px solid rgba(0, 123, 255, 0.3)', 'color': SPOTIFY_WHITE}),
+
+                    # Client ID Input with Label
+                    html.Label("Spotify Client ID:", style={'color': SPOTIFY_WHITE, 'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
+                    dbc.Input(
+                        id="client-id-input",
+                        placeholder="Enter your Spotify Client ID",
+                        type="text",
+                        className="mb-3",
+                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
+                    ),
+
+                    # Client Secret Input with Label
+                    html.Label("Spotify Client Secret:", style={'color': SPOTIFY_WHITE, 'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
+                    dbc.Input(
+                        id="client-secret-input",
+                        placeholder="Enter your Spotify Client Secret",
+                        type="password",
+                        className="mb-3",
+                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
+                    ),
+                    dbc.Button(
+                        "Connect to Spotify",
+                        id="connect-button",
+                        color="success",
+                        className="me-2",
+                        style={'backgroundColor': SPOTIFY_GREEN, 'borderColor': SPOTIFY_GREEN, 'color': SPOTIFY_BLACK}
+                    ),
+                    html.Div(id='connect-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                ])
+            ], style={'backgroundColor': '#181818', 'border': '1px solid #282828', 'marginBottom': '30px'}),
+
+            # Temporarily disabled sample data to force proper authentication
+            # dbc.Card([
+            #     dbc.CardBody([
+            #         html.H4("Or Use Sample Data", className="card-title", style={'color': SPOTIFY_GREEN}),
+            #         html.P("Don't have Spotify API credentials? No problem! Explore the dashboard with pre-generated sample data.", className="card-text", style={'color': SPOTIFY_WHITE}),
+            #         dbc.Button(
+            #             "Use Sample Data",
+            #             id="sample-data-button",
+            #             color="info",
+            #             style={'backgroundColor': SPOTIFY_GRAY, 'borderColor': SPOTIFY_GRAY, 'color': SPOTIFY_WHITE}
+            #         ),
+            #         html.Div(id='sample-data-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+            #     ])
+            # ], style={'backgroundColor': '#181818', 'border': '1px solid #282828'}),
+
+            html.Div([
+                html.P([
+                    "Need help getting your Spotify API credentials? Visit the ",
+                    html.A("Spotify Developer Dashboard", href="https://developer.spotify.com/dashboard/", target="_blank", style={'color': SPOTIFY_GREEN}),
+                    "."
+                ], style={'color': SPOTIFY_GRAY, 'marginTop': '30px', 'textAlign': 'center'})
+            ])
+
+        ], style={
+            'maxWidth': '600px',
+            'margin': '50px auto',
+            'padding': '30px',
+            'backgroundColor': '#000000',
+            'borderRadius': '15px',
+            'boxShadow': '0 0 50px rgba(29, 185, 84, 0.2)',
+            'border': '1px solid rgba(29, 185, 84, 0.3)'
+        })
+    ], style={
+        'backgroundColor': SPOTIFY_BLACK,
+        'minHeight': '100vh',
+        'display': 'flex',
+        'alignItems': 'center',
+        'justifyContent': 'center'
+    })
+
+def create_settings_page():
+    """Create the layout for the settings page."""
+    return html.Div([
+        html.Div([
+            html.H2("⚙️ Settings", style={'color': SPOTIFY_GREEN, 'textAlign': 'center', 'marginBottom': '20px'}),
+            html.P("Manage your application settings and data preferences.", style={'color': SPOTIFY_WHITE, 'textAlign': 'center', 'marginBottom': '30px'}),
+
+            dbc.Card([
+                dbc.CardBody([
+                    html.H4("Spotify API Credentials", className="card-title", style={'color': SPOTIFY_GREEN}),
+                    html.P("Update your Spotify API Client ID and Client Secret.", className="card-text", style={'color': SPOTIFY_WHITE}),
+                    
+                    dbc.Input(
+                        id="settings-client-id-input",
+                        placeholder="Enter new Spotify Client ID",
+                        type="text",
+                        className="mb-3",
+                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
+                    ),
+                    dbc.Input(
+                        id="settings-client-secret-input",
+                        placeholder="Enter new Spotify Client Secret",
+                        type="password",
+                        className="mb-3",
+                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
+                    ),
+                    dbc.Button(
+                        "Update Credentials",
+                        id="update-credentials-button",
+                        color="success",
+                        className="me-2",
+                        style={'backgroundColor': SPOTIFY_GREEN, 'borderColor': SPOTIFY_GREEN, 'color': SPOTIFY_BLACK}
+                    ),
+                    dbc.Button(
+                        "Clear All Data & Logout",
+                        id="clear-data-button",
+                        color="danger",
+                        className="me-2",
+                        style={'backgroundColor': '#e74c3c', 'borderColor': '#e74c3c', 'color': SPOTIFY_WHITE}
+                    ),
+                    html.Div(id='update-credentials-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                ])
+            ], style={'backgroundColor': '#181818', 'border': '1px solid #282828', 'marginBottom': '30px'}),
+
+            dbc.Card([
+                dbc.CardBody([
+                    html.H4("Data Mode", className="card-title", style={'color': SPOTIFY_GREEN}),
+                    html.P("Switch between using your live Spotify data or sample data.", className="card-text", style={'color': SPOTIFY_WHITE}),
+                    dbc.RadioItems(
+                        options=[
+                            {"label": "Use My Spotify Data", "value": "live"},
+                            {"label": "Use Sample Data", "value": "sample"}
+                        ],
+                        id="data-mode-radio",
+                        inline=True,
+                        className="mb-3",
+                        style={'color': SPOTIFY_WHITE},
+                        inputStyle={'marginRight': '5px'},
+                        labelStyle={'marginRight': '20px'}
+                    ),
+                    html.Div(id='data-mode-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                ])
+            ], style={'backgroundColor': '#181818', 'border': '1px solid #282828'}),
+
+            html.Div([
+                dcc.Link(
+                    "← Back to Dashboard",
+                    href="/",
+                    className="ai-insights-link",
+                    style={'marginTop': '30px', 'display': 'block', 'textAlign': 'center'}
+                )
+            ])
+
+        ], style={
+            'maxWidth': '600px',
+            'margin': '50px auto',
+            'padding': '30px',
+            'backgroundColor': '#000000',
+            'borderRadius': '15px',
+            'boxShadow': '0 0 50px rgba(29, 185, 84, 0.2)',
+            'border': '1px solid rgba(29, 185, 84, 0.3)'
+        })
+    ], style={
+        'backgroundColor': SPOTIFY_BLACK,
+        'minHeight': '100vh',
+        'display': 'flex',
+        'alignItems': 'center',
+        'justifyContent': 'center'
+    })

@@ -513,6 +513,14 @@ class SpotifyDatabase:
 
     def save_genre(self, genre_name: str, artist_name: str = None):
         """Save a genre to the database, incrementing count if it already exists."""
+        # Apply genre correction for specific artists
+        corrected_genre = self._correct_genre_for_artist(genre_name, artist_name)
+
+        # If correction returns None, it means this genre should be filtered out
+        if corrected_genre is None:
+            print(f"DATABASE: Filtered out genre '{genre_name}' for {artist_name} (incorrect classification)")
+            return True  # Return True as this is intentional filtering, not an error
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
@@ -521,7 +529,7 @@ class SpotifyDatabase:
             cursor.execute('''
                 SELECT genre_id, count FROM genres
                 WHERE genre_name = ? AND (artist_name = ? OR (artist_name IS NULL AND ? IS NULL))
-            ''', (genre_name, artist_name, artist_name))
+            ''', (corrected_genre, artist_name, artist_name))
 
             existing = cursor.fetchone()
 
@@ -533,25 +541,94 @@ class SpotifyDatabase:
                     SET count = count + 1, added_at = CURRENT_TIMESTAMP
                     WHERE genre_id = ?
                 ''', (genre_id,))
-                print(f"DATABASE: Incremented count for genre '{genre_name}' to {count + 1}")
+                if corrected_genre != genre_name:
+                    print(f"DATABASE: Corrected '{genre_name}' to '{corrected_genre}' for {artist_name}")
+                print(f"DATABASE: Incremented count for genre '{corrected_genre}' to {count + 1}")
             else:
                 # Insert new genre
                 cursor.execute('''
                     INSERT INTO genres (genre_name, artist_name, count)
                     VALUES (?, ?, 1)
-                ''', (genre_name, artist_name))
-                print(f"DATABASE: Added new genre '{genre_name}'")
+                ''', (corrected_genre, artist_name))
+                if corrected_genre != genre_name:
+                    print(f"DATABASE: Corrected '{genre_name}' to '{corrected_genre}' for {artist_name}")
+                print(f"DATABASE: Added new genre '{corrected_genre}'")
 
             conn.commit()
             return True
 
         except sqlite3.Error as e:
             logger.error(f"Error saving genre data: {e}")
-            print(f"DATABASE ERROR saving genre '{genre_name}': {e}")
+            print(f"DATABASE ERROR saving genre '{corrected_genre}': {e}")
             conn.rollback()
             return False
         finally:
             conn.close()
+
+    def _correct_genre_for_artist(self, genre_name: str, artist_name: str) -> str:
+        """
+        Correct genre misclassifications for specific Kenyan artists.
+
+        Args:
+            genre_name: Original genre from Spotify API
+            artist_name: Artist name
+
+        Returns:
+            Corrected genre name or None if genre should be filtered out
+        """
+        if not artist_name:
+            return genre_name
+
+        artist_lower = artist_name.lower()
+
+        # Define Kenyan R&B/Soul artists who are often misclassified as gengetone
+        kenyan_rnb_soul_artists = [
+            'bien', 'bensoul', 'okello max', 'njerae', 'sauti sol', 'nyota ndogo',
+            'crystal asige', 'fena gitu', 'nikita kering', 'karun', 'blinky bill',
+            'muthoni drummer queen', 'kagwe mungai', 'amani grace', 'xenia manasseh',
+            'cedo', 'brandy maina', 'tetu shani', 'kaskazini', 'kansoul'
+        ]
+
+        # Define true gengetone artists
+        true_gengetone_artists = [
+            'ethic entertainment', 'boondocks gang', 'sailors', 'mbogi genje',
+            'ochungulo family', 'rieng', 'zzero sufuri', 'guzman', 'rekles',
+            'dmore', 'ssaru', 'trio mio', 'exray', 'nelly the goon', 'mejja',
+            'ethic', 'sailors gang', 'boondocks', 'mbogi genje'
+        ]
+
+        # Define Kenyan hip hop/rap artists
+        kenyan_hiphop_artists = [
+            'nyashinski', 'khaligraph jones', 'octopizzo', 'king kaka', 'collo',
+            'prezzo', 'rabbit', 'femi one', 'kristoff', 'timmy tdat', 'boutross',
+            'vicmass luodollar', 'smallz lethal', 'nazizi', 'jua cali'
+        ]
+
+        # Apply corrections based on artist classification
+        if any(artist in artist_lower for artist in kenyan_rnb_soul_artists):
+            # For R&B/Soul artists, prioritize correct genres and filter out gengetone
+            if genre_name.lower() == 'gengetone':
+                return None  # Filter out gengetone for R&B artists
+            elif genre_name.lower() in ['afro r&b', 'afro soul']:
+                return genre_name  # Keep correct R&B/Soul genres
+            elif genre_name.lower() in ['rumba congolaise', 'bongo flava', 'afropop', 'afrobeats']:
+                return genre_name  # Keep related African genres
+
+        elif any(artist in artist_lower for artist in kenyan_hiphop_artists):
+            # For Hip Hop artists, prioritize hip hop and filter out gengetone
+            if genre_name.lower() == 'gengetone':
+                return 'kenyan hip hop'  # Convert gengetone to hip hop
+            elif genre_name.lower() in ['hip hop', 'rap', 'trap']:
+                return 'kenyan hip hop'  # Standardize to kenyan hip hop
+
+        elif any(artist in artist_lower for artist in true_gengetone_artists):
+            # For true gengetone artists, keep gengetone and filter out R&B
+            if genre_name.lower() in ['afro r&b', 'afro soul']:
+                return None  # Filter out R&B for gengetone artists
+            elif genre_name.lower() == 'gengetone':
+                return 'gengetone'  # Keep gengetone
+
+        return genre_name
 
     def get_top_genres(self, limit: int = 10, exclude_unknown: bool = True, categorize: bool = True):
         """
@@ -612,17 +689,23 @@ class SpotifyDatabase:
         Returns:
             List of categorized genre dictionaries
         """
-        # Define genre categories and their keywords
+        # Define genre categories and their keywords - Enhanced for African music
         genre_categories = {
+            'Afro R&B/Soul': ['afro r&b', 'afro soul', 'neo soul', 'contemporary r&b'],
+            'Gengetone': ['gengetone'],  # Keep separate for true gengetone artists
+            'Kenyan Hip Hop': ['kenyan hip hop'],  # Separate category for Kenyan hip hop
+            'Afrobeats': ['afrobeats', 'afrobeat', 'afropop', 'afroswing'],
+            'Bongo Flava': ['bongo flava'],
+            'Amapiano': ['amapiano', 'afropiano'],
+            'African Traditional': ['rumba congolaise', 'soca', 'azonto', 'alté'],
+            'Dancehall/Reggae': ['dancehall', 'reggae', 'ska', 'ragga'],
+            'Hip Hop': ['hip hop', 'rap', 'trap', 'hip-hop', 'drill'],
+            'Electronic': ['electronic', 'edm', 'house', 'techno', 'dubstep', 'electro'],
             'Pop': ['pop', 'mainstream', 'top 40'],
             'Rock': ['rock', 'alternative', 'indie rock', 'classic rock', 'hard rock'],
-            'Hip Hop': ['hip hop', 'rap', 'trap', 'hip-hop'],
-            'Electronic': ['electronic', 'edm', 'house', 'techno', 'dubstep', 'electro'],
-            'R&B': ['r&b', 'soul', 'neo soul', 'contemporary r&b'],
             'Country': ['country', 'folk', 'americana', 'bluegrass'],
             'Jazz': ['jazz', 'smooth jazz', 'bebop', 'swing'],
             'Classical': ['classical', 'orchestral', 'symphony', 'opera'],
-            'Reggae': ['reggae', 'dancehall', 'ska'],
             'Latin': ['latin', 'salsa', 'reggaeton', 'bachata', 'merengue'],
             'Blues': ['blues', 'delta blues', 'chicago blues'],
             'Punk': ['punk', 'hardcore', 'post-punk'],

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 import sqlite3
 from modules.api import SpotifyAPI
 from modules.data_processing import DataProcessor, normalize_timestamp, calculate_duration_minutes
-from modules.layout import DashboardLayout
+from modules.layout import DashboardLayout, create_onboarding_page
 from modules.visualizations import (
     SpotifyVisualizations, SpotifyAnimations,
     SPOTIFY_GREEN, SPOTIFY_BLACK, SPOTIFY_WHITE, SPOTIFY_GRAY,
@@ -89,6 +89,10 @@ app.layout = html.Div([
     dcc.Store(id='current-track-store'),
     dcc.Store(id='wrapped-summary-store'),
     dcc.Store(id='personality-data-store'),
+    dcc.Store(id='client-id-store', storage_type='session'),
+    dcc.Store(id='client-secret-store', storage_type='session'),
+    dcc.Store(id='use-sample-data-store', storage_type='session', data={'use_sample': False}),
+    dcc.Store(id='auth-status-store', storage_type='session', data={'authenticated': False}),
 
     # Auto-refresh component (global)
     dcc.Interval(
@@ -111,52 +115,177 @@ app.layout = html.Div([
             }),
             html.Div([
                 dcc.Link("🏠 Dashboard", href="/", className="nav-link"),
-                dcc.Link("🤖 AI Insights", href="/ai-insights", className="nav-link ai-nav-link")
+                dcc.Link("🤖 AI Insights", href="/ai-insights", className="nav-link ai-nav-link"),
+                dcc.Link("⚙️ Settings", href="/settings", className="nav-link settings-nav-link")
             ], className="nav-links")
         ], className="header-with-nav"),
 
-        html.Div(id='page-content')
+        html.Div(id='page-content'),
     ])
 ])
 
-# --- Callbacks ---
+# --- Onboarding Callbacks ---
 
-# Sync visible refresh button with hidden refresh button
 @app.callback(
-    Output('refresh-button', 'n_clicks'),
-    Input('visible-refresh-button', 'n_clicks'),
+    [Output('auth-status-store', 'data'),
+     Output('client-id-store', 'data'),
+     Output('client-secret-store', 'data'),
+     Output('use-sample-data-store', 'data'),
+     Output('connect-status', 'children')],
+    [Input('connect-button', 'n_clicks')],
+    [State('client-id-input', 'value'),
+     State('client-secret-input', 'value')],
     prevent_initial_call=True
 )
-def sync_refresh_buttons(visible_clicks):
-    """Sync the visible refresh button with the hidden global refresh button."""
-    if visible_clicks is None:
-        return 0
-    return visible_clicks
+def handle_onboarding(connect_clicks, client_id, client_secret):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if button_id == 'connect-button':
+        if not client_id or not client_secret:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Please provide both Client ID and Client Secret."
+
+        print(f"🔐 DEBUG: Attempting to connect with Client ID: {client_id[:8]}...")
+        print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
+        print(f"🔐 DEBUG: Redirect URI: {os.getenv('REDIRECT_URI')}")
+
+        # Clear all cached data first
+        print("🧹 DEBUG: Clearing all cached data for new credentials...")
+        spotify_api.clear_all_cached_data()
+
+        # Set new credentials
+        print("🔗 DEBUG: Setting new credentials...")
+        spotify_api.set_credentials(client_id, client_secret, os.getenv('REDIRECT_URI'))
+
+        print(f"🔍 DEBUG: Spotify API object created: {spotify_api.sp is not None}")
+        print(f"🔍 DEBUG: Use sample data flag: {spotify_api.use_sample_data}")
+
+        if spotify_api.sp:
+            print("✅ DEBUG: Connection successful!")
+            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
+        else:
+            print("❌ DEBUG: Connection failed - no Spotify API object created")
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Connection failed. Please check your credentials and redirect URI."
+
+    return dash.no_update
+
+# --- Settings Page Callbacks ---
+
+@app.callback(
+    [Output('auth-status-store', 'data', allow_duplicate=True),
+     Output('client-id-store', 'data', allow_duplicate=True),
+     Output('client-secret-store', 'data', allow_duplicate=True),
+     Output('update-credentials-status', 'children')],
+    [Input('update-credentials-button', 'n_clicks'),
+     Input('clear-data-button', 'n_clicks')],
+    [State('settings-client-id-input', 'value'),
+     State('settings-client-secret-input', 'value')],
+    prevent_initial_call=True
+)
+def handle_settings_actions(update_clicks, clear_clicks, client_id, client_secret):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update
+
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if button_id == 'update-credentials-button':
+        if not client_id or not client_secret:
+            return dash.no_update, dash.no_update, dash.no_update, "Please provide both Client ID and Client Secret."
+
+        # Clear all cached data first
+        print("Clearing all cached data for new credentials...")
+        spotify_api.clear_all_cached_data()
+
+        # Set new credentials
+        spotify_api.set_credentials(client_id, client_secret, os.getenv('REDIRECT_URI'))
+        if spotify_api.sp:
+            return {'authenticated': True}, client_id, client_secret, "✅ Credentials updated successfully! Please refresh the page."
+        else:
+            return dash.no_update, dash.no_update, dash.no_update, "❌ Connection failed. Please check your credentials."
+
+    elif button_id == 'clear-data-button':
+        # Clear all data and logout
+        print("Clearing all data and logging out...")
+        spotify_api.clear_all_cached_data()
+        return {'authenticated': False}, None, None, "✅ All data cleared. You have been logged out."
+
+    return dash.no_update
+
+# --- Page Display ---
+
+@app.callback(
+    Output('page-content', 'children'),
+    [Input('url', 'pathname'),
+     Input('auth-status-store', 'data')],
+    [State('client-id-store', 'data'),
+     State('client-secret-store', 'data'),
+     State('use-sample-data-store', 'data')]
+)
+def display_page(pathname, auth_data, client_id_data, client_secret_data, use_sample_data_flag):
+    """Display the appropriate page based on the URL pathname and authentication status."""
+    if not auth_data or not auth_data.get('authenticated'):
+        return create_onboarding_page()
+
+    if pathname == '/ai-insights':
+        return create_ai_insights_page()
+    elif pathname == '/settings':
+        from modules.layout import create_settings_page
+        return create_settings_page()
+    else:
+        return dashboard_layout.create_layout()
+
+# --- Data Callbacks ---
 
 # Update user data
 @app.callback(
     Output('user-data-store', 'data'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('client-id-store', 'data'),
+    State('client-secret-store', 'data'),
+    State('use-sample-data-store', 'data')
 )
-def update_user_data(n_intervals, n_clicks):
-    """Fetch and store user profile data."""
-    print("Fetching user profile data...")  # Debug log
-    try:
-        # Try to read from CSV first
-        try:
-            stored_data = data_processor.load_data('user_profile.csv')
-            if not stored_data.empty:
-                user_data = stored_data.iloc[0].to_dict()
-                print(f"Loaded user data from CSV: {user_data}")
-                return user_data
-        except Exception as e:
-            print(f"Error loading from CSV: {e}")
+def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, use_sample_data_flag):
+    """Fetch and store user profile data, or use sample data."""
+    print("👤 DEBUG: Fetching user profile data...")
+    print(f"👤 DEBUG: client_id_data: {client_id_data[:8] if client_id_data else 'None'}...")
+    print(f"👤 DEBUG: client_secret_data: {'***' if client_secret_data else 'None'}")
+    print(f"👤 DEBUG: use_sample_data_flag: {use_sample_data_flag}")
+    print(f"👤 DEBUG: spotify_api.sp: {spotify_api.sp is not None}")
+    print(f"👤 DEBUG: spotify_api.use_sample_data: {spotify_api.use_sample_data}")
 
-        # If CSV fails or is empty, try to fetch from API
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+    print(f"👤 DEBUG: Final use_sample decision: {use_sample}")
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for user profile.")
+        return {
+            'display_name': 'Sample User',
+            'id': 'sample-user-id',
+            'followers': 123,
+            'following': 45,
+            'image_url': '',
+            'product': 'premium'
+        }
+
+    if not spotify_api.sp:
+        if client_id_data and client_secret_data:
+            print("🔄 DEBUG: Re-initializing Spotify API with stored credentials...")
+            spotify_api.set_credentials(client_id_data, client_secret_data, os.getenv('REDIRECT_URI'))
+        else:
+            print("❌ DEBUG: Spotify API not initialized. Cannot fetch user data.")
+            return {}
+
+    try:
+        # Always try to fetch from API first when we have a connection
+        print("🌐 DEBUG: Attempting to fetch user data from Spotify API...")
         user_data = spotify_api.get_user_profile()
         if user_data:
-            print(f"Got user data from API: {user_data}")
+            print(f"✅ DEBUG: Got user data from API: {user_data}")
             # Save user data both to CSV and database
             data_processor.save_data([user_data], 'user_profile.csv')
             db.save_user(user_data)
@@ -167,10 +296,25 @@ def update_user_data(n_intervals, n_clicks):
 
             return user_data
 
-        print("No user data received")
+        # Only fall back to CSV if API fails
+        print("⚠️ DEBUG: API failed, trying to load from CSV...")
+        try:
+            stored_data = data_processor.load_data('user_profile.csv')
+            if not stored_data.empty:
+                user_data = stored_data.iloc[0].to_dict()
+                print(f"📁 DEBUG: Loaded user data from CSV: {user_data}")
+                # Check if this is sample data
+                if user_data.get('id') == 'sample-user-id':
+                    print("🚫 DEBUG: Detected sample data in CSV, ignoring...")
+                    return {}
+                return user_data
+        except Exception as e:
+            print(f"❌ DEBUG: Error loading user data from CSV: {e}")
+
+        print("❌ DEBUG: No user data available from any source.")
         return {}
     except Exception as e:
-        print(f"Error in update_user_data: {e}")
+        print(f"Error in update_user_data callback: {e}")
         return {}
 
 # Update header with user data
@@ -188,10 +332,20 @@ def update_header(user_data):
 # Update current track
 @app.callback(
     Output('current-track-store', 'data'),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    State('use-sample-data-store', 'data')
 )
-def update_current_track(n_intervals):
-    """Fetch and store currently playing track."""
+def update_current_track(n_intervals, use_sample_data_flag):
+    """Fetch and store currently playing track, or return sample data."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    print(f"🎵 DEBUG: Current track update - use_sample: {use_sample}, spotify_api.sp: {spotify_api.sp is not None}")
+
+    # Never use sample data - always try to get real data
+    if use_sample:
+        print("🚫 DEBUG: Sample data requested but disabled - fetching real data instead")
+        use_sample = False
+
     try:
         current_track = spotify_api.get_currently_playing()
         if current_track and 'track' in current_track:
@@ -234,7 +388,7 @@ def update_current_track(n_intervals):
 
         # If no current track, try to get the most recent one from the database
         user_data = spotify_api.get_user_profile()
-        if user_data:
+        if user_data and user_data.get('id') != 'sample-user-id': # Don't query DB if using sample user
             conn = sqlite3.connect(db.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -2489,17 +2643,7 @@ def update_advanced_recommendations_card(pathname):
         print(f"Error updating advanced recommendations card: {e}")
         return html.Div(f"Error loading recommendations: {str(e)}", className="alert alert-danger")
 
-# Page routing callback
-@app.callback(
-    Output('page-content', 'children'),
-    Input('url', 'pathname')
-)
-def display_page(pathname):
-    """Display the appropriate page based on the URL pathname."""
-    if pathname == '/ai-insights':
-        return create_ai_insights_page()
-    else:
-        return dashboard_layout.create_layout()  # Main dashboard
+
 
 def create_ai_insights_page():
     """Create the dedicated AI insights page with balanced masonry grid."""
@@ -2577,89 +2721,37 @@ def create_ai_insights_page():
 
 # Main entry point
 if __name__ == '__main__':
-    # Initial data fetch
-    try:
-        # Fetch user profile
-        user_data = spotify_api.get_user_profile()
-        if user_data:
-            data_processor.save_data([user_data], 'user_profile.csv')
+    # Initial data fetch is now handled by callbacks based on user input
+    # The app will start and wait for user to provide credentials or choose sample data
 
-        # Fetch top tracks
-        top_tracks_data = spotify_api.get_top_tracks(limit=50)
-        data_processor.process_top_tracks(top_tracks_data)
+    # Start background collector thread only if not in debug mode and not running cleanup
+    import sys
+    if not (len(sys.argv) > 1 and sys.argv[1] == '--cleanup'):
+        def background_data_collector():
+            """Background thread to periodically collect data."""
+            while True:
+                try:
+                    # Get current user
+                    user_data = spotify_api.get_user_profile()
+                    if user_data:
+                        # Update database with latest data
+                        data_collector.collect_historical_data(
+                            user_data['id'],
+                            datetime.now() - timedelta(hours=24)  # Last 24 hours
+                        )
 
-        # Fetch saved tracks
-        saved_tracks_data = spotify_api.get_saved_tracks(limit=50)
-        data_processor.process_saved_tracks(saved_tracks_data)
+                    # Wait for 30 minutes before next collection
+                    time.sleep(1800)
 
-        # Fetch playlists
-        playlists_data = spotify_api.get_playlists(limit=20)
-        data_processor.save_data(playlists_data, 'playlists.csv')
+                except Exception as e:
+                    print(f"Error in background collector: {e}")
+                    time.sleep(300)  # Wait 5 minutes on error
 
-        # Fetch audio features
-        audio_features_data = spotify_api.get_audio_features_for_top_tracks(limit=50)
-        data_processor.process_audio_features(audio_features_data)
-
-        # Fetch top artists
-        top_artists_data = spotify_api.get_top_artists(limit=20)
-        data_processor.process_top_artists(top_artists_data)
-
-        # Fetch recently played - respect the 50 track limit
-        recently_played_data = spotify_api.get_recently_played(limit=50)
-        data_processor.process_recently_played(recently_played_data)
-
-        # Fetch top albums (new)
-        top_albums_data = get_top_albums(spotify_api, limit=10)
-        data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
-
-        # Get album listening patterns (new)
-        album_patterns = get_album_listening_patterns(spotify_api)
-        data_processor.save_data([album_patterns], 'album_patterns.csv')
-
-        # Generate personality analysis (new)
-        personality_data = personality_analyzer.analyze()
-        data_processor.save_data([personality_data], 'personality.csv')
-
-        # Get DJ mode stats (new) - respect the 50 track limit
-        recently_played = spotify_api.get_recently_played(limit=50)
-        dj_stats = personality_analyzer._estimate_dj_mode_usage(recently_played)
-        data_processor.save_data([dj_stats], 'dj_stats.csv')
-
-        # Generate wrapped summary
-        data_processor.generate_spotify_wrapped_summary()
-
-        print("Initial data fetch completed successfully")
-    except Exception as e:
-        print(f"Error during initial data fetch: {e}")
-        print("The dashboard will start with empty or cached data")
-
-    def background_data_collector():
-        """Background thread to periodically collect data."""
-        while True:
-            try:
-                # Get current user
-                user_data = spotify_api.get_user_profile()
-                if user_data:
-                    # Update database with latest data
-                    data_collector.collect_historical_data(
-                        user_data['id'],
-                        datetime.now() - timedelta(hours=24)  # Last 24 hours
-                    )
-
-                # Wait for 30 minutes before next collection
-                time.sleep(1800)
-
-            except Exception as e:
-                print(f"Error in background collector: {e}")
-                time.sleep(300)  # Wait 5 minutes on error
-
-    # Start background collector thread
-    import threading
-    collector_thread = threading.Thread(target=background_data_collector, daemon=True)
-    collector_thread.start()
+        import threading
+        collector_thread = threading.Thread(target=background_data_collector, daemon=True)
+        collector_thread.start()
 
     # Check if cleanup is requested
-    import sys
     if len(sys.argv) > 1 and sys.argv[1] == '--cleanup':
         print("Running historical data cleanup...")
         cleanup_historical_data()
