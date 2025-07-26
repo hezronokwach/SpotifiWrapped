@@ -80,6 +80,8 @@ app = dash.Dash(
 
 app.title = "Spotify Wrapped Remix"
 
+# Production version - using existing callback route from original app
+
 # Add callback route for Spotify OAuth
 @app.server.route('/callback')
 def spotify_callback():
@@ -2960,5 +2962,5 @@ if __name__ == '__main__':
         print("Cleanup completed. You can now run the app normally.")
         sys.exit(0)
 
-    # Run the app
-    app.run(debug=True, port=8000)
+    # Run the app on port 8080 to match your Spotify app configuration
+    app.run(debug=True, port=8080)

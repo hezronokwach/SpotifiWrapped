@@ -17,55 +17,240 @@ logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
 logger = logging.getLogger('spotify_api')
 
 class SpotifyAPI:
-    def __init__(self):
-        """Initialize Spotify API with credentials from environment variables."""
-        self.client_id = os.getenv('CLIENT_ID')
-        self.client_secret = os.getenv('CLIENT_SECRET')
-        self.redirect_uri = os.getenv('REDIRECT_URI')
+    def __init__(self, client_id=None, client_secret=None, redirect_uri=None, use_sample_data=False):
+        """Initialize Spotify API with credentials. Can be dynamically set or use sample data."""
+        self.client_id = client_id if client_id else os.getenv('CLIENT_ID')
+        self.client_secret = client_secret if client_secret else os.getenv('CLIENT_SECRET')
+        self.redirect_uri = redirect_uri if redirect_uri else os.getenv('REDIRECT_URI')
+        self.use_sample_data = use_sample_data
         self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played'
         self.sp = None
         # Flag to enable AI-based audio features instead of Spotify API
         self.use_ai_audio_features = True
         # Cache for audio features to reduce API calls
         self.audio_features_cache = {}
+        if not self.use_sample_data:
+            self.initialize_connection()
+
+    def set_credentials(self, client_id, client_secret, redirect_uri):
+        """Dynamically set Spotify API credentials and re-initialize connection."""
+        print(f"🔧 DEBUG: Setting credentials - Client ID: {client_id[:8] if client_id else 'None'}...")
+        print(f"🔧 DEBUG: Client Secret length: {len(client_secret) if client_secret else 0}")
+        print(f"🔧 DEBUG: Redirect URI: {redirect_uri}")
+
+        # Clear any existing cache files first
+        import glob
+        cache_files = glob.glob('.spotify_cache*')
+        for cache_file in cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"🗑️ DEBUG: Removed cache file: {cache_file}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Could not remove cache file {cache_file}: {e}")
+
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
+        self.use_sample_data = False
+        self.sp = None  # Clear existing connection
+
+        print(f"🔧 DEBUG: Credentials set, initializing connection...")
         self.initialize_connection()
+        print(f"🔧 DEBUG: Connection initialized, sp object: {self.sp is not None}")
+
+
+
+    def clear_all_cached_data(self):
+        """Clear all cached data including CSV files and Spotify cache."""
+        import glob
+        import tempfile
+
+        # Clear Spotify OAuth cache files
+        cache_files = glob.glob('.spotify_cache*')
+        for cache_file in cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"Removed Spotify cache file: {cache_file}")
+            except Exception as e:
+                print(f"Could not remove cache file {cache_file}: {e}")
+
+        # Also check for cache files in temp directory
+        temp_dir = tempfile.gettempdir()
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        for cache_file in temp_cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"Removed temp cache file: {cache_file}")
+            except Exception as e:
+                print(f"Could not remove temp cache file {cache_file}: {e}")
+
+        # Clear CSV data files
+        csv_files = [
+            'data/user_profile.csv',
+            'data/current_track.csv',
+            'data/playlists.csv',
+            'data/top_tracks.csv',
+            'data/top_artists.csv',
+            'data/saved_tracks.csv',
+            'data/audio_features.csv',
+            'data/recently_played.csv',
+            'data/personality.csv',
+            'data/top_albums.csv'
+        ]
+        for csv_file in csv_files:
+            try:
+                if os.path.exists(csv_file):
+                    os.remove(csv_file)
+                    print(f"Removed CSV file: {csv_file}")
+            except Exception as e:
+                print(f"Could not remove CSV file {csv_file}: {e}")
+
+        # Clear the connection and reset credentials
+        self.sp = None
+        self.client_id = None
+        self.client_secret = None
+        self.use_sample_data = False
+        print("All cached data cleared successfully")
 
     def initialize_connection(self):
         """Create Spotify API connection with proper authentication."""
+        print(f"🚀 DEBUG: Starting initialize_connection...")
+        print(f"🚀 DEBUG: client_id: {self.client_id[:8] if self.client_id else 'None'}...")
+        print(f"🚀 DEBUG: client_secret: {'***' if self.client_secret else 'None'}")
+        print(f"🚀 DEBUG: redirect_uri: {self.redirect_uri}")
+        print(f"🚀 DEBUG: use_sample_data: {self.use_sample_data}")
+
+        if not self.client_id or not self.client_secret or not self.redirect_uri:
+            print(f"❌ DEBUG: Missing required credentials!")
+            print(f"   - client_id: {bool(self.client_id)}")
+            print(f"   - client_secret: {bool(self.client_secret)}")
+            print(f"   - redirect_uri: {bool(self.redirect_uri)}")
+            self.sp = None
+            return
+
         try:
+            print(f"🔐 DEBUG: Creating SpotifyOAuth manager...")
             auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
                 redirect_uri=self.redirect_uri,
                 scope=self.scopes,
-                open_browser=True,  # Show browser for authentication
+                open_browser=False,  # Don't auto-open browser to avoid conflicts
                 show_dialog=True,  # Always show auth dialog
                 cache_path='.spotify_cache'  # Cache tokens
             )
+            print(f"✅ DEBUG: SpotifyOAuth manager created successfully")
 
             # Try to get token, but don't force if not available
+            print(f"🎫 DEBUG: Attempting to get access token...")
             try:
-                auth_manager.get_access_token(as_dict=False)
+                # Check if we have a cached token first
+                token_info = auth_manager.get_cached_token()
+                if token_info:
+                    print(f"✅ DEBUG: Using cached token")
+                else:
+                    # Check for authorization code from callback
+                    import tempfile
+                    import os
+                    temp_dir = tempfile.gettempdir()
+                    code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+                    if os.path.exists(code_file):
+                        with open(code_file, 'r') as f:
+                            auth_code = f.read().strip()
+                        print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                        token_info = auth_manager.get_access_token(auth_code, as_dict=True)
+                        # Clean up the temporary file
+                        os.remove(code_file)
+                        print(f"✅ DEBUG: Token exchange successful")
+                    else:
+                        print(f"⚠️ DEBUG: No cached token or auth code available")
+                        # Generate auth URL for user (but don't prompt in terminal)
+                        auth_url = auth_manager.get_authorize_url()
+                        print(f"🔗 DEBUG: Auth URL available for web interface: {auth_url}")
             except Exception as e:
-                logger.warning(f"Could not get access token during initialization: {e}")
+                print(f"⚠️ DEBUG: Could not get access token during initialization: {e}")
                 # Continue without token - will be requested when needed
 
             # Create Spotify client with increased timeout (default is 5 seconds)
+            print(f"🎵 DEBUG: Creating Spotify client...")
             self.sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
+            print(f"✅ DEBUG: Spotify client created successfully")
 
             # Test connection (but don't fail if not authenticated yet)
+            print(f"🧪 DEBUG: Testing connection...")
             try:
-                user = self.sp.current_user()
-                if user:
-                    logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+                # Only test if we have a cached token, don't prompt for auth
+                cached_token = auth_manager.get_cached_token()
+                if cached_token:
+                    user = self.sp.current_user()
+                    if user:
+                        print(f"✅ DEBUG: Successfully connected as {user.get('display_name', 'Unknown')}")
+                        logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+                    else:
+                        print(f"⚠️ DEBUG: No user profile available - authentication may be needed")
+                        logger.warning("No user profile available - authentication may be needed")
                 else:
-                    logger.warning("No user profile available - authentication may be needed")
+                    print(f"⚠️ DEBUG: No cached token - authentication will be needed")
+                    logger.warning("No cached token - authentication will be needed")
             except Exception as e:
+                print(f"⚠️ DEBUG: Could not test connection during initialization: {e}")
                 logger.warning(f"Could not test connection during initialization: {e}")
                 # Keep the client - authentication will happen when needed
         except Exception as e:
+            print(f"❌ DEBUG: Error connecting to Spotify API: {e}")
             logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
+
+    def get_auth_url(self):
+        """Get the authorization URL for OAuth flow."""
+        if self.sp and hasattr(self.sp, 'auth_manager'):
+            return self.sp.auth_manager.get_authorize_url()
+        return None
+
+    def is_authenticated(self):
+        """Check if the user is authenticated without triggering prompts."""
+        if not self.sp:
+            return False
+        try:
+            # First check for authorization code from callback
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+            if os.path.exists(code_file):
+                with open(code_file, 'r') as f:
+                    auth_code = f.read().strip()
+                print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                try:
+                    token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
+                    if token_info:
+                        print(f"✅ DEBUG: Token exchange successful!")
+                        # Clean up the temporary file
+                        os.remove(code_file)
+                        return True
+                except Exception as e:
+                    print(f"❌ DEBUG: Token exchange failed: {e}")
+                    # Clean up the file anyway
+                    try:
+                        os.remove(code_file)
+                    except:
+                        pass
+
+            # Check if we have a cached token
+            if hasattr(self.sp, 'auth_manager'):
+                cached_token = self.sp.auth_manager.get_cached_token()
+                if cached_token:
+                    # Test the token by making a simple API call
+                    try:
+                        user = self.sp.current_user()
+                        return user is not None
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Token test failed: {e}")
+                        return False
+            return False
+        except Exception as e:
+            print(f"⚠️ DEBUG: Error checking authentication: {e}")
+            return False
 
     @lru_cache(maxsize=100)
     def get_audio_features_safely(self, track_id: str) -> Dict[str, Any]:
@@ -232,7 +417,8 @@ class SpotifyAPI:
             List of track dictionaries or empty list if error
         """
         if not self.sp:
-            return self._generate_sample_top_tracks(limit)
+            print("❌ DEBUG: No Spotify connection available")
+            return []
 
         try:
             results = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
@@ -271,48 +457,9 @@ class SpotifyAPI:
             return tracks_data
         except Exception as e:
             logger.error(f"Error fetching top tracks: {e}")
-            return self._generate_sample_top_tracks(limit)
+            return []
 
-    def _generate_sample_top_tracks(self, limit=10):
-        """Generate sample top tracks when API fails."""
-        sample_tracks = [
-            {"track": "Top Track 1", "artist": "Popular Artist 1", "album": "Hit Album 1"},
-            {"track": "Top Track 2", "artist": "Popular Artist 2", "album": "Hit Album 2"},
-            {"track": "Top Track 3", "artist": "Popular Artist 3", "album": "Hit Album 3"},
-            {"track": "Top Track 4", "artist": "Popular Artist 4", "album": "Hit Album 4"},
-            {"track": "Top Track 5", "artist": "Popular Artist 5", "album": "Hit Album 5"},
-            {"track": "Top Track 6", "artist": "Popular Artist 6", "album": "Hit Album 6"},
-            {"track": "Top Track 7", "artist": "Popular Artist 7", "album": "Hit Album 7"},
-            {"track": "Top Track 8", "artist": "Popular Artist 8", "album": "Hit Album 8"},
-            {"track": "Top Track 9", "artist": "Popular Artist 9", "album": "Hit Album 9"},
-            {"track": "Top Track 10", "artist": "Popular Artist 10", "album": "Hit Album 10"}
-        ]
 
-        tracks_data = []
-        for idx, track in enumerate(sample_tracks[:limit], 1):
-            # Get fallback audio features
-            audio_features = self._generate_fallback_audio_features()
-
-            tracks_data.append({
-                'track': track['track'],
-                'artist': track['artist'],
-                'album': track['album'],
-                'rank': idx,
-                'popularity': random.randint(70, 95),
-                'id': f"sample-top-{idx}",
-                'duration_ms': random.randint(180000, 240000),
-                'explicit': random.choice([True, False]),
-                'preview_url': '',
-                'image_url': '',
-                # Audio features
-                'danceability': audio_features['danceability'],
-                'energy': audio_features['energy'],
-                'tempo': audio_features['tempo'],
-                'valence': audio_features['valence'],
-                'acousticness': audio_features['acousticness']
-            })
-
-        return tracks_data
 
     def get_saved_tracks(self, limit=50, offset=0):
         """
@@ -323,7 +470,8 @@ class SpotifyAPI:
             offset: The index of the first track to return
         """
         if not self.sp:
-            return self._generate_sample_saved_tracks(limit)
+            print("❌ DEBUG: No Spotify connection available")
+            return []
 
         try:
             results = self.sp.current_user_saved_tracks(limit=limit, offset=offset)
@@ -347,53 +495,20 @@ class SpotifyAPI:
 
             # If we got no data, return sample data
             if not tracks_data:
-                return self._generate_sample_saved_tracks(limit)
+                return []
 
             return tracks_data
         except Exception as e:
             print(f"Error fetching saved tracks: {e}")
-            return self._generate_sample_saved_tracks(limit)
+            return []
 
-    def _generate_sample_saved_tracks(self, limit=10):
-        """Generate sample saved tracks when API fails."""
-        sample_tracks = [
-            {"track": "Sample Track 1", "artist": "Sample Artist 1", "album": "Sample Album 1"},
-            {"track": "Sample Track 2", "artist": "Sample Artist 2", "album": "Sample Album 2"},
-            {"track": "Sample Track 3", "artist": "Sample Artist 3", "album": "Sample Album 3"},
-            {"track": "Sample Track 4", "artist": "Sample Artist 4", "album": "Sample Album 4"},
-            {"track": "Sample Track 5", "artist": "Sample Artist 5", "album": "Sample Album 5"},
-            {"track": "Sample Track 6", "artist": "Sample Artist 6", "album": "Sample Album 6"},
-            {"track": "Sample Track 7", "artist": "Sample Artist 7", "album": "Sample Album 7"},
-            {"track": "Sample Track 8", "artist": "Sample Artist 8", "album": "Sample Album 8"},
-            {"track": "Sample Track 9", "artist": "Sample Artist 9", "album": "Sample Album 9"},
-            {"track": "Sample Track 10", "artist": "Sample Artist 10", "album": "Sample Album 10"}
-        ]
 
-        tracks_data = []
-        for idx, track in enumerate(sample_tracks[:limit], 1):
-            # Generate dates within the last month
-            days_ago = idx * 2
-            added_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago)
-
-            tracks_data.append({
-                'track': track['track'],
-                'artist': track['artist'],
-                'album': track['album'],
-                'added_at': added_at.isoformat(),
-                'id': f"sample-id-{idx}",
-                'popularity': random.randint(50, 90),
-                'duration_ms': random.randint(180000, 240000),
-                'name': track['track'],  # Add this to satisfy NOT NULL constraint
-                'image_url': '',
-                'preview_url': ''
-            })
-
-        return tracks_data
 
     def get_playlists(self, limit=10):
         """Fetch user's playlists."""
         if not self.sp:
-            return self._generate_sample_playlists(limit)
+            print("❌ DEBUG: No Spotify connection available")
+            return []
 
         try:
             results = self.sp.current_user_playlists(limit=limit)
@@ -412,45 +527,19 @@ class SpotifyAPI:
 
             # If we got no data, return sample data
             if not playlists_data:
-                return self._generate_sample_playlists(limit)
+                return []
 
             return playlists_data
         except Exception as e:
             print(f"Error fetching playlists: {e}")
-            return self._generate_sample_playlists(limit)
+            return []
 
-    def _generate_sample_playlists(self, limit=10):
-        """Generate sample playlists when API fails."""
-        sample_playlists = [
-            {"name": "Favorites", "tracks": 25, "public": True},
-            {"name": "Workout Mix", "tracks": 18, "public": False},
-            {"name": "Chill Vibes", "tracks": 32, "public": True},
-            {"name": "Road Trip", "tracks": 45, "public": False},
-            {"name": "Party Playlist", "tracks": 28, "public": True},
-            {"name": "Study Music", "tracks": 15, "public": False},
-            {"name": "Throwbacks", "tracks": 50, "public": True},
-            {"name": "New Discoveries", "tracks": 22, "public": True},
-            {"name": "Morning Coffee", "tracks": 12, "public": False},
-            {"name": "Weekend Vibes", "tracks": 30, "public": True}
-        ]
 
-        playlists_data = []
-        for idx, playlist in enumerate(sample_playlists[:limit], 1):
-            playlists_data.append({
-                'playlist': playlist['name'],
-                'total_tracks': playlist['tracks'],
-                'public': playlist['public'],
-                'collaborative': False,
-                'id': f"sample-playlist-{idx}",
-                'image_url': '',
-                'owner': 'Sample User'
-            })
-
-        return playlists_data
 
     def get_currently_playing(self):
         """Fetch currently playing track."""
         if not self.sp:
+            print("❌ DEBUG: No Spotify connection available")
             return None
 
         try:
@@ -484,7 +573,8 @@ class SpotifyAPI:
     def get_user_profile(self):
         """Fetch user profile information."""
         if not self.sp:
-            return None
+            print("❌ DEBUG: No Spotify connection available")
+            return {}
 
         try:
             user_profile = self.sp.current_user()
@@ -530,7 +620,7 @@ class SpotifyAPI:
             max_retries: Maximum number of retry attempts
         """
         if not self.sp:
-            print("No Spotify connection available")
+            print("❌ DEBUG: No Spotify connection available")
             return []
 
         for attempt in range(max_retries + 1):
@@ -591,63 +681,20 @@ class SpotifyAPI:
 
         return []  # If all retries failed
 
-    def _generate_sample_recently_played(self, limit=50):
-        """Generate sample recently played tracks when API fails."""
-        sample_tracks = [
-            {"track": "Sample Recent 1", "artist": "Sample Artist 1", "album": "Sample Album 1"},
-            {"track": "Sample Recent 2", "artist": "Sample Artist 2", "album": "Sample Album 2"},
-            {"track": "Sample Recent 3", "artist": "Sample Artist 3", "album": "Sample Album 3"},
-            {"track": "Sample Recent 4", "artist": "Sample Artist 4", "album": "Sample Album 4"},
-            {"track": "Sample Recent 5", "artist": "Sample Artist 5", "album": "Sample Album 5"},
-            {"track": "Sample Recent 6", "artist": "Sample Artist 6", "album": "Sample Album 6"},
-            {"track": "Sample Recent 7", "artist": "Sample Artist 7", "album": "Sample Album 7"},
-            {"track": "Sample Recent 8", "artist": "Sample Artist 8", "album": "Sample Album 8"},
-            {"track": "Sample Recent 9", "artist": "Sample Artist 9", "album": "Sample Album 9"},
-            {"track": "Sample Recent 10", "artist": "Sample Artist 10", "album": "Sample Album 10"}
-        ]
 
-        # Extend the sample tracks to reach the limit
-        extended_tracks = []
-        while len(extended_tracks) < limit:
-            extended_tracks.extend(sample_tracks)
-        extended_tracks = extended_tracks[:limit]
-
-        tracks_data = []
-        for idx, track in enumerate(extended_tracks, 1):
-            # Generate timestamps across different days and hours for better pattern visualization
-            days_ago = random.randint(0, 6)  # Last week
-            hour = random.randint(0, 23)  # Any hour
-            played_at = pd.Timestamp.now() - pd.Timedelta(days=days_ago, hours=random.randint(0, 23))
-            played_at = played_at.replace(hour=hour)
-
-            tracks_data.append({
-                'track': track['track'],
-                'artist': track['artist'],
-                'album': track['album'],
-                'played_at': played_at.isoformat(),
-                'id': f"sample-recent-{idx}",
-                'duration_ms': 210000,  # 3:30
-                'name': track['track'],  # Add this to satisfy NOT NULL constraint
-                'image_url': '',
-                'preview_url': '',
-                'popularity': random.randint(50, 90),
-                'day_of_week': played_at.day_name(),
-                'hour_of_day': played_at.hour
-            })
-
-        return tracks_data
 
     def get_audio_features_for_top_tracks(self, time_range='short_term', limit=10):
         """Get detailed audio features for top tracks."""
         if not self.sp:
-            return self._generate_sample_audio_features(limit)
+            print("❌ DEBUG: No Spotify connection available")
+            return []
 
         try:
             top_tracks = self.sp.current_user_top_tracks(limit=limit, time_range=time_range)
             track_ids = [track['id'] for track in top_tracks['items']]
 
             if not track_ids:
-                return self._generate_sample_audio_features(limit)
+                return []
 
             features_data = []
 
@@ -680,57 +727,20 @@ class SpotifyAPI:
 
             # If we got no data, return sample data
             if not features_data:
-                return self._generate_sample_audio_features(limit)
+                return []
 
             return features_data
         except Exception as e:
             print(f"Error fetching audio features: {e}")
-            return self._generate_sample_audio_features(limit)
+            return []
 
-    def _generate_sample_audio_features(self, limit=5):
-        """Generate sample audio features when API fails."""
-        sample_tracks = [
-            {"track": "Sample Feature 1", "artist": "Sample Artist 1"},
-            {"track": "Sample Feature 2", "artist": "Sample Artist 2"},
-            {"track": "Sample Feature 3", "artist": "Sample Artist 3"},
-            {"track": "Sample Feature 4", "artist": "Sample Artist 4"},
-            {"track": "Sample Feature 5", "artist": "Sample Artist 5"},
-            {"track": "Sample Feature 6", "artist": "Sample Artist 6"},
-            {"track": "Sample Feature 7", "artist": "Sample Artist 7"},
-            {"track": "Sample Feature 8", "artist": "Sample Artist 8"},
-            {"track": "Sample Feature 9", "artist": "Sample Artist 9"},
-            {"track": "Sample Feature 10", "artist": "Sample Artist 10"}
-        ]
 
-        features_data = []
-        for idx, track in enumerate(sample_tracks[:limit], 1):
-            # Generate realistic audio features
-            features = self._generate_fallback_audio_features()
-
-            features_data.append({
-                'track': track['track'],
-                'artist': track['artist'],
-                'danceability': features['danceability'],
-                'energy': features['energy'],
-                'key': features['key'],
-                'loudness': features['loudness'],
-                'mode': features['mode'],
-                'speechiness': features['speechiness'],
-                'acousticness': features['acousticness'],
-                'instrumentalness': features['instrumentalness'],
-                'liveness': features['liveness'],
-                'valence': features['valence'],
-                'tempo': features['tempo'],
-                'id': f"sample-feature-{idx}",
-                'duration_ms': features['duration_ms']
-            })
-
-        return features_data
 
     def get_top_artists(self, limit=10, time_range='short_term'):
         """Fetch user's top artists."""
         if not self.sp:
-            return self._generate_sample_artists(limit)
+            print("❌ DEBUG: No Spotify connection available")
+            return []
 
         try:
             results = self.sp.current_user_top_artists(limit=limit, time_range=time_range)
@@ -749,41 +759,14 @@ class SpotifyAPI:
 
             # If we got no data, return sample data
             if not artists_data:
-                return self._generate_sample_artists(limit)
+                return []
 
             return artists_data
         except Exception as e:
             print(f"Error fetching top artists: {e}")
-            return self._generate_sample_artists(limit)
+            return []
 
-    def _generate_sample_artists(self, limit=10):
-        """Generate sample artists when API fails."""
-        sample_artists = [
-            {"name": "Sample Artist 1", "genres": "Pop, Dance"},
-            {"name": "Sample Artist 2", "genres": "Rock, Alternative"},
-            {"name": "Sample Artist 3", "genres": "Hip Hop, Rap"},
-            {"name": "Sample Artist 4", "genres": "Electronic, Dance"},
-            {"name": "Sample Artist 5", "genres": "R&B, Soul"},
-            {"name": "Sample Artist 6", "genres": "Indie, Folk"},
-            {"name": "Sample Artist 7", "genres": "Jazz, Blues"},
-            {"name": "Sample Artist 8", "genres": "Classical, Instrumental"},
-            {"name": "Sample Artist 9", "genres": "Reggae, World"},
-            {"name": "Sample Artist 10", "genres": "Metal, Hard Rock"}
-        ]
 
-        artists_data = []
-        for idx, artist in enumerate(sample_artists[:limit], 1):
-            artists_data.append({
-                'artist': artist['name'],
-                'rank': idx,
-                'popularity': random.randint(60, 95),
-                'genres': artist['genres'],
-                'followers': random.randint(10000, 1000000),
-                'id': f"sample-artist-{idx}",
-                'image_url': ''
-            })
-
-        return artists_data
 
     def get_artists_by_genre(self, genre_name, limit=5):
         """
@@ -833,7 +816,7 @@ class SpotifyAPI:
         Returns:
             List of genres for the artist or empty list if not found
         """
-        if not self.sp or not artist_name:
+        if not self.sp or self.use_sample_data or not artist_name:
             return []
 
         # Normalize artist name
@@ -907,7 +890,7 @@ class SpotifyAPI:
         Returns:
             List of artist dictionaries with name and image_url
         """
-        if not self.sp:
+        if not self.sp or self.use_sample_data:
             return []
 
         if not genre_name or genre_name == 'unknown' or genre_name == 'Exploring New Genres':
