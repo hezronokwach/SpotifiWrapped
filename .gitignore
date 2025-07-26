@@ -129,6 +129,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.production.local
 .venv
 env/
 venv/
@@ -172,6 +174,24 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-data/
-.spotify_cache
+
+# Spotify Wrapped Remix Specific
+# Spotify cache and session files
+.spotify_cache*
+/tmp/spotify_auth_code.txt
+flask_session/
+
+# Temporary and backup files
+backup_development/
+callback_server.py
+app_production_working.py
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
 

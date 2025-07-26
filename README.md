@@ -20,8 +20,17 @@ venv\Scripts\Activate.ps1
    CLIENT_SECRET=your_client_secret
    REDIRECT_URI = 'http://127.0.0.1:8000/callback' /
    ```
-6. Run the app: `python app.py`
-7. Open your browser at `http://127.0.0.1:8000/`
+6. **Development**: Run `python app.py` and open `http://127.0.0.1:8000/`
+7. **Production**: Run `python app_production_working_base.py` and open `http://127.0.0.1:8080/`
+
+## 🚀 Production Deployment
+
+For production deployment, use `app_production_working_base.py` which provides:
+- Single-process architecture (no separate callback server needed)
+- Production-ready OAuth handling
+- Suitable for deployment on Railway, Render, Heroku, etc.
+
+See [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Tech Stack
 - **Dash**: Interactive web dashboard
