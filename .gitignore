@@ -194,4 +194,5 @@ app_production_working.py
 # OS files
 .DS_Store
 Thumbs.db
+data/
 
