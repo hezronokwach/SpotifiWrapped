@@ -63,6 +63,7 @@ class SpotifyAPI:
     def clear_all_cached_data(self):
         """Clear all cached data including CSV files and Spotify cache."""
         import glob
+        import tempfile
 
         # Clear Spotify OAuth cache files
         cache_files = glob.glob('.spotify_cache*')
@@ -73,8 +74,30 @@ class SpotifyAPI:
             except Exception as e:
                 print(f"Could not remove cache file {cache_file}: {e}")
 
+        # Also check for cache files in temp directory
+        temp_dir = tempfile.gettempdir()
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        for cache_file in temp_cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"Removed temp cache file: {cache_file}")
+            except Exception as e:
+                print(f"Could not remove temp cache file {cache_file}: {e}")
+
         # Clear CSV data files
-        csv_files = ['data/user_profile.csv', 'data/current_track.csv', 'data/playlists.csv']
+        csv_files = [
+            'data/user_profile.csv',
+            'data/current_track.csv',
+            'data/playlists.csv',
+            'data/top_tracks.csv',
+            'data/top_artists.csv',
+            'data/saved_tracks.csv',
+            'data/audio_features.csv',
+            'data/recently_played.csv',
+            'data/personality.csv',
+            'data/top_albums.csv'
+        ]
         for csv_file in csv_files:
             try:
                 if os.path.exists(csv_file):
@@ -83,8 +106,11 @@ class SpotifyAPI:
             except Exception as e:
                 print(f"Could not remove CSV file {csv_file}: {e}")
 
-        # Clear the connection
+        # Clear the connection and reset credentials
         self.sp = None
+        self.client_id = None
+        self.client_secret = None
+        self.use_sample_data = False
         print("All cached data cleared successfully")
 
     def initialize_connection(self):
@@ -110,7 +136,7 @@ class SpotifyAPI:
                 client_secret=self.client_secret,
                 redirect_uri=self.redirect_uri,
                 scope=self.scopes,
-                open_browser=True,  # Show browser for authentication
+                open_browser=False,  # Don't auto-open browser to avoid conflicts
                 show_dialog=True,  # Always show auth dialog
                 cache_path='.spotify_cache'  # Cache tokens
             )
@@ -119,8 +145,29 @@ class SpotifyAPI:
             # Try to get token, but don't force if not available
             print(f"🎫 DEBUG: Attempting to get access token...")
             try:
-                token = auth_manager.get_access_token(as_dict=False)
-                print(f"✅ DEBUG: Access token obtained: {bool(token)}")
+                # Check if we have a cached token first
+                token_info = auth_manager.get_cached_token()
+                if token_info:
+                    print(f"✅ DEBUG: Using cached token")
+                else:
+                    # Check for authorization code from callback
+                    import tempfile
+                    import os
+                    temp_dir = tempfile.gettempdir()
+                    code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+                    if os.path.exists(code_file):
+                        with open(code_file, 'r') as f:
+                            auth_code = f.read().strip()
+                        print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                        token_info = auth_manager.get_access_token(auth_code, as_dict=True)
+                        # Clean up the temporary file
+                        os.remove(code_file)
+                        print(f"✅ DEBUG: Token exchange successful")
+                    else:
+                        print(f"⚠️ DEBUG: No cached token or auth code available")
+                        # Generate auth URL for user (but don't prompt in terminal)
+                        auth_url = auth_manager.get_authorize_url()
+                        print(f"🔗 DEBUG: Auth URL available for web interface: {auth_url}")
             except Exception as e:
                 print(f"⚠️ DEBUG: Could not get access token during initialization: {e}")
                 # Continue without token - will be requested when needed
@@ -133,13 +180,19 @@ class SpotifyAPI:
             # Test connection (but don't fail if not authenticated yet)
             print(f"🧪 DEBUG: Testing connection...")
             try:
-                user = self.sp.current_user()
-                if user:
-                    print(f"✅ DEBUG: Successfully connected as {user.get('display_name', 'Unknown')}")
-                    logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+                # Only test if we have a cached token, don't prompt for auth
+                cached_token = auth_manager.get_cached_token()
+                if cached_token:
+                    user = self.sp.current_user()
+                    if user:
+                        print(f"✅ DEBUG: Successfully connected as {user.get('display_name', 'Unknown')}")
+                        logger.warning(f"Successfully connected as {user.get('display_name', 'Unknown')}")
+                    else:
+                        print(f"⚠️ DEBUG: No user profile available - authentication may be needed")
+                        logger.warning("No user profile available - authentication may be needed")
                 else:
-                    print(f"⚠️ DEBUG: No user profile available - authentication may be needed")
-                    logger.warning("No user profile available - authentication may be needed")
+                    print(f"⚠️ DEBUG: No cached token - authentication will be needed")
+                    logger.warning("No cached token - authentication will be needed")
             except Exception as e:
                 print(f"⚠️ DEBUG: Could not test connection during initialization: {e}")
                 logger.warning(f"Could not test connection during initialization: {e}")
@@ -148,6 +201,56 @@ class SpotifyAPI:
             print(f"❌ DEBUG: Error connecting to Spotify API: {e}")
             logger.error(f"Error connecting to Spotify API: {e}")
             self.sp = None
+
+    def get_auth_url(self):
+        """Get the authorization URL for OAuth flow."""
+        if self.sp and hasattr(self.sp, 'auth_manager'):
+            return self.sp.auth_manager.get_authorize_url()
+        return None
+
+    def is_authenticated(self):
+        """Check if the user is authenticated without triggering prompts."""
+        if not self.sp:
+            return False
+        try:
+            # First check for authorization code from callback
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+            if os.path.exists(code_file):
+                with open(code_file, 'r') as f:
+                    auth_code = f.read().strip()
+                print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                try:
+                    token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
+                    if token_info:
+                        print(f"✅ DEBUG: Token exchange successful!")
+                        # Clean up the temporary file
+                        os.remove(code_file)
+                        return True
+                except Exception as e:
+                    print(f"❌ DEBUG: Token exchange failed: {e}")
+                    # Clean up the file anyway
+                    try:
+                        os.remove(code_file)
+                    except:
+                        pass
+
+            # Check if we have a cached token
+            if hasattr(self.sp, 'auth_manager'):
+                cached_token = self.sp.auth_manager.get_cached_token()
+                if cached_token:
+                    # Test the token by making a simple API call
+                    try:
+                        user = self.sp.current_user()
+                        return user is not None
+                    except Exception as e:
+                        print(f"⚠️ DEBUG: Token test failed: {e}")
+                        return False
+            return False
+        except Exception as e:
+            print(f"⚠️ DEBUG: Error checking authentication: {e}")
+            return False
 
     @lru_cache(maxsize=100)
     def get_audio_features_safely(self, track_id: str) -> Dict[str, Any]:

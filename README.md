@@ -21,7 +21,7 @@ venv\Scripts\Activate.ps1
    REDIRECT_URI = 'http://127.0.0.1:8000/callback' /
    ```
 6. Run the app: `python app.py`
-7. Open your browser at `http://127.0.0.1:8050/`
+7. Open your browser at `http://127.0.0.1:8000/`
 
 ## Tech Stack
 - **Dash**: Interactive web dashboard

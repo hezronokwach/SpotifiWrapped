@@ -535,11 +535,16 @@ def create_onboarding_page():
 
                     # Important note about redirect URI
                     dbc.Alert([
-                        html.Strong("Important: "),
-                        "Make sure your Spotify app's redirect URI is set to: ",
-                        html.Code("http://127.0.0.1:8000/callback", style={'backgroundColor': '#404040', 'padding': '2px 6px', 'borderRadius': '4px'}),
+                        html.Strong("📋 Setup Instructions:"),
                         html.Br(),
-                        html.Small("(This should match exactly what you have in your Spotify Developer Dashboard)", style={'opacity': '0.8'})
+                        "1. Go to your ", html.A("Spotify Developer Dashboard", href="https://developer.spotify.com/dashboard", target="_blank", style={'color': SPOTIFY_GREEN, 'textDecoration': 'underline'}),
+                        html.Br(),
+                        "2. Select your app and click 'Edit Settings'",
+                        html.Br(),
+                        "3. Add this Redirect URI: ",
+                        html.Code("http://127.0.0.1:8080/callback", style={'backgroundColor': '#404040', 'padding': '2px 6px', 'borderRadius': '4px', 'color': SPOTIFY_GREEN, 'fontWeight': 'bold'}),
+                        html.Br(),
+                        html.Small("⚠️ The redirect URI must match exactly (including the port 8080)", style={'opacity': '0.8', 'fontStyle': 'italic'})
                     ], color="info", className="mb-3", style={'backgroundColor': 'rgba(0, 123, 255, 0.1)', 'border': '1px solid rgba(0, 123, 255, 0.3)', 'color': SPOTIFY_WHITE}),
 
                     # Client ID Input with Label

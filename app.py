@@ -80,6 +80,134 @@ app = dash.Dash(
 
 app.title = "Spotify Wrapped Remix"
 
+# Add callback route for Spotify OAuth
+@app.server.route('/callback')
+def spotify_callback():
+    """Handle Spotify OAuth callback."""
+    from flask import request
+
+    # Get the authorization code from the callback
+    code = request.args.get('code')
+    error = request.args.get('error')
+
+    if error:
+        print(f"❌ OAuth Error: {error}")
+        return f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Spotify Authorization Failed</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background: #191414;
+                    color: #FF5555;
+                    text-align: center;
+                    padding: 50px;
+                }}
+                .error {{
+                    background: #FF5555;
+                    color: #000;
+                    padding: 20px;
+                    border-radius: 10px;
+                    display: inline-block;
+                    margin: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="error">
+                <h2>❌ Authorization Failed</h2>
+                <p>Error: {error}</p>
+                <p>Please try again.</p>
+            </div>
+        </body>
+        </html>
+        '''
+
+    if code:
+        print(f"✅ OAuth Success: Received authorization code: {code[:10]}...")
+
+        # Try to exchange the code for a token immediately
+        try:
+            if spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
+                print("🔄 Exchanging authorization code for access token...")
+                token_info = spotify_api.sp.auth_manager.get_access_token(code, as_dict=True)
+                if token_info:
+                    print("✅ Token exchange successful!")
+                    # Test the connection
+                    user = spotify_api.sp.current_user()
+                    if user:
+                        print(f"✅ Successfully authenticated as {user.get('display_name', 'Unknown')}")
+                else:
+                    print("❌ Token exchange failed")
+        except Exception as e:
+            print(f"❌ Error during token exchange: {e}")
+
+        # Return a success page that auto-redirects
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Spotify Authorization Successful</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background: #191414;
+                    color: #1DB954;
+                    text-align: center;
+                    padding: 50px;
+                }
+                .success {
+                    background: #1DB954;
+                    color: #000;
+                    padding: 20px;
+                    border-radius: 10px;
+                    display: inline-block;
+                    margin: 20px;
+                }
+            </style>
+            <script>
+                setTimeout(function() {
+                    window.close();
+                    if (window.opener) {
+                        window.opener.location.reload();
+                    }
+                }, 2000);
+            </script>
+        </head>
+        <body>
+            <div class="success">
+                <h2>🎵 Authorization Successful!</h2>
+                <p>You can now close this window.</p>
+                <p>Redirecting back to the app...</p>
+            </div>
+        </body>
+        </html>
+        '''
+
+    return '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Spotify Authorization Error</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: #191414;
+                color: #FF5555;
+                text-align: center;
+                padding: 50px;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>❌ No authorization code received</h2>
+        <p>Please try the authorization process again.</p>
+    </body>
+    </html>
+    '''
+
 # Multi-page layout with navigation
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
@@ -127,6 +255,18 @@ app.layout = html.Div([
 # --- Onboarding Callbacks ---
 
 @app.callback(
+    Output('custom-redirect-collapse', 'is_open'),
+    Input('toggle-advanced-button', 'n_clicks'),
+    State('custom-redirect-collapse', 'is_open'),
+    prevent_initial_call=True
+)
+def toggle_advanced_options(n_clicks, is_open):
+    """Toggle the advanced options collapse."""
+    if n_clicks:
+        return not is_open
+    return is_open
+
+@app.callback(
     [Output('auth-status-store', 'data'),
      Output('client-id-store', 'data'),
      Output('client-secret-store', 'data'),
@@ -164,11 +304,73 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
         print(f"🔍 DEBUG: Use sample data flag: {spotify_api.use_sample_data}")
 
         if spotify_api.sp:
-            print("✅ DEBUG: Connection successful!")
-            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
+            # Check if we need authorization using our safe method
+            auth_result = spotify_api.is_authenticated()
+            print(f"🔍 DEBUG: Authentication check result: {auth_result}")
+
+            if auth_result:
+                print("✅ DEBUG: Connection successful!")
+                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
+            else:
+                print("⚠️ DEBUG: Need authorization")
+                # Get auth URL using our safe method
+                auth_url = spotify_api.get_auth_url()
+                if auth_url:
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
+                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
+                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
+                        html.A(
+                            "🎵 Authorize Spotify Access",
+                            href=auth_url,
+                            target="_blank",
+                            style={
+                                'backgroundColor': '#1DB954',
+                                'color': '#000000',
+                                'padding': '12px 24px',
+                                'borderRadius': '25px',
+                                'textDecoration': 'none',
+                                'fontWeight': 'bold',
+                                'display': 'inline-block',
+                                'marginBottom': '15px'
+                            }
+                        ),
+                        html.Br(),
+                        html.Small("After authorization, refresh this page or click Connect again.", style={'color': '#CCCCCC', 'fontStyle': 'italic'})
+                    ], style={'textAlign': 'center', 'padding': '20px', 'backgroundColor': '#282828', 'borderRadius': '10px', 'border': '1px solid #1DB954'})
+                else:
+                    print(f"❌ DEBUG: Could not get auth URL")
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Connection failed. Please check your credentials and redirect URI."
         else:
             print("❌ DEBUG: Connection failed - no Spotify API object created")
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Connection failed. Please check your credentials and redirect URI."
+
+    return dash.no_update
+
+# Auto-check for completed authentication
+@app.callback(
+    [Output('auth-status-store', 'data', allow_duplicate=True),
+     Output('client-id-store', 'data', allow_duplicate=True),
+     Output('client-secret-store', 'data', allow_duplicate=True),
+     Output('use-sample-data-store', 'data', allow_duplicate=True),
+     Output('connect-status', 'children', allow_duplicate=True)],
+    [Input('interval-component', 'n_intervals')],
+    [State('client-id-input', 'value'),
+     State('client-secret-input', 'value'),
+     State('auth-status-store', 'data')],
+    prevent_initial_call=True
+)
+def check_auth_status(n_intervals, client_id, client_secret, current_auth_status):
+    """Periodically check if authentication has been completed."""
+    # Only check if we have credentials but aren't authenticated yet
+    if client_id and client_secret and (not current_auth_status or not current_auth_status.get('authenticated')):
+        # Set credentials if not already set
+        if spotify_api.client_id != client_id or spotify_api.client_secret != client_secret:
+            spotify_api.set_credentials(client_id, client_secret, os.getenv('REDIRECT_URI'))
+
+        # Check authentication status
+        if spotify_api.sp and spotify_api.is_authenticated():
+            print("✅ DEBUG: Auto-detected successful authentication!")
+            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
 
     return dash.no_update
 
@@ -2759,4 +2961,4 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Run the app
-    app.run(debug=True, port=8051)
+    app.run(debug=True, port=8000)
