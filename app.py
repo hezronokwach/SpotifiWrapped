@@ -2961,4 +2961,8 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Run the app
-    app.run(debug=True, port=8000)
+    # For production deployment (Render, Railway, etc.)
+    port = int(os.environ.get('PORT', 8000))
+    debug = os.environ.get('DEBUG', 'True').lower() == 'true'
+
+    app.run(host='0.0.0.0', port=port, debug=debug)
