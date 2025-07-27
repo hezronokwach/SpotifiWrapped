@@ -270,8 +270,7 @@ def toggle_advanced_options(n_clicks, is_open):
     [Output('auth-status-store', 'data'),
      Output('client-id-store', 'data'),
      Output('client-secret-store', 'data'),
-     Output('use-sample-data-store', 'data'),
-     Output('connect-status', 'children')],
+     Output('use-sample-data-store', 'data')],
     [Input('connect-button', 'n_clicks')],
     [State('client-id-input', 'value'),
      State('client-secret-input', 'value')],
@@ -286,7 +285,7 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
     if button_id == 'connect-button':
         if not client_id or not client_secret:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Please provide both Client ID and Client Secret."
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
         print(f"🔐 DEBUG: Attempting to connect with Client ID: {client_id[:8]}...")
         print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
@@ -310,39 +309,19 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
             if auth_result:
                 print("✅ DEBUG: Connection successful!")
-                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
+                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
             else:
                 print("⚠️ DEBUG: Need authorization")
                 # Get auth URL using our safe method
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
-                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
-                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
-                        html.A(
-                            "🎵 Authorize Spotify Access",
-                            href=auth_url,
-                            target="_blank",
-                            style={
-                                'backgroundColor': '#1DB954',
-                                'color': '#000000',
-                                'padding': '12px 24px',
-                                'borderRadius': '25px',
-                                'textDecoration': 'none',
-                                'fontWeight': 'bold',
-                                'display': 'inline-block',
-                                'marginBottom': '15px'
-                            }
-                        ),
-                        html.Br(),
-                        html.Small("After authorization, refresh this page or click Connect again.", style={'color': '#CCCCCC', 'fontStyle': 'italic'})
-                    ], style={'textAlign': 'center', 'padding': '20px', 'backgroundColor': '#282828', 'borderRadius': '10px', 'border': '1px solid #1DB954'})
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
                 else:
                     print(f"❌ DEBUG: Could not get auth URL")
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Connection failed. Please check your credentials and redirect URI."
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         else:
             print("❌ DEBUG: Connection failed - no Spotify API object created")
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, "Connection failed. Please check your credentials and redirect URI."
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     return dash.no_update
 
@@ -351,8 +330,7 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
     [Output('auth-status-store', 'data', allow_duplicate=True),
      Output('client-id-store', 'data', allow_duplicate=True),
      Output('client-secret-store', 'data', allow_duplicate=True),
-     Output('use-sample-data-store', 'data', allow_duplicate=True),
-     Output('connect-status', 'children', allow_duplicate=True)],
+     Output('use-sample-data-store', 'data', allow_duplicate=True)],
     [Input('interval-component', 'n_intervals')],
     [State('client-id-input', 'value'),
      State('client-secret-input', 'value'),
@@ -370,7 +348,7 @@ def check_auth_status(n_intervals, client_id, client_secret, current_auth_status
         # Check authentication status
         if spotify_api.sp and spotify_api.is_authenticated():
             print("✅ DEBUG: Auto-detected successful authentication!")
-            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, "Successfully connected!"
+            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
 
     return dash.no_update
 
