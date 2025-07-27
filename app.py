@@ -488,30 +488,87 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
         user_data = spotify_api.get_user_profile()
         if user_data:
             print(f"✅ DEBUG: Got user data from API: {user_data}")
-            # Save user data both to CSV and database
-            data_processor.save_data([user_data], 'user_profile.csv')
+            # Save user data to database only
             db.save_user(user_data)
 
-            # Start historical data collection for the past two weeks
-            # This will automatically use the default two-week timeframe
-            data_collector.collect_historical_data(user_data['id'])
+            # Start comprehensive data collection for new users
+            print("🔄 Starting comprehensive data collection...")
+            try:
+                # 1. Collect recently played tracks (last 50)
+                recently_played = spotify_api.get_recently_played(limit=50)
+                if recently_played:
+                    print(f"📀 Collecting {len(recently_played)} recently played tracks...")
+                    for track in recently_played:
+                        db.save_track(track)
+                        played_at = track.get('played_at', datetime.now().isoformat())
+                        db.save_listening_history(
+                            user_id=user_data['id'],
+                            track_id=track['id'],
+                            played_at=played_at,
+                            source='recently_played'
+                        )
+
+                # 2. Collect top tracks for different time ranges
+                for time_range in ['short_term', 'medium_term', 'long_term']:
+                    top_tracks = spotify_api.get_top_tracks(limit=20, time_range=time_range)
+                    if top_tracks:
+                        print(f"🎵 Collecting {len(top_tracks)} top tracks ({time_range})...")
+                        for track in top_tracks:
+                            db.save_track(track)
+                            db.save_listening_history(
+                                user_id=user_data['id'],
+                                track_id=track['id'],
+                                played_at=datetime.now().isoformat(),
+                                source=f'top_{time_range}'
+                            )
+
+                # 3. Collect saved tracks (liked songs)
+                saved_tracks = spotify_api.get_saved_tracks(limit=50)
+                if saved_tracks:
+                    print(f"💚 Collecting {len(saved_tracks)} saved tracks...")
+                    for track in saved_tracks:
+                        db.save_track(track)
+                        added_at = track.get('added_at', datetime.now().isoformat())
+                        db.save_listening_history(
+                            user_id=user_data['id'],
+                            track_id=track['id'],
+                            played_at=added_at,
+                            source='saved'
+                        )
+
+                # 4. Start historical data collection for the past two weeks
+                data_collector.collect_historical_data(user_data['id'])
+
+                print("✅ Data collection completed successfully!")
+
+            except Exception as e:
+                print(f"⚠️ Error during data collection: {e}")
+                # Continue anyway - user can still use the app
 
             return user_data
 
-        # Only fall back to CSV if API fails
-        print("⚠️ DEBUG: API failed, trying to load from CSV...")
+        # Try to get user data from database if API fails
+        print("⚠️ DEBUG: API failed, trying to load from database...")
         try:
-            stored_data = data_processor.load_data('user_profile.csv')
-            if not stored_data.empty:
-                user_data = stored_data.iloc[0].to_dict()
-                print(f"📁 DEBUG: Loaded user data from CSV: {user_data}")
-                # Check if this is sample data
-                if user_data.get('id') == 'sample-user-id':
-                    print("🚫 DEBUG: Detected sample data in CSV, ignoring...")
-                    return {}
+            conn = sqlite3.connect(db.db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT user_id, display_name, followers FROM users ORDER BY last_updated DESC LIMIT 1')
+            row = cursor.fetchone()
+            conn.close()
+
+            if row:
+                user_data = {
+                    'id': row[0],
+                    'display_name': row[1],
+                    'followers': row[2],
+                    'following': 0,
+                    'image_url': '',
+                    'product': 'Unknown'
+                }
+                print(f"📁 DEBUG: Loaded user data from database: {user_data}")
                 return user_data
         except Exception as e:
-            print(f"❌ DEBUG: Error loading user data from CSV: {e}")
+            print(f"❌ DEBUG: Error loading user data from database: {e}")
 
         print("❌ DEBUG: No user data available from any source.")
         return {}
@@ -746,26 +803,37 @@ def update_current_track_display(current_track):
     Input('refresh-button', 'n_clicks')
 )
 def update_top_tracks_chart(n_intervals, n_clicks):
-    """Update the top tracks chart."""
-    # Fetch new data if refresh button clicked
-    if n_clicks is not None and n_clicks > 0:
-        user_data = spotify_api.get_user_profile()
-        if user_data:
-            # Fetch top tracks and save to database
-            top_tracks_data = spotify_api.get_top_tracks(limit=10)
-            if top_tracks_data:
-                # Save to database
-                for track in top_tracks_data:
-                    db.save_track(track)
-                    # Use a consistent datetime format
-                    db.save_listening_history(
-                        user_id=user_data['id'],
-                        track_id=track['id'],
-                        played_at=datetime.now().replace(microsecond=0).isoformat(),
-                        source='top_short_term'
-                    )
+    """Update the top tracks chart using Spotify's official top tracks."""
+    # Use Spotify's official top tracks directly - this is the correct approach!
+    try:
+        # Get top tracks from Spotify's algorithm (short_term = last 4 weeks)
+        top_tracks_data = spotify_api.get_top_tracks(limit=10, time_range='short_term')
 
-    # Get data from database
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=10, time_range='medium_term')
+
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=10, time_range='long_term')
+
+        if not top_tracks_data:
+            return html.Div("No top tracks data available. Listen to more music on Spotify to see your top tracks!",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+        # Convert to DataFrame for visualization
+        tracks_df = pd.DataFrame(top_tracks_data)
+
+        # Save tracks to database for other analysis (but don't use for ranking)
+        user_data = spotify_api.get_user_profile()
+        if user_data and n_clicks is not None and n_clicks > 0:
+            for track in top_tracks_data:
+                db.save_track(track)
+
+    except Exception as e:
+        print(f"Error getting top tracks: {e}")
+        return html.Div("Error loading top tracks",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
     conn = sqlite3.connect(db.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -915,13 +983,13 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
 )
 def update_playlists_list(n_intervals, n_clicks):
     """Update the playlists fancy list."""
-    # Fetch new data if refresh button clicked
-    if n_clicks is not None and n_clicks > 0:
+    # Get playlists data directly from API (playlists don't need database storage for this view)
+    try:
         playlists_data = spotify_api.get_playlists(limit=10)
-        data_processor.save_data(playlists_data, 'playlists.csv')
-
-    # Load data from file
-    playlists_df = data_processor.load_data('playlists.csv')
+        playlists_df = pd.DataFrame(playlists_data) if playlists_data else pd.DataFrame()
+    except Exception as e:
+        print(f"Error getting playlists: {e}")
+        playlists_df = pd.DataFrame()
 
     # Create visualization - import the standalone function
     from modules.visualizations import create_playlists_fancy_list
@@ -1061,98 +1129,41 @@ def update_audio_features_chart(n_intervals, n_clicks):
     Input('refresh-button', 'n_clicks')
 )
 def update_top_artists_chart(n_intervals, n_clicks):
-    """Update the top artists chart."""
+    """Update the top artists chart using Spotify's official top artists."""
     print(f"=== TOP ARTISTS CALLBACK TRIGGERED: intervals={n_intervals}, clicks={n_clicks} ===")
 
-    # Fetch new data if refresh button clicked
-    if n_clicks is not None and n_clicks > 0:
-        user_data = spotify_api.get_user_profile()
-        if user_data:
-            # Fetch top artists and save to database
-            top_artists_data = spotify_api.get_top_artists(limit=10)
-            if top_artists_data:
-                # Save to database
-                for artist in top_artists_data:
-                    # Create a track-like entry for the artist
-                    artist_data = {
-                        'id': f"artist-{artist.get('id', '').replace(' ', '-')}",
-                        'name': artist.get('name', 'Unknown Artist'),
-                        'artist': artist.get('name', 'Unknown Artist'),  # Artist is their own artist
-                        'popularity': artist.get('popularity', 0),
-                        'image_url': artist.get('image_url', ''),
-                        'added_at': datetime.now().replace(microsecond=0).isoformat()
-                    }
+    # Use Spotify's official top artists directly - this is the correct approach!
+    try:
+        # Get top artists from Spotify's algorithm (short_term = last 4 weeks)
+        top_artists_data = spotify_api.get_top_artists(limit=10, time_range='short_term')
 
-                    # Save to database
-                    try:
-                        db.save_track(artist_data)
-                        db.save_listening_history(
-                            user_id=user_data['id'],
-                            track_id=artist_data['id'],
-                            played_at=datetime.now().replace(microsecond=0).isoformat(),
-                            source='top_artist'
-                        )
-                    except Exception as e:
-                        print(f"Error saving artist {artist.get('name')}: {e}")
+        if not top_artists_data:
+            # Try medium_term if short_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=10, time_range='medium_term')
 
-    # Get data from database
-    conn = sqlite3.connect(db.db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+        if not top_artists_data:
+            # Try long_term if medium_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=10, time_range='long_term')
 
-    # Enhanced top artists ranking with listening time and track diversity
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute('''
-        SELECT
-            t.artist as artist,
-            MAX(t.popularity) as popularity,
-            MAX(t.image_url) as image_url,
-            COUNT(DISTINCT h.history_id) as play_count,
-            COUNT(DISTINCT t.track_id) as unique_tracks,
-            SUM(CASE
-                WHEN t.duration_ms > 0 THEN t.duration_ms
-                ELSE 180000
-            END) as total_listening_time_ms,
-            AVG(t.popularity) as avg_popularity,
-            -- Enhanced weighted score: play frequency (40%) + listening time (30%) + track diversity (20%) + popularity (10%)
-            (
-                (COUNT(DISTINCT h.history_id) * 0.4) +
-                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                (COUNT(DISTINCT t.track_id) * 0.2) +
-                (MAX(t.popularity) / 100.0 * 0.1)
-            ) as weighted_score
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.artist IS NOT NULL AND t.artist != ''
-        AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        GROUP BY t.artist
-        HAVING play_count >= 2  -- Minimum 2 plays to be considered
-        ORDER BY weighted_score DESC
-        LIMIT 10
-    ''', (current_date,))
+        if not top_artists_data:
+            return html.Div("No top artists data available. Listen to more music on Spotify to see your top artists!",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-    artists_data = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+        # Convert to DataFrame for visualization
+        artists_df = pd.DataFrame(top_artists_data)
 
-    # Debug: Print how many artists we found
-    print(f"Top artists query returned {len(artists_data)} artists")
-    if artists_data:
-        for i, artist in enumerate(artists_data[:5]):  # Print first 5 for debugging
-            print(f"  {i+1}. {artist['artist']} (plays: {artist['play_count']}, score: {artist['weighted_score']:.2f})")
+        print(f"✅ Got {len(top_artists_data)} top artists from Spotify API")
+        for i, artist in enumerate(top_artists_data[:3]):
+            print(f"  {i+1}. {artist['artist']} (popularity: {artist['popularity']})")
 
-    # Convert to DataFrame
-    if artists_data:
-        top_artists_df = pd.DataFrame(artists_data)
-        # Add rank column
-        top_artists_df['rank'] = range(1, len(top_artists_df) + 1)
-    else:
-        # Create empty DataFrame with the right columns
-        top_artists_df = pd.DataFrame(columns=['artist', 'popularity', 'image_url', 'rank'])
+    except Exception as e:
+        print(f"Error getting top artists: {e}")
+        return html.Div("Error loading top artists",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-    # Create visualization
-    return visualizations.create_top_artists_soundwave(top_artists_df)
+    # Create visualization using the Spotify API data
+    visualizations = SpotifyVisualizations()
+    return visualizations.create_top_artists_soundwave(artists_df)
 
 # Update top track highlight
 @app.callback(
@@ -1806,23 +1817,17 @@ def update_top_albums(n_intervals, n_clicks):
             return html.Div("Log in to see your top albums",
                            style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-        # Fetch new data if refresh button clicked
-        if n_clicks is not None and n_clicks > 0:
+        # Get top albums directly from database
+        try:
             top_albums_data = get_top_albums(spotify_api, limit=10)
-            data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
-
-        # Load data from file
-        top_albums_df = data_processor.load_data('top_albums.csv')
-
-        if top_albums_df.empty:
-            # Try to get fresh data if CSV is empty
-            top_albums_data = get_top_albums(spotify_api, limit=10)
-            if not top_albums_data.empty:
-                data_processor.save_data(top_albums_data.to_dict('records'), 'top_albums.csv')
-                top_albums_df = top_albums_data
-            else:
-                return html.Div("No album data available",
+            if top_albums_data.empty:
+                return html.Div("No album data available. Please refresh your data to see your top albums.",
                                style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+            top_albums_df = top_albums_data
+        except Exception as e:
+            print(f"Error getting top albums: {e}")
+            return html.Div("Error loading album data",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
         # Create album cards
         album_cards = []
@@ -1935,18 +1940,18 @@ def update_personality_analysis(n_intervals, n_clicks):
                 personality_data['metrics']['percentage_of_listening'] = dj_stats.get('percentage_of_listening', 0)
                 personality_data['metrics']['dj_mode_user'] = dj_stats.get('dj_mode_user', False)
 
-        # Load album patterns to include in metrics
-        album_patterns_df = data_processor.load_data('album_patterns.csv')
-        if not album_patterns_df.empty:
-            album_patterns = album_patterns_df.iloc[0].to_dict()
+        # Get album patterns directly from database/API instead of CSV
+        try:
+            from modules.top_albums import get_album_listening_patterns
+            album_patterns = get_album_listening_patterns(spotify_api)
             # Add album patterns to metrics if not already present
             if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
                 if 'album_completion_rate' not in personality_data['metrics'] or personality_data['metrics']['album_completion_rate'] == 0:
                     personality_data['metrics']['album_completion_rate'] = album_patterns.get('album_completion_rate', 0)
                 if 'sequential_listening_score' not in personality_data['metrics'] or personality_data['metrics']['sequential_listening_score'] == 0:
                     personality_data['metrics']['sequential_listening_score'] = album_patterns.get('sequential_listening_score', 0)
-                if 'listening_style' not in personality_data['metrics'] or personality_data['metrics']['listening_style'] == 'Unknown':
-                    personality_data['metrics']['listening_style'] = album_patterns.get('listening_style', 'Unknown')
+        except Exception as e:
+            print(f"Error getting album patterns: {e}")
 
         # Create enhanced personality card with AI recommendations
         enhanced_card = create_personality_card(
@@ -2266,56 +2271,113 @@ def generate_wrapped_summary_from_db():
     history_count = cursor.fetchone()['count']
     print(f"Database has {history_count} listening history entries")
 
-    # Get top track - only count actual listening events
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute('''
-        SELECT
-            t.track_id as id,
-            t.name as track,
-            t.artist,
-            COUNT(h.history_id) as play_count
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
-        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-        GROUP BY t.track_id
-        ORDER BY play_count DESC
-        LIMIT 1
-    ''', (current_date,))
+    # Get top track from Spotify's official API - this is the correct approach!
+    try:
+        # Get top tracks from Spotify's algorithm (short_term = last 4 weeks)
+        top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='short_term')
 
-    top_track_row = cursor.fetchone()
-    if top_track_row:
-        top_track = dict(top_track_row)
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='medium_term')
+
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='long_term')
+
+        if top_tracks_data:
+            top_track = top_tracks_data[0]
+            summary['top_track'] = {
+                'name': top_track['name'],
+                'artist': top_track['artist']
+            }
+            print(f"✅ Got top track from Spotify API: {top_track['name']} by {top_track['artist']}")
+        else:
+            # Fallback to database if Spotify API fails
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            cursor.execute('''
+                SELECT
+                    t.track_id as id,
+                    t.name as track,
+                    t.artist,
+                    COUNT(h.history_id) as play_count
+                FROM tracks t
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+                AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+                AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+                GROUP BY t.track_id
+                ORDER BY play_count DESC
+                LIMIT 1
+            ''', (current_date,))
+
+            top_track_row = cursor.fetchone()
+            if top_track_row:
+                top_track = dict(top_track_row)
+                summary['top_track'] = {
+                    'name': top_track['track'],
+                    'artist': top_track['artist']
+                }
+                print(f"📁 Using database fallback for top track: {top_track['track']} by {top_track['artist']}")
+            else:
+                # Default top track if none found
+                summary['top_track'] = {
+                    'name': 'Start listening to discover your top track',
+                    'artist': 'Unknown'
+                }
+                print("❌ No top track data available")
+    except Exception as e:
+        print(f"Error getting top track: {e}")
         summary['top_track'] = {
-            'name': top_track['track'],
-            'artist': top_track['artist']
-        }
-    else:
-        # Default top track if none found
-        summary['top_track'] = {
-            'name': 'Start listening to discover your top track',
+            'name': 'Error loading top track',
             'artist': 'Unknown'
         }
 
-    # Get top artist - only count actual listening events
-    cursor.execute('''
-        SELECT
-            t.artist as artist,
-            COUNT(h.history_id) as play_count
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.artist IS NOT NULL AND t.artist != ''
-        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
-        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-        GROUP BY t.artist
-        ORDER BY play_count DESC
-        LIMIT 1
-    ''', (current_date,))
+    # Get top artist from Spotify's official API
+    try:
+        # Get top artists from Spotify's algorithm (short_term = last 4 weeks)
+        top_artists_data = spotify_api.get_top_artists(limit=1, time_range='short_term')
 
-    top_artist_row = cursor.fetchone()
-    if top_artist_row:
-        top_artist = dict(top_artist_row)
+        if not top_artists_data:
+            # Try medium_term if short_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='medium_term')
+
+        if not top_artists_data:
+            # Try long_term if medium_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='long_term')
+
+        if top_artists_data:
+            top_artist_name = top_artists_data[0]['artist']
+            print(f"✅ Got top artist from Spotify API: {top_artist_name}")
+        else:
+            # Fallback to database if Spotify API fails
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            cursor.execute('''
+                SELECT
+                    t.artist as artist,
+                    COUNT(h.history_id) as play_count
+                FROM tracks t
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE t.artist IS NOT NULL AND t.artist != ''
+                AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+                AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+                GROUP BY t.artist
+                ORDER BY play_count DESC
+                LIMIT 1
+            ''', (current_date,))
+
+            top_artist_row = cursor.fetchone()
+            if top_artist_row:
+                top_artist = dict(top_artist_row)
+                top_artist_name = top_artist['artist']
+                print(f"📁 Using database fallback for top artist: {top_artist_name}")
+            else:
+                top_artist_name = None
+                print("❌ No top artist data available")
+    except Exception as e:
+        print(f"Error getting top artist: {e}")
+        top_artist_name = None
+
+    if top_artist_name:
 
         # Get genres for this artist from the dedicated genres table
         cursor.execute('''
@@ -2326,12 +2388,12 @@ def generate_wrapped_summary_from_db():
             GROUP BY genre_name
             ORDER BY count DESC
             LIMIT 5
-        ''', (top_artist['artist'],))
+        ''', (top_artist_name,))
 
         genres = [dict(row)['genre'] for row in cursor.fetchall()]
 
         summary['top_artist'] = {
-            'name': top_artist['artist'],
+            'name': top_artist_name,
             'genres': ', '.join(genres) if genres else 'Exploring genres'
         }
     else:
