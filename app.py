@@ -2059,20 +2059,29 @@ def update_wrapped_summary(n_clicks, n_intervals, pathname):
 )
 def update_wrapped_summary_display(summary):
     """Update the Wrapped summary display."""
-    # Handle the case when summary is None or empty
+    # Handle the case when summary is None or empty - generate data immediately
     if summary is None or not summary:
-        return html.Div([
-            html.H3("Your Spotify Wrapped", style={'color': SPOTIFY_GREEN, 'textAlign': 'center'}),
-            html.P("Click 'Refresh Data' to generate your Spotify Wrapped summary",
-                  style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
-        ], style={
-            'padding': '30px',
-            'borderRadius': '10px',
-            'backgroundColor': '#121212',
-            'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
-            'margin': '20px 0',
-            'textAlign': 'center'
-        })
+        print("Summary is empty, generating fresh data...")
+        try:
+            # Generate fresh summary data immediately
+            summary = generate_wrapped_summary_from_db()
+            if not summary:
+                # If still no data, show a friendly message
+                return html.Div([
+                    html.H3("🎵 Your Musical Journey Awaits", style={'color': SPOTIFY_GREEN, 'textAlign': 'center'}),
+                    html.P("Start listening to music to see your personalized insights!",
+                          style={'color': SPOTIFY_GRAY, 'textAlign': 'center'})
+                ], style={
+                    'padding': '30px',
+                    'borderRadius': '10px',
+                    'backgroundColor': '#121212',
+                    'boxShadow': '0 4px 12px rgba(0,0,0,0.5)',
+                    'margin': '20px 0',
+                    'textAlign': 'center'
+                })
+        except Exception as e:
+            print(f"Error generating summary in display callback: {e}")
+            summary = {}
 
     # Initialize default values for all required fields to prevent NoneType errors
     if 'top_track' not in summary or summary['top_track'] is None:
