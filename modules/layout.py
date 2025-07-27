@@ -455,8 +455,7 @@ class DashboardLayout:
                 # Currently playing section
                 self.create_currently_playing_section(),
 
-                # Personality analysis section
-                self.create_personality_section(),
+
 
                 # Top highlights row (individual top track and artist)
                 dbc.Row([

@@ -288,7 +288,7 @@ def create_personality_card(primary_type, secondary_type, description, recommend
         primary_type: Primary personality type
         secondary_type: Secondary personality type
         description: Description of the primary personality type
-        recommendations: List of recommendations
+        recommendations: List of recommendations (not displayed but kept for compatibility)
         metrics: Dictionary of metrics
 
     Returns:
@@ -302,11 +302,6 @@ def create_personality_card(primary_type, secondary_type, description, recommend
         'Mood': metrics.get('mood_score', 0),
         'Time Pattern': metrics.get('time_pattern_score', 0)
     }
-
-    # Create recommendations list
-    recommendations_list = [
-        html.Li(rec, className="mb-2") for rec in recommendations
-    ]
 
     # Generate unique ID for this card
     import uuid
@@ -395,7 +390,7 @@ def create_personality_card(primary_type, secondary_type, description, recommend
                 # Enhanced stats section with meaningful metrics
                 html.Div([
                     html.Div([
-                        html.Span(metrics.get('listening_style', 'Unknown'), style={
+                        html.Span(metrics.get('listening_style', 'Music Explorer'), style={
                             'fontSize': '18px',
                             'fontWeight': '700',
                             'color': '#8B5CF6',
@@ -457,77 +452,7 @@ def create_personality_card(primary_type, secondary_type, description, recommend
             'zIndex': '2'
         }),
 
-        # Recommendations section with proper side-by-side layout
-        html.Div([
-            html.H5("Personalized Recommendations", style={
-                'margin': '0 0 20px 0',
-                'fontSize': '20px',
-                'fontWeight': '600',
-                'color': '#00D4FF',
-                'fontFamily': 'Orbitron, monospace',
-                'textAlign': 'center'
-            }),
-            html.Div([
-                # Left column - first half of recommendations
-                html.Div([
-                    html.Div([
-                        html.I(className="fas fa-lightbulb", style={
-                            'fontSize': '14px',
-                            'color': '#FFD700',
-                            'marginRight': '10px',
-                            'flexShrink': '0'
-                        }),
-                        html.Span(rec, style={
-                            'fontSize': '14px',
-                            'color': 'rgba(255,255,255,0.9)',
-                            'lineHeight': '1.4'
-                        })
-                    ], style={
-                        'display': 'flex',
-                        'alignItems': 'flex-start',
-                        'marginBottom': '12px',
-                        'padding': '12px 16px',
-                        'background': 'rgba(255,255,255,0.05)',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(255,255,255,0.1)',
-                        'transition': 'all 0.3s ease'
-                    }) for rec in recommendations[:len(recommendations)//2]
-                ], style={'flex': '1', 'paddingRight': '12px'}),
 
-                # Right column - second half of recommendations
-                html.Div([
-                    html.Div([
-                        html.I(className="fas fa-lightbulb", style={
-                            'fontSize': '14px',
-                            'color': '#FFD700',
-                            'marginRight': '10px',
-                            'flexShrink': '0'
-                        }),
-                        html.Span(rec, style={
-                            'fontSize': '14px',
-                            'color': 'rgba(255,255,255,0.9)',
-                            'lineHeight': '1.4'
-                        })
-                    ], style={
-                        'display': 'flex',
-                        'alignItems': 'flex-start',
-                        'marginBottom': '12px',
-                        'padding': '12px 16px',
-                        'background': 'rgba(255,255,255,0.05)',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(255,255,255,0.1)',
-                        'transition': 'all 0.3s ease'
-                    }) for rec in recommendations[len(recommendations)//2:]
-                ], style={'flex': '1', 'paddingLeft': '12px'})
-            ], style={
-                'display': 'flex',
-                'gap': '0px'
-            })
-        ], style={
-            'marginTop': '24px',
-            'position': 'relative',
-            'zIndex': '2'
-        })
     ],
     id=card_id,
     className="futuristic-personality-card",
@@ -687,7 +612,7 @@ def create_album_listening_style_card(patterns):
                     html.Div(
                         [
                             html.H2(
-                                patterns.get('listening_style', 'Unknown'),
+                                patterns.get('listening_style', 'Music Explorer'),
                                 className="text-center mb-3",
                                 style={"color": SPOTIFY_GREEN}
                             ),
@@ -2086,9 +2011,14 @@ class SpotifyVisualizations:
 
         # Get metrics with defaults
         metrics = summary_data.get('metrics', {})
-        listening_style = metrics.get('listening_style', 'Eclectic Explorer')
+        listening_style = metrics.get('listening_style', 'Music Explorer')
         discovery_score = metrics.get('discovery_score', 75)
         variety_score = metrics.get('variety_score', 80)
+
+        # Get personality data
+        top_artist = summary_data.get('top_artist', {})
+        top_track = summary_data.get('top_track', {})
+        personality_type = summary_data.get('personality_type', 'Music Explorer')
 
         # Create enhanced 2x3 grid layout
         return html.Div([
@@ -2129,21 +2059,21 @@ class SpotifyVisualizations:
                         'justifyContent': 'center'
                     }, className='hover-lift'),
 
-                    # Top Genre
+                    # Personality Type
                     html.Div([
-                        html.I(className="fas fa-palette", style={'fontSize': '24px', 'color': '#4ECDC4'}),
-                        html.H3(summary_data.get('genre_highlight', {}).get('name', 'Exploring'), style={
+                        html.I(className="fas fa-user-astronaut", style={'fontSize': '24px', 'color': '#8B5CF6'}),
+                        html.H3(personality_type, style={
                             'color': '#FFFFFF',
                             'margin': '10px 0 5px 0',
                             'fontSize': '16px'
                         }),
-                        html.P("is your vibe", style={'color': '#B3B3B3', 'fontSize': '14px'})
+                        html.P("your music personality", style={'color': '#B3B3B3', 'fontSize': '14px'})
                     ], style={
                         'textAlign': 'center',
                         'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(78,205,196,0.2), rgba(78,205,196,0.05))',
+                        'background': 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05))',
                         'borderRadius': '12px',
-                        'border': '1px solid rgba(78,205,196,0.3)',
+                        'border': '1px solid rgba(139,92,246,0.3)',
                         'transition': 'transform 0.3s ease',
                         'cursor': 'pointer',
                         'height': '120px',

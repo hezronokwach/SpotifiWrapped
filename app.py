@@ -215,7 +215,7 @@ app.layout = html.Div([
     # Global store components (available on all pages)
     dcc.Store(id='user-data-store'),
     dcc.Store(id='current-track-store'),
-    dcc.Store(id='wrapped-summary-store'),
+    dcc.Store(id='wrapped-summary-store', data={}),  # Initialize with empty dict to trigger callback
     dcc.Store(id='personality-data-store'),
     dcc.Store(id='client-id-store', storage_type='session'),
     dcc.Store(id='client-secret-store', storage_type='session'),
@@ -1875,70 +1875,81 @@ def get_listening_style(completion_rate, sequential_score):
         return "Track Hopper"
     return "Mood Curator"
 
-# New callback for personality analysis
-@app.callback(
-    Output('personality-container', 'children'),
-    Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
-)
+# Personality analysis is now integrated into the Music DNA card
+# @app.callback(
+#     Output('personality-container', 'children'),
+#     Input('interval-component', 'n_intervals'),
+#     Input('refresh-button', 'n_clicks')
+# )
 
-def update_personality_analysis(n_intervals, n_clicks):
-    """Update the personality analysis section with AI enhancements."""
+# def update_personality_analysis(n_intervals, n_clicks):
+    """Update the personality analysis section using database and AI analysis."""
     try:
         # Get user data for AI analysis
         user_data = spotify_api.get_user_profile()
-        user_id = user_data.get('id') if user_data else None
-
-        # Fetch new data if refresh button clicked
-        if n_clicks is not None and n_clicks > 0:
-            personality_data = personality_analyzer.analyze()
-
-            # Convert NumPy types to Python native types before saving
-            if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
-                for key, value in personality_data['metrics'].items():
-                    if hasattr(value, 'item'):  # Check if it's a NumPy type
-                        personality_data['metrics'][key] = value.item()  # Convert to Python native type
-
-            data_processor.save_data([personality_data], 'personality.csv')
-
-        # Load data from file
-        personality_df = data_processor.load_data('personality.csv')
-
-        if personality_df.empty:
-            return html.Div("No personality analysis available",
+        if not user_data:
+            return html.Div("Please connect your Spotify account to see personality analysis",
                            style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
-        personality_data = personality_df.iloc[0].to_dict()
+        user_id = user_data.get('id')
+        if not user_id:
+            return html.Div("Unable to get user ID for personality analysis",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+        # Generate personality analysis directly from database using AI enhancer
+        try:
+            from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
+            ai_analyzer = EnhancedPersonalityAnalyzer()
+            ai_personality = ai_analyzer.generate_enhanced_personality(user_id)
+
+            if ai_personality and ai_personality.get('ai_description'):
+                # Create personality data structure compatible with the card
+                personality_data = {
+                    'primary_type': ai_personality.get('personality_type', 'Music Explorer'),
+                    'secondary_type': 'AI Enhanced',
+                    'description': ai_personality.get('ai_description', 'Your unique musical personality'),
+                    'recommendations': ai_personality.get('recommendations', []),
+                    'metrics': {
+                        'variety_score': 75,  # Default values since we're using AI analysis
+                        'discovery_score': 70,
+                        'consistency_score': 65,
+                        'mood_score': 80,
+                        'time_pattern_score': 60,
+                        'confidence_score': ai_personality.get('confidence_score', 85),
+                        'listening_style': 'Music Explorer'  # Provide a good default
+                    }
+                }
+            else:
+                # Fallback to traditional analyzer if AI fails
+                print("AI personality failed, using traditional analyzer...")
+                analyzer = ListeningPersonalityAnalyzer(spotify_api)
+                personality_result = analyzer.analyze_personality()
+
+                if personality_result:
+                    personality_data = personality_result
+                else:
+                    return html.Div("Unable to generate personality analysis. Please listen to more music on Spotify.",
+                                   style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+        except Exception as e:
+            print(f"Error generating personality analysis: {e}")
+            return html.Div("Error generating personality analysis. Please try again later.",
+                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
         # Ensure recommendations is a list
-        if 'recommendations' in personality_data and isinstance(personality_data['recommendations'], str):
-            try:
-                # Try to safely evaluate the string representation of the list
-                import ast
-                personality_data['recommendations'] = ast.literal_eval(personality_data['recommendations'])
-            except:
-                # Fallback to empty list if parsing fails
-                personality_data['recommendations'] = []
+        if 'recommendations' in personality_data and not isinstance(personality_data['recommendations'], list):
+            personality_data['recommendations'] = []
 
         # Ensure metrics is a dictionary
-        if 'metrics' in personality_data and isinstance(personality_data['metrics'], str):
-            try:
-                # Try to safely evaluate the string representation of the dictionary
-                import ast
-                personality_data['metrics'] = ast.literal_eval(personality_data['metrics'])
-            except:
-                # Fallback to empty dict if parsing fails
-                personality_data['metrics'] = {}
-
-        # Load DJ mode stats to include in metrics
-        dj_stats_df = data_processor.load_data('dj_stats.csv')
-        if not dj_stats_df.empty:
-            dj_stats = dj_stats_df.iloc[0].to_dict()
-            # Add DJ stats to metrics
-            if 'metrics' in personality_data and isinstance(personality_data['metrics'], dict):
-                personality_data['metrics']['estimated_minutes'] = dj_stats.get('estimated_minutes', 0)
-                personality_data['metrics']['percentage_of_listening'] = dj_stats.get('percentage_of_listening', 0)
-                personality_data['metrics']['dj_mode_user'] = dj_stats.get('dj_mode_user', False)
+        if 'metrics' not in personality_data or not isinstance(personality_data['metrics'], dict):
+            personality_data['metrics'] = {
+                'variety_score': 75,
+                'discovery_score': 70,
+                'consistency_score': 65,
+                'mood_score': 80,
+                'time_pattern_score': 60,
+                'listening_style': 'Music Explorer'  # Provide a good default
+            }
 
         # Get album patterns directly from database/API instead of CSV
         try:
@@ -1962,10 +1973,10 @@ def update_personality_analysis(n_intervals, n_clicks):
             metrics=personality_data.get('metrics', {})
         )
 
-        # Add AI recommendations section if user_id is available
-        if user_id:
+        # Add AI recommendations section if available
+        if user_id and ai_personality and ai_personality.get('recommendations'):
             try:
-                ai_recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=3)
+                ai_recommendations = ai_personality.get('recommendations', [])
                 if ai_recommendations:
                     ai_section = html.Div([
                         html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
@@ -2009,18 +2020,19 @@ def update_personality_analysis(n_intervals, n_clicks):
 @app.callback(
     Output('wrapped-summary-store', 'data'),
     [Input('refresh-button', 'n_clicks'),
-     Input('interval-component', 'n_intervals')]
+     Input('interval-component', 'n_intervals'),
+     Input('url', 'pathname')],  # Trigger when page loads
+    prevent_initial_call=False  # Allow initial call to load data immediately
 )
-def update_wrapped_summary(n_clicks, n_intervals):
+def update_wrapped_summary(n_clicks, n_intervals, pathname):
     """Generate and store Spotify Wrapped style summary using only database data."""
     try:
-        print(f"Updating wrapped summary - clicks: {n_clicks}, intervals: {n_intervals}")
+        print(f"Updating wrapped summary - clicks: {n_clicks}, intervals: {n_intervals}, pathname: {pathname}")
 
-        # If refresh button was clicked OR every few intervals, clear cache and regenerate
-        should_regenerate = (n_clicks is not None and n_clicks > 0) or (n_intervals is not None and n_intervals % 3 == 0)
-
-        if should_regenerate:
-            print("Clearing cache and regenerating summary (refresh clicked or interval trigger)")
+        # Always generate fresh data for Music DNA card
+        # Clear cache if refresh button was clicked
+        if n_clicks is not None and n_clicks > 0:
+            print("Clearing cache due to refresh button click")
             try:
                 import os
                 cache_file = os.path.join(data_processor.data_dir, 'wrapped_summary.json')
@@ -2030,7 +2042,7 @@ def update_wrapped_summary(n_clicks, n_intervals):
             except Exception as e:
                 print(f"Error clearing cache: {e}")
 
-        # Generate summary from database
+        # Generate summary from database (always fresh)
         summary = generate_wrapped_summary_from_db()
         print(f"Generated summary with total_minutes: {summary.get('total_minutes', 'NOT_FOUND')}")
         return summary
@@ -2569,6 +2581,27 @@ def generate_wrapped_summary_from_db():
         print(f"Saved summary to cache: {cache_file}")
     except Exception as e:
         print(f"Error saving summary to cache: {e}")
+
+    # Add personality type using AI enhancer
+    try:
+        user_data = spotify_api.get_user_profile()
+        if user_data and user_data.get('id'):
+            from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
+            ai_analyzer = EnhancedPersonalityAnalyzer()
+            ai_personality = ai_analyzer.generate_enhanced_personality(user_data['id'])
+
+            if ai_personality and ai_personality.get('personality_type'):
+                summary['personality_type'] = ai_personality.get('personality_type', 'Music Explorer')
+                print(f"✅ Added personality type: {summary['personality_type']}")
+            else:
+                summary['personality_type'] = 'Music Explorer'
+                print("📁 Using default personality type: Music Explorer")
+        else:
+            summary['personality_type'] = 'Music Explorer'
+            print("❌ No user data for personality type")
+    except Exception as e:
+        print(f"Error generating personality type: {e}")
+        summary['personality_type'] = 'Music Explorer'
 
     print(f"Final summary: {summary}")
     return summary
