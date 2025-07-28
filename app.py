@@ -2863,47 +2863,7 @@ def update_error_message(n_intervals):
     }
     return "", error_style
 
-# New callback for data collection status
-@app.callback(
-    Output('collection-status', 'children'),
-    Input('interval-component', 'n_intervals')
-)
-def update_collection_status(n_intervals):
-    """Update the collection status display."""
-    user_data = spotify_api.get_user_profile()
-    if not user_data:
-        return html.Div("Please log in to see your data", className="alert alert-info")
-
-    # Get collection status from database
-    status = db.get_collection_status(user_data['id'])
-    if not status:
-        return html.Div("Starting data collection...", className="alert alert-info")
-
-    # Get track count
-    conn = sqlite3.connect(db.db_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT COUNT(*) as track_count
-        FROM listening_history
-        WHERE user_id = ?
-    ''', (user_data['id'],))
-    track_count = cursor.fetchone()[0]
-    conn.close()
-
-    # Calculate collection period
-    if status['earliest_known'] and status['latest_known']:
-        earliest = datetime.fromisoformat(status['earliest_known'])
-        latest = datetime.fromisoformat(status['latest_known'])
-        days = (latest - earliest).days
-
-        return html.Div([
-            html.P([
-                f"Collected {track_count} tracks over {days} days. ",
-                html.Small("Data collection is running in the background.")
-            ], className="alert alert-success mb-0")
-        ])
-
-    return html.Div("Data collection in progress...", className="alert alert-info")
+# Collection status callback removed - no longer showing collection status message
 
 # AI Insights Page Callbacks
 @app.callback(
