@@ -83,12 +83,28 @@ app.title = "Spotify Wrapped Remix"
 # Add callback route for Spotify OAuth
 @app.server.route('/callback')
 def spotify_callback():
-    """Handle Spotify OAuth callback."""
+    """Handle Spotify OAuth callback with comprehensive debugging."""
     from flask import request
-
+    import traceback
+    
+    print("=" * 80)
+    print("🔄 OAUTH CALLBACK TRIGGERED")
+    print("=" * 80)
+    
+    # Log all request details
+    print(f"📍 Request URL: {request.url}")
+    print(f"📍 Request args: {dict(request.args)}")
+    print(f"📍 Request method: {request.method}")
+    print(f"📍 Request headers: {dict(request.headers)}")
+    
     # Get the authorization code from the callback
     code = request.args.get('code')
     error = request.args.get('error')
+    state = request.args.get('state')
+    
+    print(f"🔍 Authorization code: {code[:10] + '...' if code else 'None'}")
+    print(f"🔍 Error: {error}")
+    print(f"🔍 State: {state}")
 
     if error:
         print(f"❌ OAuth Error: {error}")
@@ -127,6 +143,12 @@ def spotify_callback():
 
     if code:
         print(f"✅ OAuth Success: Received authorization code: {code[:10]}...")
+        
+        # Check current Spotify API state
+        print(f"🔍 Current spotify_api.sp: {spotify_api.sp is not None}")
+        print(f"🔍 Current spotify_api.client_id: {spotify_api.client_id[:8] if spotify_api.client_id else 'None'}...")
+        print(f"🔍 Current spotify_api.client_secret: {'***' if spotify_api.client_secret else 'None'}")
+        print(f"🔍 Current spotify_api.redirect_uri: {spotify_api.redirect_uri}")
 
         # Try to exchange the code for a token immediately
         try:
@@ -135,57 +157,116 @@ def spotify_callback():
                 token_info = spotify_api.sp.auth_manager.get_access_token(code, as_dict=True)
                 if token_info:
                     print("✅ Token exchange successful!")
+                    print(f"🔍 Token info keys: {list(token_info.keys()) if token_info else 'None'}")
+                    
                     # Test the connection
                     user = spotify_api.sp.current_user()
                     if user:
                         print(f"✅ Successfully authenticated as {user.get('display_name', 'Unknown')}")
+                        print(f"🔍 User ID: {user.get('id', 'Unknown')}")
+                        
+                        # Save authentication state to a temporary file for debugging
+                        import json
+                        debug_data = {
+                            'timestamp': datetime.now().isoformat(),
+                            'user_id': user.get('id'),
+                            'display_name': user.get('display_name'),
+                            'token_exchange': 'successful',
+                            'client_id': spotify_api.client_id[:8] if spotify_api.client_id else 'None'
+                        }
+                        try:
+                            with open('debug_oauth_success.json', 'w') as f:
+                                json.dump(debug_data, f, indent=2)
+                            print("💾 Debug data saved to debug_oauth_success.json")
+                        except Exception as e:
+                            print(f"⚠️ Could not save debug data: {e}")
+                    else:
+                        print("❌ Token exchange successful but user fetch failed")
                 else:
-                    print("❌ Token exchange failed")
+                    print("❌ Token exchange failed - no token info returned")
+            else:
+                print("❌ No Spotify API object or auth manager available")
+                print(f"🔍 spotify_api.sp: {spotify_api.sp}")
+                if spotify_api.sp:
+                    print(f"🔍 auth_manager: {hasattr(spotify_api.sp, 'auth_manager')}")
         except Exception as e:
             print(f"❌ Error during token exchange: {e}")
+            print(f"🔍 Exception type: {type(e).__name__}")
+            print(f"🔍 Exception traceback:")
+            traceback.print_exc()
 
-        # Return a success page that auto-redirects
-        return '''
+        # Return a success page with enhanced debugging
+        return f'''
         <!DOCTYPE html>
         <html>
         <head>
             <title>Spotify Authorization Successful</title>
             <style>
-                body {
+                body {{
                     font-family: Arial, sans-serif;
                     background: #191414;
                     color: #1DB954;
                     text-align: center;
                     padding: 50px;
-                }
-                .success {
+                }}
+                .success {{
                     background: #1DB954;
                     color: #000;
                     padding: 20px;
                     border-radius: 10px;
                     display: inline-block;
                     margin: 20px;
-                }
+                }}
+                .debug {{
+                    background: #333;
+                    color: #fff;
+                    padding: 10px;
+                    border-radius: 5px;
+                    margin: 10px;
+                    font-family: monospace;
+                    font-size: 12px;
+                    text-align: left;
+                }}
             </style>
             <script>
-                setTimeout(function() {
-                    window.close();
-                    if (window.opener) {
+                console.log('🔄 OAuth callback page loaded');
+                console.log('🔍 window.opener:', window.opener);
+                console.log('🔍 Current URL:', window.location.href);
+                
+                setTimeout(function() {{
+                    console.log('🔄 Starting redirect process...');
+                    // Try to refresh the parent window and close this popup
+                    if (window.opener) {{
+                        console.log('✅ Found window.opener, refreshing parent and closing popup');
+                        // Refresh the parent window to trigger auth check
                         window.opener.location.reload();
-                    }
-                }, 2000);
+                        window.close();
+                    }} else {{
+                        console.log('⚠️ No window.opener, redirecting current window to dashboard');
+                        // If no opener, redirect this window to dashboard
+                        window.location.href = '/dashboard';
+                    }}
+                }}, 2000);
             </script>
         </head>
         <body>
             <div class="success">
-                <h2>🎵 Authorization Successful!</h2>
-                <p>You can now close this window.</p>
-                <p>Redirecting back to the app...</p>
+                <h2>🎵 Authorization Successful!</h2<p>Authorization completed successfully!</p>
+                <p><strong><a href="/dashboard" style="color: #000; text-decoration: underline; font-size: 18px;">🏠 Click here to go to your Dashboard</a></strong></p>
+                <p style="font-size: 14px; margin-top: 20px;">You can close this tab after clicking the dashboard link.</p>
+            </div>
+            <div class="debug">
+                <strong>Debug Info:</strong><br>
+                Code received: {code[:10] if code else 'None'}...<br>
+                Timestamp: {datetime.now().isoformat()}<br>
+                Client ID: {spotify_api.client_id[:8] if spotify_api.client_id else 'None'}...<br>
+                Redirect URI: {spotify_api.redirect_uri}<br>
             </div>
         </body>
         </html>
         '''
 
+    print("❌ No authorization code received in callback")
     return '''
     <!DOCTYPE html>
     <html>
@@ -242,7 +323,8 @@ app.layout = html.Div([
                 'margin': '0'
             }),
             html.Div([
-                dcc.Link("🏠 Dashboard", href="/", className="nav-link"),
+                dcc.Link("🚀 Get Started", href="/onboarding", className="nav-link onboarding-nav-link"),
+                dcc.Link("🏠 Dashboard", href="/dashboard", className="nav-link"),
                 dcc.Link("🤖 AI Insights", href="/ai-insights", className="nav-link ai-nav-link"),
                 dcc.Link("⚙️ Settings", href="/settings", className="nav-link settings-nav-link")
             ], className="nav-links")
@@ -270,7 +352,8 @@ def toggle_advanced_options(n_clicks, is_open):
     [Output('auth-status-store', 'data'),
      Output('client-id-store', 'data'),
      Output('client-secret-store', 'data'),
-     Output('use-sample-data-store', 'data')],
+     Output('use-sample-data-store', 'data'),
+     Output('connect-status', 'children')],
     [Input('connect-button', 'n_clicks')],
     [State('client-id-input', 'value'),
      State('client-secret-input', 'value')],
@@ -285,7 +368,9 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
     if button_id == 'connect-button':
         if not client_id or not client_secret:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
+                html.P("❌ Please provide both Client ID and Client Secret.", style={'color': '#FF5555', 'marginBottom': '10px'}),
+            ])
 
         print(f"🔐 DEBUG: Attempting to connect with Client ID: {client_id[:8]}...")
         print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
@@ -309,19 +394,55 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
             if auth_result:
                 print("✅ DEBUG: Connection successful!")
-                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
+                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, html.Div([
+                    html.P("✅ Successfully connected to Spotify!", style={'color': '#1DB954', 'marginBottom': '10px'}),
+                    html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
+                ])
             else:
                 print("⚠️ DEBUG: Need authorization")
                 # Get auth URL using our safe method
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    # Store credentials in session even when authorization is needed
+                    return dash.no_update, client_id, client_secret, dash.no_update, html.Div([
+                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
+                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
+                        html.A(
+                            "🎵 Authorize Spotify Access",
+                            href=auth_url,
+                            target="_blank",
+                            style={
+                                'display': 'inline-block',
+                                'padding': '12px 24px',
+                                'backgroundColor': '#1DB954',
+                                'color': '#000000',
+                                'textDecoration': 'none',
+                                'borderRadius': '25px',
+                                'fontWeight': 'bold',
+                                'fontSize': '16px',
+                                'transition': 'all 0.3s ease',
+                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.3)'
+                            },
+                            className="spotify-auth-button"
+                        ),
+                        html.P("After authorizing, you'll be redirected back to the app automatically.", style={'color': '#B3B3B3', 'marginTop': '15px', 'fontSize': '14px'})
+                    ], style={
+                        'padding': '20px',
+                        'backgroundColor': 'rgba(29, 185, 84, 0.1)',
+                        'border': '1px solid rgba(29, 185, 84, 0.3)',
+                        'borderRadius': '10px',
+                        'textAlign': 'center'
+                    })
                 else:
                     print(f"❌ DEBUG: Could not get auth URL")
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
+                        html.P("❌ Could not generate authorization URL. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
+                    ])
         else:
             print("❌ DEBUG: Connection failed - no Spotify API object created")
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
+                html.P("❌ Connection failed. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
+            ])
 
     return dash.no_update
 
@@ -330,26 +451,101 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
     [Output('auth-status-store', 'data', allow_duplicate=True),
      Output('client-id-store', 'data', allow_duplicate=True),
      Output('client-secret-store', 'data', allow_duplicate=True),
-     Output('use-sample-data-store', 'data', allow_duplicate=True)],
+     Output('use-sample-data-store', 'data', allow_duplicate=True),
+     Output('connect-status', 'children', allow_duplicate=True)],
     [Input('interval-component', 'n_intervals')],
-    [State('client-id-input', 'value'),
-     State('client-secret-input', 'value'),
-     State('auth-status-store', 'data')],
+    [State('auth-status-store', 'data'),
+     State('client-id-store', 'data'),
+     State('client-secret-store', 'data')],
     prevent_initial_call=True
 )
-def check_auth_status(n_intervals, client_id, client_secret, current_auth_status):
-    """Periodically check if authentication has been completed."""
-    # Only check if we have credentials but aren't authenticated yet
-    if client_id and client_secret and (not current_auth_status or not current_auth_status.get('authenticated')):
+def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored_client_secret):
+    """Periodically check if authentication has been completed with enhanced debugging."""
+    # Reduce frequency - only check every 5th interval (every 2.5 minutes instead of 30 seconds)
+    if n_intervals % 5 != 0:
+        return dash.no_update
+        
+    print("=" * 60)
+    print(f"🔄 AUTH CHECK CALLBACK TRIGGERED (interval #{n_intervals})")
+    print("=" * 60)
+    
+    print(f"🔍 Stored client_id: {stored_client_id[:8] if stored_client_id else 'None'}...")
+    print(f"🔍 Stored client_secret: {'***' if stored_client_secret else 'None'}")
+    print(f"🔍 Current auth status: {current_auth_status}")
+    print(f"🔍 Current spotify_api.client_id: {spotify_api.client_id[:8] if spotify_api.client_id else 'None'}...")
+    print(f"🔍 Current spotify_api.sp: {spotify_api.sp is not None}")
+    
+    # Check if we have a debug file from OAuth success
+    try:
+        import os
+        if os.path.exists('debug_oauth_success.json'):
+            print("🔍 Found debug_oauth_success.json file!")
+            with open('debug_oauth_success.json', 'r') as f:
+                debug_data = json.load(f)
+            print(f"🔍 Debug file contents: {debug_data}")
+            # Remove the file after reading
+            os.remove('debug_oauth_success.json')
+            print("🗑️ Removed debug file")
+            
+            # If we found the debug file, that means OAuth was successful
+            # Use stored credentials or keep existing ones
+            client_id_to_use = stored_client_id or spotify_api.client_id
+            client_secret_to_use = stored_client_secret or spotify_api.client_secret
+            
+            if client_id_to_use and client_secret_to_use:
+                print("✅ DEBUG: OAuth success detected via debug file!")
+                return {'authenticated': True}, client_id_to_use, client_secret_to_use, {'use_sample': False}, html.Div([
+                    html.P("✅ Authentication successful!", style={'color': '#1DB954', 'marginBottom': '10px'}),
+                    html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
+                ])
+        else:
+            print("🔍 No debug_oauth_success.json file found")
+    except Exception as e:
+        print(f"⚠️ Error checking debug file: {e}")
+    
+    # Only check if we have stored credentials but aren't authenticated yet
+    if stored_client_id and stored_client_secret and (not current_auth_status or not current_auth_status.get('authenticated')):
+        print("🔄 Conditions met for auth check - proceeding...")
+        
         # Set credentials if not already set
-        if spotify_api.client_id != client_id or spotify_api.client_secret != client_secret:
-            spotify_api.set_credentials(client_id, client_secret, os.getenv('REDIRECT_URI'))
+        if spotify_api.client_id != stored_client_id or spotify_api.client_secret != stored_client_secret:
+            print("🔄 Setting credentials in spotify_api...")
+            spotify_api.set_credentials(stored_client_id, stored_client_secret, os.getenv('REDIRECT_URI'))
+            print(f"✅ Credentials set - spotify_api.sp: {spotify_api.sp is not None}")
 
         # Check authentication status
-        if spotify_api.sp and spotify_api.is_authenticated():
+        print("🔄 Checking authentication status...")
+        auth_result = spotify_api.is_authenticated()
+        print(f"🔍 Authentication result: {auth_result}")
+        
+        if spotify_api.sp and auth_result:
             print("✅ DEBUG: Auto-detected successful authentication!")
-            return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
+            
+            # Try to get user info to confirm
+            try:
+                user = spotify_api.sp.current_user()
+                print(f"✅ User info retrieved: {user.get('display_name', 'Unknown') if user else 'None'}")
+            except Exception as e:
+                print(f"⚠️ Could not get user info: {e}")
+            
+            return {'authenticated': True}, stored_client_id, stored_client_secret, {'use_sample': False}, html.Div([
+                html.P("✅ Authentication successful!", style={'color': '#1DB954', 'marginBottom': '10px'}),
+                html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
+            ])
+        else:
+            print("❌ Authentication check failed")
+            print(f"🔍 spotify_api.sp: {spotify_api.sp is not None}")
+            print(f"🔍 auth_result: {auth_result}")
+    else:
+        print("⏭️ Skipping auth check - conditions not met")
+        if not stored_client_id:
+            print("   - No stored client_id")
+        if not stored_client_secret:
+            print("   - No stored client_secret")
+        if current_auth_status and current_auth_status.get('authenticated'):
+            print("   - Already authenticated")
 
+    print("=" * 60)
     return dash.no_update
 
 # --- Settings Page Callbacks ---
@@ -407,16 +603,58 @@ def handle_settings_actions(update_clicks, clear_clicks, client_id, client_secre
 )
 def display_page(pathname, auth_data, client_id_data, client_secret_data, use_sample_data_flag):
     """Display the appropriate page based on the URL pathname and authentication status."""
-    if not auth_data or not auth_data.get('authenticated'):
-        return create_onboarding_page()
+    print(f"🔍 DISPLAY_PAGE DEBUG: pathname={pathname}, auth_data={auth_data}")
+    print(f"🔍 DISPLAY_PAGE DEBUG: client_id_data={client_id_data[:8] if client_id_data else 'None'}...")
+    print(f"🔍 DISPLAY_PAGE DEBUG: client_secret_data={'***' if client_secret_data else 'None'}")
+    print(f"🔍 DISPLAY_PAGE DEBUG: spotify_api.client_id={spotify_api.client_id[:8] if spotify_api.client_id else 'None'}...")
+    print(f"🔍 DISPLAY_PAGE DEBUG: spotify_api.sp={spotify_api.sp is not None}")
 
-    if pathname == '/ai-insights':
+    # Route-based page display
+    if pathname == '/onboarding':
+        return create_onboarding_page()
+    elif pathname == '/ai-insights':
         return create_ai_insights_page()
     elif pathname == '/settings':
         from modules.layout import create_settings_page
         return create_settings_page()
-    else:
+    elif pathname == '/dashboard':
+        # Dashboard route - check if we have working spotify_api even if session storage is broken
+        print(f"🔍 DEBUG: Dashboard access check - auth_data: {auth_data}")
+        
+        # Check if spotify_api is working (user is actually authenticated)
+        if spotify_api.sp and spotify_api.is_authenticated():
+            print("✅ DEBUG: Spotify API is working, allowing dashboard access")
+            return dashboard_layout.create_layout()
+        
+        # Fallback to session storage check
+        is_authenticated = bool(auth_data and auth_data.get('authenticated'))
+        
+        if not is_authenticated:
+            print("❌ DEBUG: Not authenticated, redirecting to onboarding")
+            return dcc.Location(pathname='/onboarding', id='redirect-to-onboarding')
+        
+        # Re-initialize API with stored credentials if needed for dashboard functionality
+        if client_id_data and client_secret_data:
+            if spotify_api.client_id != client_id_data or spotify_api.client_secret != client_secret_data:
+                print("🔄 DEBUG: Re-initializing API with stored credentials for dashboard access")
+                spotify_api.set_credentials(client_id_data, client_secret_data, os.getenv('REDIRECT_URI'))
+        
+        print("✅ DEBUG: Authentication verified, showing dashboard")
         return dashboard_layout.create_layout()
+    else:
+        # Default root path - redirect based on authentication
+        # Check if spotify_api is working first
+        if spotify_api.sp and spotify_api.is_authenticated():
+            print("✅ DEBUG: Spotify API is working, redirecting to dashboard")
+            return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+        
+        # Fallback to session storage check
+        is_authenticated = bool(auth_data and auth_data.get('authenticated'))
+        
+        if is_authenticated:
+            return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+        else:
+            return dcc.Location(pathname='/onboarding', id='redirect-to-onboarding')
 
 # --- Data Callbacks ---
 
@@ -437,6 +675,8 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
     print(f"👤 DEBUG: use_sample_data_flag: {use_sample_data_flag}")
     print(f"👤 DEBUG: spotify_api.sp: {spotify_api.sp is not None}")
     print(f"👤 DEBUG: spotify_api.use_sample_data: {spotify_api.use_sample_data}")
+    print(f"👤 DEBUG: spotify_api.client_id: {spotify_api.client_id[:8] if spotify_api.client_id else 'None'}...")
+    print(f"👤 DEBUG: spotify_api.client_secret: {'***' if spotify_api.client_secret else 'None'}")
 
     use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
     print(f"👤 DEBUG: Final use_sample decision: {use_sample}")
@@ -3044,7 +3284,7 @@ if __name__ == '__main__':
 
     # Run the app
     # For production deployment (Render, Railway, etc.)
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get('PORT', 8080))
     debug = os.environ.get('DEBUG', 'True').lower() == 'true'
 
     app.run(host='0.0.0.0', port=port, debug=debug)

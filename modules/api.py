@@ -38,8 +38,38 @@ class SpotifyAPI:
         print(f"🔧 DEBUG: Client Secret length: {len(client_secret) if client_secret else 0}")
         print(f"🔧 DEBUG: Redirect URI: {redirect_uri}")
 
-        # Clear any existing cache files first
+        # Only clear cache if credentials actually changed
+        credentials_changed = (
+            self.client_id != client_id or 
+            self.client_secret != client_secret or 
+            self.redirect_uri != redirect_uri
+        )
+        
+        if credentials_changed:
+            print(f"🔧 DEBUG: Credentials changed, clearing cache files...")
+            self.clear_cache_files()
+        else:
+            print(f"🔧 DEBUG: Credentials unchanged, keeping existing cache...")
+
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
+        self.use_sample_data = False
+        
+        # Only clear connection if credentials changed
+        if credentials_changed:
+            self.sp = None  # Clear existing connection
+
+        print(f"🔧 DEBUG: Credentials set, initializing connection...")
+        self.initialize_connection()
+        print(f"🔧 DEBUG: Connection initialized, sp object: {self.sp is not None}")
+
+    def clear_cache_files(self):
+        """Clear only Spotify OAuth cache files."""
         import glob
+        import tempfile
+
+        # Clear Spotify OAuth cache files
         cache_files = glob.glob('.spotify_cache*')
         for cache_file in cache_files:
             try:
@@ -48,17 +78,16 @@ class SpotifyAPI:
             except Exception as e:
                 print(f"⚠️ DEBUG: Could not remove cache file {cache_file}: {e}")
 
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
-        self.use_sample_data = False
-        self.sp = None  # Clear existing connection
-
-        print(f"🔧 DEBUG: Credentials set, initializing connection...")
-        self.initialize_connection()
-        print(f"🔧 DEBUG: Connection initialized, sp object: {self.sp is not None}")
-
-
+        # Also check for cache files in temp directory
+        temp_dir = tempfile.gettempdir()
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        for cache_file in temp_cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"🗑️ DEBUG: Removed temp cache file: {cache_file}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Could not remove temp cache file {cache_file}: {e}")
 
     def clear_all_cached_data(self):
         """Clear all cached data including CSV files and Spotify cache."""
