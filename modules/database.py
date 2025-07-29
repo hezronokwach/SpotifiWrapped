@@ -679,6 +679,76 @@ class SpotifyDatabase:
         finally:
             conn.close()
 
+    def get_user_top_genres(self, user_id: str, limit: int = 10, exclude_unknown: bool = True,
+                           include_sources: list = None, date_filter: str = None) -> list:
+        """
+        Get top genres for a specific user based on their listening history.
+        This is the standardized method for consistent genre data across the application.
+
+        Args:
+            user_id: User ID to get genres for
+            limit: Maximum number of genres to return
+            exclude_unknown: Whether to exclude 'unknown' genres
+            include_sources: List of sources to include (e.g., ['played', 'recently_played', 'current'])
+            date_filter: Optional date filter (e.g., '2024-01-01')
+
+        Returns:
+            List of genre dictionaries with 'genre' and 'count' keys
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        try:
+            # Build the base query
+            query = '''
+                SELECT
+                    g.genre_name as genre,
+                    COUNT(DISTINCT h.history_id) as count
+                FROM genres g
+                JOIN tracks t ON g.artist_name = t.artist
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE h.user_id = ?
+                AND g.genre_name IS NOT NULL
+                AND g.genre_name != ''
+            '''
+            params = [user_id]
+
+            # Add unknown genre filter
+            if exclude_unknown:
+                query += " AND g.genre_name != 'unknown'"
+
+            # Add source filter
+            if include_sources:
+                placeholders = ','.join(['?' for _ in include_sources])
+                query += f" AND h.source IN ({placeholders})"
+                params.extend(include_sources)
+
+            # Add date filter
+            if date_filter:
+                query += " AND date(h.played_at) <= ?"
+                params.append(date_filter)
+
+            # Complete the query
+            query += '''
+                GROUP BY g.genre_name
+                ORDER BY count DESC
+                LIMIT ?
+            '''
+            params.append(limit)
+
+            cursor.execute(query, params)
+            genres = [dict(row) for row in cursor.fetchall()]
+
+            logger.info(f"Retrieved {len(genres)} top genres for user {user_id}")
+            return genres
+
+        except sqlite3.Error as e:
+            logger.error(f"Error getting user top genres: {e}")
+            return []
+        finally:
+            conn.close()
+
     def _categorize_genres(self, genres):
         """
         Categorize and group similar genres together.

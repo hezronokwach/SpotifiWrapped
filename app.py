@@ -346,8 +346,7 @@ def toggle_advanced_options(n_clicks, is_open):
     [Output('auth-status-store', 'data'),
      Output('client-id-store', 'data'),
      Output('client-secret-store', 'data'),
-     Output('use-sample-data-store', 'data'),
-     Output('connect-status', 'children')],
+     Output('use-sample-data-store', 'data')],
     [Input('connect-button', 'n_clicks')],
     [State('client-id-input', 'value'),
      State('client-secret-input', 'value')],
@@ -362,9 +361,7 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
     if button_id == 'connect-button':
         if not client_id or not client_secret:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
-                html.P("❌ Please provide both Client ID and Client Secret.", style={'color': '#FF5555', 'marginBottom': '10px'}),
-            ])
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
         print(f"🔐 DEBUG: Attempting to connect with Client ID: {client_id[:8]}...")
         print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
@@ -388,55 +385,20 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
             if auth_result:
                 print("✅ DEBUG: Connection successful!")
-                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, html.Div([
-                    html.P("✅ Successfully connected to Spotify!", style={'color': '#1DB954', 'marginBottom': '10px'}),
-                    html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
-                ])
+                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
             else:
                 print("⚠️ DEBUG: Need authorization")
                 # Get auth URL using our safe method
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
                     # Store credentials in session even when authorization is needed
-                    return dash.no_update, client_id, client_secret, dash.no_update, html.Div([
-                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
-                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
-                        html.A(
-                            "🎵 Authorize Spotify Access",
-                            href=auth_url,
-                            target="_blank",
-                            style={
-                                'display': 'inline-block',
-                                'padding': '12px 24px',
-                                'backgroundColor': '#1DB954',
-                                'color': '#000000',
-                                'textDecoration': 'none',
-                                'borderRadius': '25px',
-                                'fontWeight': 'bold',
-                                'fontSize': '16px',
-                                'transition': 'all 0.3s ease',
-                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.3)'
-                            },
-                            className="spotify-auth-button"
-                        ),
-                        html.P("After authorizing, you'll be redirected back to the app automatically.", style={'color': '#B3B3B3', 'marginTop': '15px', 'fontSize': '14px'})
-                    ], style={
-                        'padding': '20px',
-                        'backgroundColor': 'rgba(29, 185, 84, 0.1)',
-                        'border': '1px solid rgba(29, 185, 84, 0.3)',
-                        'borderRadius': '10px',
-                        'textAlign': 'center'
-                    })
+                    return dash.no_update, client_id, client_secret, dash.no_update
                 else:
                     print(f"❌ DEBUG: Could not get auth URL")
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
-                        html.P("❌ Could not generate authorization URL. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
-                    ])
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
         else:
             print("❌ DEBUG: Connection failed - no Spotify API object created")
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, html.Div([
-                html.P("❌ Connection failed. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
-            ])
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     return dash.no_update
 
@@ -445,15 +407,15 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
     [Output('auth-status-store', 'data', allow_duplicate=True),
      Output('client-id-store', 'data', allow_duplicate=True),
      Output('client-secret-store', 'data', allow_duplicate=True),
-     Output('use-sample-data-store', 'data', allow_duplicate=True),
-     Output('connect-status', 'children', allow_duplicate=True)],
+     Output('use-sample-data-store', 'data', allow_duplicate=True)],
     [Input('interval-component', 'n_intervals')],
     [State('auth-status-store', 'data'),
      State('client-id-store', 'data'),
-     State('client-secret-store', 'data')],
+     State('client-secret-store', 'data'),
+     State('url', 'pathname')],
     prevent_initial_call=True
 )
-def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored_client_secret):
+def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored_client_secret, pathname):
     """Periodically check if authentication has been completed with enhanced debugging."""
     # Reduce frequency - only check every 5th interval (every 2.5 minutes instead of 30 seconds)
     if n_intervals % 5 != 0:
@@ -488,10 +450,7 @@ def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored
             
             if client_id_to_use and client_secret_to_use:
                 print("✅ DEBUG: OAuth success detected via debug file!")
-                return {'authenticated': True}, client_id_to_use, client_secret_to_use, {'use_sample': False}, html.Div([
-                    html.P("✅ Authentication successful!", style={'color': '#1DB954', 'marginBottom': '10px'}),
-                    html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
-                ])
+                return {'authenticated': True}, client_id_to_use, client_secret_to_use, {'use_sample': False}
         else:
             print("🔍 No debug_oauth_success.json file found")
     except Exception as e:
@@ -522,10 +481,7 @@ def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored
             except Exception as e:
                 print(f"⚠️ Could not get user info: {e}")
             
-            return {'authenticated': True}, stored_client_id, stored_client_secret, {'use_sample': False}, html.Div([
-                html.P("✅ Authentication successful!", style={'color': '#1DB954', 'marginBottom': '10px'}),
-                html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
-            ])
+            return {'authenticated': True}, stored_client_id, stored_client_secret, {'use_sample': False}
         else:
             print("❌ Authentication check failed")
             print(f"🔍 spotify_api.sp: {spotify_api.sp is not None}")
@@ -541,6 +497,88 @@ def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored
 
     print("=" * 60)
     return dash.no_update
+
+# Separate callback for connect-status component (only on onboarding page)
+@app.callback(
+    Output('connect-status', 'children'),
+    [Input('auth-status-store', 'data'),
+     Input('connect-button', 'n_clicks'),
+     Input('url', 'pathname')],
+    [State('client-id-input', 'value'),
+     State('client-secret-input', 'value')],
+    prevent_initial_call=True
+)
+def update_connect_status(auth_data, connect_clicks, pathname, client_id, client_secret):
+    """Update connect status only when on onboarding page."""
+    if pathname != '/onboarding':
+        return dash.no_update
+
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return html.Div()
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    # Handle connect button click
+    if trigger_id == 'connect-button' and connect_clicks:
+        if not client_id or not client_secret:
+            return html.Div([
+                html.P("❌ Please provide both Client ID and Client Secret.", style={'color': '#FF5555', 'marginBottom': '10px'}),
+            ])
+
+        # Check if we need authorization
+        if spotify_api.sp:
+            auth_result = spotify_api.is_authenticated()
+            if not auth_result:
+                # Get auth URL
+                auth_url = spotify_api.get_auth_url()
+                if auth_url:
+                    return html.Div([
+                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
+                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
+                        html.A(
+                            "🎵 Authorize Spotify Access",
+                            href=auth_url,
+                            target="_blank",
+                            style={
+                                'display': 'inline-block',
+                                'padding': '12px 24px',
+                                'backgroundColor': '#1DB954',
+                                'color': '#000000',
+                                'textDecoration': 'none',
+                                'borderRadius': '25px',
+                                'fontWeight': 'bold',
+                                'fontSize': '16px',
+                                'transition': 'all 0.3s ease',
+                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.3)'
+                            },
+                            className="spotify-auth-button"
+                        ),
+                        html.P("After authorizing, you'll be redirected back to the app automatically.", style={'color': '#B3B3B3', 'marginTop': '15px', 'fontSize': '14px'})
+                    ], style={
+                        'padding': '20px',
+                        'backgroundColor': 'rgba(29, 185, 84, 0.1)',
+                        'border': '1px solid rgba(29, 185, 84, 0.3)',
+                        'borderRadius': '10px',
+                        'textAlign': 'center'
+                    })
+                else:
+                    return html.Div([
+                        html.P("❌ Could not generate authorization URL. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
+                    ])
+
+        return html.Div([
+            html.P("❌ Connection failed. Please check your credentials and redirect URI.", style={'color': '#FF5555'})
+        ])
+
+    # Handle auth status updates
+    if auth_data and auth_data.get('authenticated'):
+        return html.Div([
+            html.P("✅ Authentication successful!", style={'color': '#1DB954', 'marginBottom': '10px'}),
+            html.P("Redirecting to dashboard...", style={'color': '#FFFFFF'})
+        ])
+
+    return html.Div()
 
 # --- Settings Page Callbacks ---
 
@@ -1774,31 +1812,23 @@ def update_genre_chart(n_intervals, n_clicks):
         if 'user_data' not in locals() or user_data is None:
             user_data = spotify_api.get_user_profile()
 
-        # Get genre data from genres table linked to listening history (consistent with wrapped summary)
-        conn = sqlite3.connect(db.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        current_date = datetime.now().strftime('%Y-%m-%d')
+        # Get user data to determine user_id
+        user_data = spotify_api.get_user_profile()
+        if not user_data:
+            print("No user data available for genre chart")
+            genre_data = []
+        else:
+            user_id = user_data['id']
+            current_date = datetime.now().strftime('%Y-%m-%d')
 
-        cursor.execute('''
-            SELECT
-                g.genre_name as genre,
-                COUNT(DISTINCT h.history_id) as count
-            FROM genres g
-            JOIN tracks t ON g.artist_name = t.artist
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE g.genre_name IS NOT NULL
-            AND g.genre_name != ''
-            AND g.genre_name != 'unknown'
-            AND h.source IN ('played', 'recently_played', 'current')
-            AND date(h.played_at) <= ?
-            GROUP BY g.genre_name
-            ORDER BY count DESC
-            LIMIT 10
-        ''', (current_date,))
-
-        genre_data = [dict(row) for row in cursor.fetchall()]
-        conn.close()
+            # Use standardized genre query function
+            genre_data = db.get_user_top_genres(
+                user_id=user_id,
+                limit=10,
+                exclude_unknown=True,
+                include_sources=['played', 'recently_played', 'current'],
+                date_filter=current_date
+            )
 
         # Convert to DataFrame
         if genre_data:
@@ -2544,30 +2574,21 @@ def generate_wrapped_summary_from_db():
             'energy': 0.5
         }
 
-    # Get top genre from genres table linked to listening history (consistent with genre chart)
-    cursor.execute('''
-        SELECT
-            g.genre_name as genre,
-            COUNT(DISTINCT h.history_id) as play_count
-        FROM genres g
-        JOIN tracks t ON g.artist_name = t.artist
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE g.genre_name IS NOT NULL
-        AND g.genre_name != ''
-        AND g.genre_name != 'unknown'
-        AND h.source IN ('played', 'recently_played', 'current')
-        AND date(h.played_at) <= ?
-        GROUP BY g.genre_name
-        ORDER BY play_count DESC
-        LIMIT 1
-    ''', (current_date,))
+    # Get top genre using standardized function (consistent with genre chart)
+    user_id = user_data['id']
+    top_genres = db.get_user_top_genres(
+        user_id=user_id,
+        limit=1,
+        exclude_unknown=True,
+        include_sources=['played', 'recently_played', 'current'],
+        date_filter=current_date
+    )
 
-    top_genre_row = cursor.fetchone()
-    if top_genre_row:
-        top_genre = dict(top_genre_row)
+    if top_genres:
+        top_genre = top_genres[0]
         summary['genre_highlight'] = {
             'name': top_genre['genre'],
-            'count': top_genre['play_count']
+            'count': top_genre['count']
         }
     else:
         # Default genre highlight if none found

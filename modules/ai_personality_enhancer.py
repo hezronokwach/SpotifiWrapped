@@ -83,20 +83,19 @@ class EnhancedPersonalityAnalyzer:
             top_artist_result = cursor.fetchone()
             top_artist = top_artist_result[0] if top_artist_result else 'Various Artists'
             
-            # Get top genre
-            cursor.execute('''
-                SELECT g.genre_name, COUNT(*) as genre_count
-                FROM listening_history h
-                JOIN tracks t ON h.track_id = t.track_id
-                JOIN genres g ON t.artist = g.artist_name
-                WHERE h.user_id = ?
-                GROUP BY g.genre_name
-                ORDER BY genre_count DESC
-                LIMIT 1
-            ''', (user_id,))
-            
-            top_genre_result = cursor.fetchone()
-            top_genre = top_genre_result[0] if top_genre_result else 'Mixed'
+            # Get top genre using standardized database method (consistent with dashboard)
+            from modules.database import SpotifyDatabase
+            from datetime import datetime
+            db = SpotifyDatabase()
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            top_genres = db.get_user_top_genres(
+                user_id=user_id,
+                limit=1,
+                exclude_unknown=True,
+                include_sources=['played', 'recently_played', 'current'],
+                date_filter=current_date
+            )
+            top_genre = top_genres[0]['genre'] if top_genres else 'Mixed'
             
             # Calculate listening hours (estimate)
             total_hours = (stats[1] * 3.5) / 60 if stats[1] else 0  # Assume 3.5 min avg song length
@@ -290,19 +289,19 @@ class EnhancedPersonalityAnalyzer:
             if not user_profile or not any(user_profile):
                 return []
 
-            # Get user's top genres
-            cursor.execute('''
-                SELECT g.genre_name, COUNT(*) as genre_count
-                FROM genres g
-                JOIN tracks t ON g.artist_name = t.artist
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE h.user_id = ?
-                GROUP BY g.genre_name
-                ORDER BY genre_count DESC
-                LIMIT 3
-            ''', (user_id,))
-
-            top_genres = [row[0] for row in cursor.fetchall()]
+            # Get user's top genres using standardized database method (consistent with dashboard)
+            from modules.database import SpotifyDatabase
+            from datetime import datetime
+            db = SpotifyDatabase()
+            current_date = datetime.now().strftime('%Y-%m-%d')
+            top_genre_data = db.get_user_top_genres(
+                user_id=user_id,
+                limit=3,
+                exclude_unknown=True,
+                include_sources=['played', 'recently_played', 'current'],
+                date_filter=current_date
+            )
+            top_genres = [genre['genre'] for genre in top_genre_data]
 
             # Find tracks similar to user's preferences that they haven't heard
             # Try genre-matched tracks first, then fall back to all tracks
