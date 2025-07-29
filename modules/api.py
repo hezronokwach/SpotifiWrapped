@@ -29,6 +29,9 @@ class SpotifyAPI:
         self.use_ai_audio_features = True
         # Cache for audio features to reduce API calls
         self.audio_features_cache = {}
+        # Cache for user profile to reduce API calls
+        self._user_profile_cache = None
+        self._user_profile_cache_time = 0
         if not self.use_sample_data:
             self.initialize_connection()
 
@@ -48,6 +51,9 @@ class SpotifyAPI:
         if credentials_changed:
             print(f"🔧 DEBUG: Credentials changed, clearing cache files...")
             self.clear_cache_files()
+            # Clear user profile cache
+            self._user_profile_cache = None
+            self._user_profile_cache_time = 0
         else:
             print(f"🔧 DEBUG: Credentials unchanged, keeping existing cache...")
 
@@ -600,7 +606,13 @@ class SpotifyAPI:
             return None
 
     def get_user_profile(self):
-        """Fetch user profile information."""
+        """Fetch user profile information with caching to improve performance."""
+        # Check cache first (cache for 30 seconds)
+        current_time = time.time()
+        if (self._user_profile_cache and
+            current_time - self._user_profile_cache_time < 30):
+            return self._user_profile_cache
+
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
             return {}
@@ -618,7 +630,7 @@ class SpotifyAPI:
                 print(f"Error fetching followed artists: {e}")
                 following_count = 0
 
-            return {
+            user_data = {
                 'display_name': user_profile.get('display_name', 'Unknown'),
                 'id': user_profile.get('id', 'Unknown'),
                 'followers': user_profile.get('followers', {}).get('total', 0),
@@ -626,6 +638,12 @@ class SpotifyAPI:
                 'image_url': user_profile.get('images', [{}])[0].get('url', '') if user_profile.get('images') else '',
                 'product': user_profile.get('product', 'Unknown')  # subscription level
             }
+
+            # Cache the result
+            self._user_profile_cache = user_data
+            self._user_profile_cache_time = current_time
+
+            return user_data
         except Exception as e:
             print(f"Error fetching user profile: {e}")
             return {
