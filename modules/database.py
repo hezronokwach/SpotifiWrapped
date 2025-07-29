@@ -700,11 +700,20 @@ class SpotifyDatabase:
         cursor = conn.cursor()
 
         try:
-            # Build the base query
+            # Build the improved time-weighted query (Spotify-like approach)
             query = '''
                 SELECT
                     g.genre_name as genre,
-                    COUNT(DISTINCT h.history_id) as count
+                    SUM(
+                        CASE
+                            WHEN date(h.played_at) >= date('now', '-30 days') THEN 3.0
+                            WHEN date(h.played_at) >= date('now', '-90 days') THEN 2.0
+                            WHEN date(h.played_at) >= date('now', '-180 days') THEN 1.0
+                            ELSE 0.5
+                        END
+                    ) as weighted_score,
+                    COUNT(DISTINCT h.history_id) as play_count,
+                    COUNT(DISTINCT t.artist) as artist_count
                 FROM genres g
                 JOIN tracks t ON g.artist_name = t.artist
                 JOIN listening_history h ON t.track_id = h.track_id
@@ -729,18 +738,30 @@ class SpotifyDatabase:
                 query += " AND date(h.played_at) <= ?"
                 params.append(date_filter)
 
-            # Complete the query
+            # Complete the query - order by weighted score for better recency bias
             query += '''
                 GROUP BY g.genre_name
-                ORDER BY count DESC
+                ORDER BY weighted_score DESC, play_count DESC
                 LIMIT ?
             '''
             params.append(limit)
 
             cursor.execute(query, params)
-            genres = [dict(row) for row in cursor.fetchall()]
+            raw_results = [dict(row) for row in cursor.fetchall()]
 
-            logger.info(f"Retrieved {len(genres)} top genres for user {user_id}")
+            # Process results to maintain backward compatibility
+            genres = []
+            for row in raw_results:
+                genres.append({
+                    'genre': row['genre'],
+                    'count': int(row['play_count']),  # Keep original count for compatibility
+                    'weighted_score': round(row['weighted_score'], 2),
+                    'artist_count': row['artist_count']
+                })
+
+            logger.info(f"Retrieved {len(genres)} top genres for user {user_id} (time-weighted)")
+            if genres:
+                logger.info(f"Top genre: {genres[0]['genre']} (score: {genres[0]['weighted_score']}, plays: {genres[0]['count']})")
             return genres
 
         except sqlite3.Error as e:
