@@ -1736,8 +1736,18 @@ def update_genre_chart(n_intervals, n_clicks):
                                     print(f"Failed to save genre '{genre}' to database")
                     else:
                         print(f"No genres found for artist {artist_name}")
-                        # Save a placeholder to avoid repeated lookups
-                        db.save_genre("unknown", artist_name)
+                        # Only save placeholder for artists with multiple tracks
+                        conn_check = sqlite3.connect(db.db_path)
+                        cursor_check = conn_check.cursor()
+                        cursor_check.execute('SELECT COUNT(*) FROM tracks WHERE artist = ?', (artist_name,))
+                        track_count = cursor_check.fetchone()[0]
+                        conn_check.close()
+
+                        if track_count >= 3:  # Artist has 3+ tracks, worth saving placeholder
+                            print(f"Saving 'unknown' placeholder for frequent artist: {artist_name}")
+                            db.save_genre("unknown", artist_name)
+                        else:
+                            print(f"Skipping placeholder for infrequent artist: {artist_name}")
 
                     processed_count += 1
 
@@ -1787,9 +1797,21 @@ def update_genre_chart(n_intervals, n_clicks):
                             if success:
                                 print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
                 else:
-                    # If no genres found, save a placeholder to avoid repeated lookups
-                    print(f"No genres found for artist {artist_name}, saving placeholder")
-                    db.save_genre("unknown", artist_name)
+                    # If no genres found, only save placeholder for well-known artists to avoid repeated API calls
+                    # For lesser-known artists, we'll skip saving to keep the database cleaner
+                    print(f"No genres found for artist {artist_name}")
+                    # Only save "unknown" for artists we've seen multiple times (indicating they're in user's library)
+                    conn_check = sqlite3.connect(db.db_path)
+                    cursor_check = conn_check.cursor()
+                    cursor_check.execute('SELECT COUNT(*) FROM tracks WHERE artist = ?', (artist_name,))
+                    track_count = cursor_check.fetchone()[0]
+                    conn_check.close()
+
+                    if track_count >= 3:  # Artist has 3+ tracks, worth saving placeholder
+                        print(f"Saving 'unknown' placeholder for frequent artist: {artist_name}")
+                        db.save_genre("unknown", artist_name)
+                    else:
+                        print(f"Skipping placeholder for infrequent artist: {artist_name}")
 
                 processed_artists += 1
 
