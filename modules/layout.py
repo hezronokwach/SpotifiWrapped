@@ -322,17 +322,13 @@ class DashboardLayout:
 
     def create_wrapped_summary_section(self):
         """Create the Spotify Wrapped summary section with futuristic styling."""
-        return create_spotify_card(
-            title="Your Spotify Wrapped",
-            content=html.Div(
-                id='wrapped-summary-container',
-                style={
-                    'minHeight': '100px',
-                    'position': 'relative'
-                }
-            ),
-            icon="fa-star",
-            card_type="glass"
+        return html.Div(
+            id='wrapped-summary-container',
+            style={
+                'minHeight': '100px',
+                'position': 'relative',
+                'margin': '20px 0'
+            }
         )
 
     def create_top_albums_section(self):
@@ -475,9 +471,7 @@ class DashboardLayout:
                 # Your Spotify Wrapped (enhanced with Sound Story data)
                 self.create_wrapped_summary_section(),
 
-                # Album listening patterns section removed - now part of DNA section
-
-                
+                # Album listening patterns section removed - now part of DNA section                
 
                 # Audio analysis row
                 dbc.Row([

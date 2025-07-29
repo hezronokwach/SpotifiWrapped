@@ -2020,11 +2020,11 @@ class SpotifyVisualizations:
         top_track = summary_data.get('top_track', {})
         personality_type = summary_data.get('personality_type', 'Music Explorer')
 
-        # Create enhanced 2x3 grid layout
+        # Create simplified layout with only 2 cards
         return html.Div([
             # Header with animated gradient
             html.Div([
-                html.H2("🎵 Your Music DNA", style={
+                html.H2("🧬 Your Music DNA", style={
                     'background': 'linear-gradient(45deg, #1DB954, #00D4FF, #8B5CF6)',
                     'backgroundClip': 'text',
                     'WebkitBackgroundClip': 'text',
@@ -2036,212 +2036,63 @@ class SpotifyVisualizations:
                 })
             ]),
 
-            # Enhanced 2x3 grid layout
+            # Single row with 2 cards
             html.Div([
-                # Row 1: Listening Time, Top Genre, Music Mood
+                # Personality Type
                 html.Div([
-                    # Listening Time
-                    html.Div([
-                        html.I(className="fas fa-clock", style={'fontSize': '24px', 'color': '#FF6B6B'}),
-                        html.H3(f"{hours:,} Hours", style={'color': '#FFFFFF', 'margin': '10px 0 5px 0'}),
-                        html.P("of pure musical bliss", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(255,107,107,0.2), rgba(255,107,107,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(255,107,107,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift'),
-
-                    # Personality Type
-                    html.Div([
-                        html.I(className="fas fa-user-astronaut", style={'fontSize': '24px', 'color': '#8B5CF6'}),
-                        html.H3(personality_type, style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '16px'
-                        }),
-                        html.P("your music personality", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(139,92,246,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift'),
-
-                    # Music Mood
-                    html.Div([
-                        html.I(className="fas fa-heart", style={'fontSize': '24px', 'color': '#FFD93D'}),
-                        html.H3(summary_data.get('music_mood', {}).get('mood', 'Discovering'), style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '16px'
-                        }),
-                        html.P("energy level", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(255,217,61,0.2), rgba(255,217,61,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(255,217,61,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift')
+                    html.I(className="fas fa-user-astronaut", style={'fontSize': '32px', 'color': '#8B5CF6'}),
+                    html.H3(personality_type, style={
+                        'color': '#FFFFFF',
+                        'margin': '15px 0 8px 0',
+                        'fontSize': '20px',
+                        'fontWeight': 'bold'
+                    }),
+                    html.P("your music personality", style={'color': '#B3B3B3', 'fontSize': '16px'})
                 ], style={
-                    'display': 'grid',
-                    'gridTemplateColumns': 'repeat(3, 1fr)',
-                    'gap': '20px',
-                    'marginBottom': '20px'
-                }),
+                    'textAlign': 'center',
+                    'padding': '30px',
+                    'background': 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05))',
+                    'borderRadius': '16px',
+                    'border': '1px solid rgba(139,92,246,0.3)',
+                    'transition': 'transform 0.3s ease',
+                    'cursor': 'pointer',
+                    'height': '160px',
+                    'display': 'flex',
+                    'flexDirection': 'column',
+                    'justifyContent': 'center',
+                    'boxShadow': '0 8px 32px rgba(139,92,246,0.15)'
+                }, className='hover-lift'),
 
-                # Row 2: Listening Style, Discovery Score, Variety Score
+                # DJ X Usage (renamed from AI DJ)
                 html.Div([
-                    # Listening Style
-                    html.Div([
-                        html.I(className="fas fa-headphones", style={'fontSize': '24px', 'color': '#9B59B6'}),
-                        html.H3(listening_style, style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '16px'
-                        }),
-                        html.P("listening style", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(155,89,182,0.2), rgba(155,89,182,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(155,89,182,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift'),
-
-                    # Discovery Score
-                    html.Div([
-                        html.I(className="fas fa-search", style={'fontSize': '24px', 'color': '#E67E22'}),
-                        html.H3(f"{discovery_score}%", style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '18px'
-                        }),
-                        html.P("discovery score", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(230,126,34,0.2), rgba(230,126,34,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(230,126,34,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift'),
-
-                    # Variety Score
-                    html.Div([
-                        html.I(className="fas fa-rainbow", style={'fontSize': '24px', 'color': '#3498DB'}),
-                        html.H3(f"{variety_score}%", style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '18px'
-                        }),
-                        html.P("variety score", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(52,152,219,0.2), rgba(52,152,219,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(52,152,219,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift')
+                    html.I(className="fas fa-robot", style={'fontSize': '32px', 'color': '#00D4FF'}),
+                    html.H3(f"{summary_data.get('dj_stats', {}).get('percentage_of_listening', 0)}%", style={
+                        'color': '#FFFFFF',
+                        'margin': '15px 0 8px 0',
+                        'fontSize': '24px',
+                        'fontWeight': 'bold'
+                    }),
+                    html.P("DJ X usage" if summary_data.get('dj_stats', {}).get('is_premium', False) else "Premium feature", style={'color': '#B3B3B3', 'fontSize': '16px'})
                 ], style={
-                    'display': 'grid',
-                    'gridTemplateColumns': 'repeat(3, 1fr)',
-                    'gap': '20px',
-                    'marginBottom': '20px'
-                })
-            ]),
-
-                # Row 3: AI DJ and Sequential Listening
-                html.Div([
-                    # AI DJ Usage (renamed from DJ Mode)
-                    html.Div([
-                        html.I(className="fas fa-robot", style={'fontSize': '24px', 'color': '#00D4FF'}),
-                        html.H3(f"{summary_data.get('dj_stats', {}).get('percentage_of_listening', 0)}%", style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '18px'
-                        }),
-                        html.P("AI DJ usage" if summary_data.get('dj_stats', {}).get('is_premium', False) else "Premium feature", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,212,255,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(0,212,255,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift'),
-
-                    # Sequential Listening
-                    html.Div([
-                        html.I(className="fas fa-list-ol", style={'fontSize': '24px', 'color': '#F472B6'}),
-                        html.H3(f"{summary_data.get('album_patterns', {}).get('sequential_listening_score', 0)}%", style={
-                            'color': '#FFFFFF',
-                            'margin': '10px 0 5px 0',
-                            'fontSize': '18px'
-                        }),
-                        html.P("sequential listening", style={'color': '#B3B3B3', 'fontSize': '14px'})
-                    ], style={
-                        'textAlign': 'center',
-                        'padding': '20px',
-                        'background': 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(244,114,182,0.05))',
-                        'borderRadius': '12px',
-                        'border': '1px solid rgba(244,114,182,0.3)',
-                        'transition': 'transform 0.3s ease',
-                        'cursor': 'pointer',
-                        'height': '120px',
-                        'display': 'flex',
-                        'flexDirection': 'column',
-                        'justifyContent': 'center'
-                    }, className='hover-lift')
-                ], style={
-                    'display': 'grid',
-                    'gridTemplateColumns': 'repeat(2, 1fr)',
-                    'gap': '20px',
-                    'marginBottom': '30px'
-                }),
+                    'textAlign': 'center',
+                    'padding': '30px',
+                    'background': 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,212,255,0.05))',
+                    'borderRadius': '16px',
+                    'border': '1px solid rgba(0,212,255,0.3)',
+                    'transition': 'transform 0.3s ease',
+                    'cursor': 'pointer',
+                    'height': '160px',
+                    'display': 'flex',
+                    'flexDirection': 'column',
+                    'justifyContent': 'center',
+                    'boxShadow': '0 8px 32px rgba(0,212,255,0.15)'
+                }, className='hover-lift')
+            ], style={
+                'display': 'grid',
+                'gridTemplateColumns': 'repeat(2, 1fr)',
+                'gap': '30px',
+                'marginBottom': '30px'
+            }),
 
             # Enhanced fun fact section
             html.Div([
