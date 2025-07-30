@@ -1704,131 +1704,35 @@ def update_genre_chart(n_intervals, n_clicks):
 
                 print(f"Found {len(artists)} unique artists in recently played tracks")
 
-                # Process each artist to get their genres with improved rate limiting
-                processed_count = 0
-                for artist_name in artists:
-                    print(f"Processing genres for artist: {artist_name} ({processed_count + 1}/{len(artists)})")
+                # Use the optimized genre extractor for recently played tracks
+                if artists:
+                    print("Using optimized genre extraction for recently played tracks...")
+                    genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=len(artists))
+                    print(f"Extracted {genres_extracted} genres from recently played tracks")
 
-                    # Check if we already have genres for this artist
-                    conn = sqlite3.connect(db.db_path)
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT COUNT(*) FROM genres WHERE artist_name = ?", (artist_name,))
-                    existing_genres = cursor.fetchone()[0]
-                    conn.close()
-
-                    if existing_genres > 0:
-                        print(f"Already have {existing_genres} genres for artist: {artist_name}")
-                        continue
-
-                    # Use our new function to get genres
-                    genres = spotify_api.get_artist_genres(artist_name)
-
-                    if genres:
-                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
-
-                        # Save each genre to the database
-                        for genre in genres:
-                            if genre and genre.strip():  # Skip empty or whitespace-only genres
-                                success = db.save_genre(genre.strip(), artist_name)
-                                if success:
-                                    print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
-                                else:
-                                    print(f"Failed to save genre '{genre}' to database")
-                    else:
-                        print(f"No genres found for artist {artist_name}")
-                        # Only save placeholder for artists with multiple tracks
-                        conn_check = sqlite3.connect(db.db_path)
-                        cursor_check = conn_check.cursor()
-                        cursor_check.execute('SELECT COUNT(*) FROM tracks WHERE artist = ?', (artist_name,))
-                        track_count = cursor_check.fetchone()[0]
-                        conn_check.close()
-
-                        if track_count >= 3:  # Artist has 3+ tracks, worth saving placeholder
-                            print(f"Saving 'unknown' placeholder for frequent artist: {artist_name}")
-                            db.save_genre("unknown", artist_name)
-                        else:
-                            print(f"Skipping placeholder for infrequent artist: {artist_name}")
-
-                    processed_count += 1
-
-                    # Improved rate limiting
-                    if processed_count % 5 == 0:
-                        print(f"Taking a longer break after processing {processed_count} artists...")
-                        time.sleep(3)  # Longer break every 5 artists
-                    else:
-                        time.sleep(1)  # Standard delay
-
-        # Process all artists in the database to ensure we have genres for all of them
-        print("Processing genres for all artists in the database...")
-
-        # Get all artists from the database
+        # Process remaining artists in the database (limit to avoid long delays)
+        print("Processing remaining artists in the database...")
+        
+        # Get artists that still need genres (excluding those just processed)
         conn = sqlite3.connect(db.db_path)
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT artist FROM tracks")
-        all_artists = [row[0] for row in cursor.fetchall()]
+        cursor.execute('''
+            SELECT DISTINCT t.artist 
+            FROM tracks t 
+            LEFT JOIN genres g ON t.artist = g.artist_name 
+            WHERE g.artist_name IS NULL
+            LIMIT 30
+        ''')
+        remaining_artists = [row[0] for row in cursor.fetchall()]
         conn.close()
 
-        print(f"Found {len(all_artists)} unique artists in the database")
-
-        # Process each artist to get their genres with better batching
-        processed_artists = 0
-        max_artists_per_session = 50  # Limit processing to avoid long delays
-
-        for artist_name in all_artists[:max_artists_per_session]:  # Limit to first 50 artists
-            # Check if we already have genres for this artist
-            conn = sqlite3.connect(db.db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM genres WHERE artist_name = ?", (artist_name,))
-            genre_count = cursor.fetchone()[0]
-            conn.close()
-
-            # If we don't have genres for this artist, get them
-            if genre_count == 0:
-                print(f"Getting genres for artist: {artist_name} ({processed_artists + 1}/{min(len(all_artists), max_artists_per_session)})")
-
-                # Get genres for this artist
-                genres = spotify_api.get_artist_genres(artist_name)
-
-                # Save each genre to the database
-                if genres:
-                    for genre in genres:
-                        if genre and genre.strip():  # Skip empty or whitespace-only genres
-                            success = db.save_genre(genre.strip(), artist_name)
-                            if success:
-                                print(f"Successfully saved genre '{genre}' for artist '{artist_name}'")
-                else:
-                    # If no genres found, only save placeholder for well-known artists to avoid repeated API calls
-                    # For lesser-known artists, we'll skip saving to keep the database cleaner
-                    print(f"No genres found for artist {artist_name}")
-                    # Only save "unknown" for artists we've seen multiple times (indicating they're in user's library)
-                    conn_check = sqlite3.connect(db.db_path)
-                    cursor_check = conn_check.cursor()
-                    cursor_check.execute('SELECT COUNT(*) FROM tracks WHERE artist = ?', (artist_name,))
-                    track_count = cursor_check.fetchone()[0]
-                    conn_check.close()
-
-                    if track_count >= 3:  # Artist has 3+ tracks, worth saving placeholder
-                        print(f"Saving 'unknown' placeholder for frequent artist: {artist_name}")
-                        db.save_genre("unknown", artist_name)
-                    else:
-                        print(f"Skipping placeholder for infrequent artist: {artist_name}")
-
-                processed_artists += 1
-
-                # Improved rate limiting
-                if processed_artists % 10 == 0:
-                    print(f"Taking an extended break after processing {processed_artists} artists...")
-                    time.sleep(5)  # Extended break every 10 artists
-                elif processed_artists % 5 == 0:
-                    print(f"Taking a longer break after processing {processed_artists} artists...")
-                    time.sleep(2)  # Longer break every 5 artists
-                else:
-                    time.sleep(1)  # Standard delay
-            else:
-                print(f"Already have {genre_count} genres for artist: {artist_name}")
-
-        if len(all_artists) > max_artists_per_session:
-            print(f"Processed {max_artists_per_session} artists this session. {len(all_artists) - max_artists_per_session} remaining for next refresh.")
+        if remaining_artists:
+            print(f"Found {len(remaining_artists)} artists without genres")
+            # Use the optimized genre extractor for remaining artists
+            additional_genres = genre_extractor.extract_genres_for_artists(remaining_artists)
+            print(f"Extracted {additional_genres} additional genres from database artists")
+        else:
+            print("All artists in database already have genres")
 
         # Get user data if not already available
         if 'user_data' not in locals() or user_data is None:
@@ -1843,13 +1747,14 @@ def update_genre_chart(n_intervals, n_clicks):
             user_id = user_data['id']
             current_date = datetime.now().strftime('%Y-%m-%d')
 
-            # Use standardized genre query function
+            # Use standardized genre query function with fast mode for better performance
             genre_data = db.get_user_top_genres(
                 user_id=user_id,
                 limit=10,
                 exclude_unknown=True,
                 include_sources=['played', 'recently_played', 'current'],
-                date_filter=current_date
+                date_filter=current_date,
+                fast_mode=True  # Use fast mode for better performance
             )
 
         # Convert to DataFrame

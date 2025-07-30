@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union, Any
 
 # Import the AI audio feature extractor
 from modules.ai_audio_features import get_track_audio_features
+from modules.genre_cache import get_genre_cache
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
@@ -855,7 +856,7 @@ class SpotifyAPI:
 
     def get_artist_genres(self, artist_name):
         """
-        Get genres for a specific artist.
+        Get genres for a specific artist with caching.
 
         Args:
             artist_name: Name of the artist to search for
@@ -871,8 +872,14 @@ class SpotifyAPI:
         if not artist_name:
             return []
 
-        # Add retry mechanism with backoff
-        max_retries = 3
+        # Check cache first
+        cache = get_genre_cache()
+        cached_genres = cache.get(artist_name)
+        if cached_genres is not None:
+            return cached_genres
+
+        # Add retry mechanism with reduced backoff for better performance
+        max_retries = 2  # Reduced from 3 to 2
         retry_count = 0
 
         while retry_count < max_retries:
@@ -882,8 +889,7 @@ class SpotifyAPI:
 
                 # If no results, try a more general search
                 if not artist_data or not artist_data.get('artists', {}).get('items'):
-                    print(f"No exact match for artist '{artist_name}', trying general search")
-                    artist_data = self.sp.search(q=artist_name, type='artist', limit=5)
+                    artist_data = self.sp.search(q=artist_name, type='artist', limit=3)  # Reduced from 5 to 3
 
                 # Process results
                 if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
@@ -899,31 +905,34 @@ class SpotifyAPI:
                     # If no exact match, use the first result
                     if not matched_artist and artist_data['artists']['items']:
                         matched_artist = artist_data['artists']['items'][0]
-                        print(f"Using closest match: '{matched_artist['name']}' for '{artist_name}'")
 
                     if matched_artist:
                         genres = matched_artist.get('genres', [])
-                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
+                        # Cache the result
+                        cache.set(artist_name, genres)
                         return genres
 
-                print(f"No artist data found for {artist_name}")
+                # Cache empty result to avoid repeated API calls
+                cache.set(artist_name, [])
                 return []
 
             except Exception as e:
                 retry_count += 1
                 if "429" in str(e):  # Rate limiting error
-                    wait_time = 2 ** retry_count  # Exponential backoff
+                    wait_time = min(2 ** retry_count, 5)  # Cap wait time at 5 seconds
                     print(f"Rate limit hit, retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
                     time.sleep(wait_time)
                 else:
-                    print(f"Error getting genres for artist {artist_name}: {e}")
                     if retry_count < max_retries:
-                        wait_time = 1
-                        print(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                        wait_time = 0.5  # Reduced from 1 second
                         time.sleep(wait_time)
                     else:
+                        # Cache empty result to avoid repeated API calls
+                        cache.set(artist_name, [])
                         return []
 
+        # Cache empty result for failed attempts
+        cache.set(artist_name, [])
         return []
 
     def get_artists_by_genre(self, genre_name, limit=10):

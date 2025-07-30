@@ -127,6 +127,8 @@ class SpotifyDatabase:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_track ON listening_history (track_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks (artist)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_genres_name ON genres (genre_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_genres_artist ON genres (artist_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_genres_composite ON genres (genre_name, artist_name)')
 
         logger.info("Created all database tables")
 
@@ -680,7 +682,7 @@ class SpotifyDatabase:
             conn.close()
 
     def get_user_top_genres(self, user_id: str, limit: int = 10, exclude_unknown: bool = True,
-                           include_sources: list = None, date_filter: str = None) -> list:
+                           include_sources: list = None, date_filter: str = None, fast_mode: bool = False) -> list:
         """
         Get top genres for a specific user based on their listening history.
         This is the standardized method for consistent genre data across the application.
@@ -691,6 +693,7 @@ class SpotifyDatabase:
             exclude_unknown: Whether to exclude 'unknown' genres
             include_sources: List of sources to include (e.g., ['played', 'recently_played', 'current'])
             date_filter: Optional date filter (e.g., '2024-01-01')
+            fast_mode: Use simplified query for faster performance
 
         Returns:
             List of genre dictionaries with 'genre' and 'count' keys
@@ -700,68 +703,120 @@ class SpotifyDatabase:
         cursor = conn.cursor()
 
         try:
-            # Build the improved time-weighted query (Spotify-like approach)
-            query = '''
-                SELECT
-                    g.genre_name as genre,
-                    SUM(
-                        CASE
-                            WHEN date(h.played_at) >= date('now', '-30 days') THEN 3.0
-                            WHEN date(h.played_at) >= date('now', '-90 days') THEN 2.0
-                            WHEN date(h.played_at) >= date('now', '-180 days') THEN 1.0
-                            ELSE 0.5
-                        END
-                    ) as weighted_score,
-                    COUNT(DISTINCT h.history_id) as play_count,
-                    COUNT(DISTINCT t.artist) as artist_count
-                FROM genres g
-                JOIN tracks t ON g.artist_name = t.artist
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE h.user_id = ?
-                AND g.genre_name IS NOT NULL
-                AND g.genre_name != ''
-            '''
-            params = [user_id]
+            if fast_mode:
+                # Simplified query for faster performance
+                query = '''
+                    SELECT
+                        g.genre_name as genre,
+                        COUNT(DISTINCT h.history_id) as play_count,
+                        COUNT(DISTINCT t.artist) as artist_count
+                    FROM genres g
+                    JOIN tracks t ON g.artist_name = t.artist
+                    JOIN listening_history h ON t.track_id = h.track_id
+                    WHERE h.user_id = ?
+                    AND g.genre_name IS NOT NULL
+                    AND g.genre_name != ''
+                '''
+                params = [user_id]
 
-            # Add unknown genre filter
-            if exclude_unknown:
-                query += " AND g.genre_name != 'unknown'"
+                # Add unknown genre filter
+                if exclude_unknown:
+                    query += " AND g.genre_name != 'unknown'"
 
-            # Add source filter
-            if include_sources:
-                placeholders = ','.join(['?' for _ in include_sources])
-                query += f" AND h.source IN ({placeholders})"
-                params.extend(include_sources)
+                # Add source filter
+                if include_sources:
+                    placeholders = ','.join(['?' for _ in include_sources])
+                    query += f" AND h.source IN ({placeholders})"
+                    params.extend(include_sources)
 
-            # Add date filter
-            if date_filter:
-                query += " AND date(h.played_at) <= ?"
-                params.append(date_filter)
+                # Add date filter
+                if date_filter:
+                    query += " AND date(h.played_at) <= ?"
+                    params.append(date_filter)
 
-            # Complete the query - order by weighted score for better recency bias
-            query += '''
-                GROUP BY g.genre_name
-                ORDER BY weighted_score DESC, play_count DESC
-                LIMIT ?
-            '''
-            params.append(limit)
+                # Complete the query - simple count-based ordering
+                query += '''
+                    GROUP BY g.genre_name
+                    ORDER BY play_count DESC, artist_count DESC
+                    LIMIT ?
+                '''
+                params.append(limit)
 
-            cursor.execute(query, params)
-            raw_results = [dict(row) for row in cursor.fetchall()]
+                cursor.execute(query, params)
+                raw_results = [dict(row) for row in cursor.fetchall()]
 
-            # Process results to maintain backward compatibility
-            genres = []
-            for row in raw_results:
-                genres.append({
-                    'genre': row['genre'],
-                    'count': int(row['play_count']),  # Keep original count for compatibility
-                    'weighted_score': round(row['weighted_score'], 2),
-                    'artist_count': row['artist_count']
-                })
+                # Process results
+                genres = []
+                for row in raw_results:
+                    genres.append({
+                        'genre': row['genre'],
+                        'count': int(row['play_count']),
+                        'artist_count': row['artist_count']
+                    })
 
-            logger.info(f"Retrieved {len(genres)} top genres for user {user_id} (time-weighted)")
+            else:
+                # Build the improved time-weighted query (Spotify-like approach)
+                query = '''
+                    SELECT
+                        g.genre_name as genre,
+                        SUM(
+                            CASE
+                                WHEN date(h.played_at) >= date('now', '-30 days') THEN 3.0
+                                WHEN date(h.played_at) >= date('now', '-90 days') THEN 2.0
+                                WHEN date(h.played_at) >= date('now', '-180 days') THEN 1.0
+                                ELSE 0.5
+                            END
+                        ) as weighted_score,
+                        COUNT(DISTINCT h.history_id) as play_count,
+                        COUNT(DISTINCT t.artist) as artist_count
+                    FROM genres g
+                    JOIN tracks t ON g.artist_name = t.artist
+                    JOIN listening_history h ON t.track_id = h.track_id
+                    WHERE h.user_id = ?
+                    AND g.genre_name IS NOT NULL
+                    AND g.genre_name != ''
+                '''
+                params = [user_id]
+
+                # Add unknown genre filter
+                if exclude_unknown:
+                    query += " AND g.genre_name != 'unknown'"
+
+                # Add source filter
+                if include_sources:
+                    placeholders = ','.join(['?' for _ in include_sources])
+                    query += f" AND h.source IN ({placeholders})"
+                    params.extend(include_sources)
+
+                # Add date filter
+                if date_filter:
+                    query += " AND date(h.played_at) <= ?"
+                    params.append(date_filter)
+
+                # Complete the query - order by weighted score for better recency bias
+                query += '''
+                    GROUP BY g.genre_name
+                    ORDER BY weighted_score DESC, play_count DESC
+                    LIMIT ?
+                '''
+                params.append(limit)
+
+                cursor.execute(query, params)
+                raw_results = [dict(row) for row in cursor.fetchall()]
+
+                # Process results to maintain backward compatibility
+                genres = []
+                for row in raw_results:
+                    genres.append({
+                        'genre': row['genre'],
+                        'count': int(row['play_count']),  # Keep original count for compatibility
+                        'weighted_score': round(row['weighted_score'], 2),
+                        'artist_count': row['artist_count']
+                    })
+
+            logger.info(f"Retrieved {len(genres)} top genres for user {user_id} ({'fast' if fast_mode else 'time-weighted'} mode)")
             if genres:
-                logger.info(f"Top genre: {genres[0]['genre']} (score: {genres[0]['weighted_score']}, plays: {genres[0]['count']})")
+                logger.info(f"Top genre: {genres[0]['genre']} (plays: {genres[0]['count']})")
             return genres
 
         except sqlite3.Error as e:
