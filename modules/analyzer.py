@@ -386,7 +386,7 @@ class ListeningPersonalityAnalyzer:
                 'album_completion_rate': 0,
                 'sequential_listening_score': 0,
                 'album_focused': False,
-                'listening_style': 'Unknown'
+                'listening_style': 'Music Explorer'
             }
     
     def _estimate_dj_mode_usage(self, recently_played) -> Dict[str, Any]:

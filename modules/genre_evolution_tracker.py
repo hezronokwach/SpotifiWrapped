@@ -18,9 +18,9 @@ class GenreEvolutionTracker:
         conn = sqlite3.connect(self.db_path)
         
         try:
-            # Get genre listening data by month
+            # Get genre listening data by month (with unknown genre filtering)
             query = '''
-                SELECT 
+                SELECT
                     strftime('%Y-%m', h.played_at) as month,
                     g.genre_name,
                     COUNT(*) as play_count
@@ -29,10 +29,13 @@ class GenreEvolutionTracker:
                 JOIN genres g ON t.artist = g.artist_name
                 WHERE h.user_id = ?
                 AND h.played_at >= date('now', '-{} months')
+                AND g.genre_name IS NOT NULL
+                AND g.genre_name != ''
+                AND g.genre_name != 'unknown'
                 GROUP BY month, g.genre_name
                 ORDER BY month, play_count DESC
             '''.format(months_back)
-            
+
             df = pd.read_sql_query(query, conn, params=(user_id,))
             
             if df.empty:

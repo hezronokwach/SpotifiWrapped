@@ -365,42 +365,57 @@ class DataProcessor:
         }
 
         try:
-            # Get top track
-            cursor.execute('''
-                SELECT t.track_id as id,
-                    t.name as track,
-                    t.artist,
-                    COUNT(h.history_id) as play_count
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-                GROUP BY t.track_id
-                ORDER BY play_count DESC
-                LIMIT 1
-            ''')
-            top_track_row = cursor.fetchone()
-            if top_track_row:
-                track = dict(top_track_row)
-                summary['top_track'] = {
-                    'name': track['track'],
-                    'artist': track['artist']
-                }
+            # Get top track from Spotify's official API instead of database calculations
+            from modules.api import SpotifyAPI
+            spotify_api = SpotifyAPI()
 
-            # Get top artist
-            cursor.execute('''
-                SELECT t.artist,
-                    COUNT(h.history_id) as play_count
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.artist IS NOT NULL AND t.artist != ''
-                GROUP BY t.artist
-                ORDER BY play_count DESC
-                LIMIT 1
-            ''')
-            top_artist_row = cursor.fetchone()
-            if top_artist_row:
-                artist = dict(top_artist_row)
-                # Get genres for this artist
+            # Try to get top tracks from Spotify's official rankings
+            top_tracks = spotify_api.get_top_tracks(limit=1, time_range='short_term')
+            if not top_tracks:
+                top_tracks = spotify_api.get_top_tracks(limit=1, time_range='medium_term')
+            if not top_tracks:
+                top_tracks = spotify_api.get_top_tracks(limit=1, time_range='long_term')
+
+            if top_tracks:
+                top_track = top_tracks[0]
+                summary['top_track'] = {
+                    'name': top_track['name'],
+                    'artist': top_track['artist']
+                }
+            else:
+                # Fallback to database if Spotify API fails
+                cursor.execute('''
+                    SELECT t.track_id as id,
+                        t.name as track,
+                        t.artist,
+                        COUNT(h.history_id) as play_count
+                    FROM tracks t
+                    JOIN listening_history h ON t.track_id = h.track_id
+                    WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+                    GROUP BY t.track_id
+                    ORDER BY play_count DESC
+                    LIMIT 1
+                ''')
+                top_track_row = cursor.fetchone()
+                if top_track_row:
+                    track = dict(top_track_row)
+                    summary['top_track'] = {
+                        'name': track['track'],
+                        'artist': track['artist']
+                    }
+
+            # Get top artist from Spotify's official API
+            top_artists = spotify_api.get_top_artists(limit=1, time_range='short_term')
+            if not top_artists:
+                top_artists = spotify_api.get_top_artists(limit=1, time_range='medium_term')
+            if not top_artists:
+                top_artists = spotify_api.get_top_artists(limit=1, time_range='long_term')
+
+            if top_artists:
+                artist_name = top_artists[0]['artist']
+                summary['top_artist'] = artist_name
+
+                # Get genres for this artist from database
                 cursor.execute('''
                     SELECT genre_name
                     FROM genres
@@ -408,12 +423,37 @@ class DataProcessor:
                     GROUP BY genre_name
                     ORDER BY count DESC
                     LIMIT 5
-                ''', (artist['artist'],))
+                ''', (artist_name,))
                 genres = [dict(row)['genre_name'] for row in cursor.fetchall()]
-                summary['top_artist'] = {
-                    'name': artist['artist'],
-                    'genres': ', '.join(genres) if genres else 'Unknown'
-                }
+                summary['top_genres'] = genres[:3] if genres else ['Unknown']
+            else:
+                # Fallback to database if Spotify API fails
+                cursor.execute('''
+                    SELECT t.artist,
+                        COUNT(h.history_id) as play_count
+                    FROM tracks t
+                    JOIN listening_history h ON t.track_id = h.track_id
+                    WHERE t.artist IS NOT NULL AND t.artist != ''
+                    GROUP BY t.artist
+                    ORDER BY play_count DESC
+                    LIMIT 1
+                ''')
+                top_artist_row = cursor.fetchone()
+                if top_artist_row:
+                    artist = dict(top_artist_row)
+                    artist_name = artist['artist']
+                    summary['top_artist'] = artist_name
+                    # Get genres for this artist
+                    cursor.execute('''
+                        SELECT genre_name
+                        FROM genres
+                        WHERE artist_name = ?
+                        GROUP BY genre_name
+                        ORDER BY count DESC
+                        LIMIT 5
+                    ''', (artist_name,))
+                    genres = [dict(row)['genre_name'] for row in cursor.fetchall()]
+                    summary['top_genres'] = genres[:3] if genres else ['Unknown']
 
             # Calculate music mood based on audio features
             cursor.execute('''

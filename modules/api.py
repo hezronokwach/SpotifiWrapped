@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Union, Any
 
 # Import the AI audio feature extractor
 from modules.ai_audio_features import get_track_audio_features
+from modules.genre_cache import get_genre_cache
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
@@ -29,6 +30,9 @@ class SpotifyAPI:
         self.use_ai_audio_features = True
         # Cache for audio features to reduce API calls
         self.audio_features_cache = {}
+        # Cache for user profile to reduce API calls
+        self._user_profile_cache = None
+        self._user_profile_cache_time = 0
         if not self.use_sample_data:
             self.initialize_connection()
 
@@ -38,8 +42,41 @@ class SpotifyAPI:
         print(f"🔧 DEBUG: Client Secret length: {len(client_secret) if client_secret else 0}")
         print(f"🔧 DEBUG: Redirect URI: {redirect_uri}")
 
-        # Clear any existing cache files first
+        # Only clear cache if credentials actually changed
+        credentials_changed = (
+            self.client_id != client_id or 
+            self.client_secret != client_secret or 
+            self.redirect_uri != redirect_uri
+        )
+        
+        if credentials_changed:
+            print(f"🔧 DEBUG: Credentials changed, clearing cache files...")
+            self.clear_cache_files()
+            # Clear user profile cache
+            self._user_profile_cache = None
+            self._user_profile_cache_time = 0
+        else:
+            print(f"🔧 DEBUG: Credentials unchanged, keeping existing cache...")
+
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.redirect_uri = redirect_uri
+        self.use_sample_data = False
+        
+        # Only clear connection if credentials changed
+        if credentials_changed:
+            self.sp = None  # Clear existing connection
+
+        print(f"🔧 DEBUG: Credentials set, initializing connection...")
+        self.initialize_connection()
+        print(f"🔧 DEBUG: Connection initialized, sp object: {self.sp is not None}")
+
+    def clear_cache_files(self):
+        """Clear only Spotify OAuth cache files."""
         import glob
+        import tempfile
+
+        # Clear Spotify OAuth cache files
         cache_files = glob.glob('.spotify_cache*')
         for cache_file in cache_files:
             try:
@@ -48,17 +85,16 @@ class SpotifyAPI:
             except Exception as e:
                 print(f"⚠️ DEBUG: Could not remove cache file {cache_file}: {e}")
 
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.redirect_uri = redirect_uri
-        self.use_sample_data = False
-        self.sp = None  # Clear existing connection
-
-        print(f"🔧 DEBUG: Credentials set, initializing connection...")
-        self.initialize_connection()
-        print(f"🔧 DEBUG: Connection initialized, sp object: {self.sp is not None}")
-
-
+        # Also check for cache files in temp directory
+        temp_dir = tempfile.gettempdir()
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        for cache_file in temp_cache_files:
+            try:
+                os.remove(cache_file)
+                print(f"🗑️ DEBUG: Removed temp cache file: {cache_file}")
+            except Exception as e:
+                print(f"⚠️ DEBUG: Could not remove temp cache file {cache_file}: {e}")
 
     def clear_all_cached_data(self):
         """Clear all cached data including CSV files and Spotify cache."""
@@ -571,7 +607,13 @@ class SpotifyAPI:
             return None
 
     def get_user_profile(self):
-        """Fetch user profile information."""
+        """Fetch user profile information with caching to improve performance."""
+        # Check cache first (cache for 30 seconds)
+        current_time = time.time()
+        if (self._user_profile_cache and
+            current_time - self._user_profile_cache_time < 30):
+            return self._user_profile_cache
+
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
             return {}
@@ -589,7 +631,7 @@ class SpotifyAPI:
                 print(f"Error fetching followed artists: {e}")
                 following_count = 0
 
-            return {
+            user_data = {
                 'display_name': user_profile.get('display_name', 'Unknown'),
                 'id': user_profile.get('id', 'Unknown'),
                 'followers': user_profile.get('followers', {}).get('total', 0),
@@ -597,6 +639,12 @@ class SpotifyAPI:
                 'image_url': user_profile.get('images', [{}])[0].get('url', '') if user_profile.get('images') else '',
                 'product': user_profile.get('product', 'Unknown')  # subscription level
             }
+
+            # Cache the result
+            self._user_profile_cache = user_data
+            self._user_profile_cache_time = current_time
+
+            return user_data
         except Exception as e:
             print(f"Error fetching user profile: {e}")
             return {
@@ -808,7 +856,7 @@ class SpotifyAPI:
 
     def get_artist_genres(self, artist_name):
         """
-        Get genres for a specific artist.
+        Get genres for a specific artist with caching.
 
         Args:
             artist_name: Name of the artist to search for
@@ -824,8 +872,14 @@ class SpotifyAPI:
         if not artist_name:
             return []
 
-        # Add retry mechanism with backoff
-        max_retries = 3
+        # Check cache first
+        cache = get_genre_cache()
+        cached_genres = cache.get(artist_name)
+        if cached_genres is not None:
+            return cached_genres
+
+        # Add retry mechanism with reduced backoff for better performance
+        max_retries = 2  # Reduced from 3 to 2
         retry_count = 0
 
         while retry_count < max_retries:
@@ -835,8 +889,7 @@ class SpotifyAPI:
 
                 # If no results, try a more general search
                 if not artist_data or not artist_data.get('artists', {}).get('items'):
-                    print(f"No exact match for artist '{artist_name}', trying general search")
-                    artist_data = self.sp.search(q=artist_name, type='artist', limit=5)
+                    artist_data = self.sp.search(q=artist_name, type='artist', limit=3)  # Reduced from 5 to 3
 
                 # Process results
                 if artist_data and 'artists' in artist_data and 'items' in artist_data['artists'] and artist_data['artists']['items']:
@@ -852,31 +905,34 @@ class SpotifyAPI:
                     # If no exact match, use the first result
                     if not matched_artist and artist_data['artists']['items']:
                         matched_artist = artist_data['artists']['items'][0]
-                        print(f"Using closest match: '{matched_artist['name']}' for '{artist_name}'")
 
                     if matched_artist:
                         genres = matched_artist.get('genres', [])
-                        print(f"Found {len(genres)} genres for artist {artist_name}: {genres}")
+                        # Cache the result
+                        cache.set(artist_name, genres)
                         return genres
 
-                print(f"No artist data found for {artist_name}")
+                # Cache empty result to avoid repeated API calls
+                cache.set(artist_name, [])
                 return []
 
             except Exception as e:
                 retry_count += 1
                 if "429" in str(e):  # Rate limiting error
-                    wait_time = 2 ** retry_count  # Exponential backoff
+                    wait_time = min(2 ** retry_count, 5)  # Cap wait time at 5 seconds
                     print(f"Rate limit hit, retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
                     time.sleep(wait_time)
                 else:
-                    print(f"Error getting genres for artist {artist_name}: {e}")
                     if retry_count < max_retries:
-                        wait_time = 1
-                        print(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
+                        wait_time = 0.5  # Reduced from 1 second
                         time.sleep(wait_time)
                     else:
+                        # Cache empty result to avoid repeated API calls
+                        cache.set(artist_name, [])
                         return []
 
+        # Cache empty result for failed attempts
+        cache.set(artist_name, [])
         return []
 
     def get_artists_by_genre(self, genre_name, limit=10):
