@@ -686,6 +686,42 @@ def handle_settings_actions(update_clicks, clear_clicks, client_id, client_secre
 
     return dash.no_update
 
+# --- Data Mode Settings ---
+
+@app.callback(
+    [Output('use-sample-data-store', 'data', allow_duplicate=True),
+     Output('data-mode-status', 'children')],
+    [Input('data-mode-radio', 'value')],
+    prevent_initial_call=True
+)
+def handle_data_mode_change(selected_mode):
+    """Handle data mode changes from the settings page."""
+    if selected_mode == 'sample':
+        return {'use_sample': True}, "✅ Switched to sample data mode."
+    elif selected_mode == 'live':
+        return {'use_sample': False}, "✅ Switched to live Spotify data mode."
+    return dash.no_update, dash.no_update
+
+@app.callback(
+    [Output('data-mode-radio', 'value'),
+     Output('settings-client-id-input', 'value'),
+     Output('settings-client-secret-input', 'value')],
+    [Input('url', 'pathname')],
+    [State('use-sample-data-store', 'data'),
+     State('client-id-store', 'data'),
+     State('client-secret-store', 'data')]
+)
+def initialize_settings_page(pathname, use_sample_data, client_id, client_secret):
+    """Initialize the settings page with current values."""
+    if pathname != '/settings':
+        return dash.no_update, dash.no_update, dash.no_update
+    
+    # Set data mode radio value
+    data_mode = 'sample' if use_sample_data and use_sample_data.get('use_sample') else 'live'
+    
+    # Return current values (don't show actual credentials for security)
+    return data_mode, client_id or '', ''
+
 # --- Page Display ---
 
 @app.callback(
