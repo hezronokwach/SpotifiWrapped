@@ -3276,6 +3276,9 @@ def update_genre_evolution_chart(pathname, use_sample_data_flag):
 )
 def update_wellness_analysis_card(pathname, use_sample_data_flag):
     """Update wellness analysis card with enhanced stress detection."""
+    # Import here to ensure it's available throughout the function
+    from modules.stress_visualizations import create_enhanced_stress_analysis_card
+    
     if pathname != '/ai-insights':
         return html.Div()
 
@@ -3285,7 +3288,6 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
         if use_sample:
             print("📊 DEBUG: Using sample data for wellness analysis.")
             from modules.sample_data_generator import sample_data_generator
-            from modules.stress_visualizations import create_enhanced_stress_analysis_card
 
             # Generate enhanced sample stress data
             stress_data = sample_data_generator.generate_wellness_analysis_data()
@@ -3299,75 +3301,75 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
 
             user_id = user_data['id']
 
-        # Try enhanced stress analysis first, fallback to basic if needed
-        try:
-            print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
-            stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
-            print(f"DEBUG: Enhanced stress analysis successful, stress_score: {stress_data.get('stress_score', 'NOT_FOUND')}")
-            # Use the enhanced visualization
-            return create_enhanced_stress_analysis_card(stress_data)
-        except Exception as enhanced_error:
-            print(f"Enhanced stress detector failed: {enhanced_error}")
-            import traceback
-            traceback.print_exc()
-            # Fallback to basic wellness analysis
-            print(f"DEBUG: Falling back to wellness analyzer")
-            wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
-            print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
-            
-            # Convert wellness data to stress data format for compatibility
-            if 'wellness_score' in wellness_data:
-                # Convert wellness score (higher = better) to stress score (higher = worse)
-                stress_score = max(0, 100 - wellness_data['wellness_score'])
-                wellness_data['stress_score'] = stress_score
-                print(f"DEBUG: Converted wellness_score {wellness_data['wellness_score']} to stress_score {stress_score}")
-            # Create basic wellness card with enhanced styling
-            return create_spotify_card(
-                title="🏥 Wellness Analysis",
-                content=html.Div([
-                    html.Div([
-                        html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
-                        html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
-                    ]),
-                    html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
-                    html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
-                    html.Div([
-                        html.Div([
-                            html.H6(suggestion['title'], className="therapeutic-suggestion"),
-                            html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
-                        ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
-                    ])
-                ]),
-                icon="fa-heart",
-                card_type="glass"
-            )
+            # Try enhanced stress analysis first, fallback to basic if needed
+            try:
+                print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
+                print(f"DEBUG: Enhanced stress detector instance: {enhanced_stress_detector}")
+                print(f"DEBUG: Database path: {enhanced_stress_detector.db_path}")
+                stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
+
+                # Enhanced stress detector always returns a valid response structure
+                # Use the enhanced visualization for any response from enhanced stress detector
+                print(f"DEBUG: Enhanced stress analysis completed, stress_score: {stress_data.get('stress_score', 'NOT_FOUND')}")
+                print(f"DEBUG: Stress data keys: {list(stress_data.keys())}")
+                print(f"DEBUG: Stress level: {stress_data.get('stress_level', 'NOT_FOUND')}")
+                
+                # Always use the enhanced visualization - it handles both rich data and default responses
+                return create_enhanced_stress_analysis_card(stress_data)
+
+            except Exception as enhanced_error:
+                print(f"❌ Enhanced stress detector failed: {enhanced_error}")
+                print(f"❌ Error type: {type(enhanced_error).__name__}")
+                import traceback
+                traceback.print_exc()
+                
+                # Fallback to basic wellness analysis but convert to enhanced format for consistency
+                print(f"DEBUG: Falling back to wellness analyzer")
+                try:
+                    wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+                    print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
+
+                    # Convert wellness data to enhanced stress data format for consistent visualization
+                    if 'wellness_score' in wellness_data:
+                        # Convert wellness score (higher = better) to stress score (higher = worse)
+                        stress_score = max(0, 100 - wellness_data['wellness_score'])
+                        
+                        # Create enhanced stress data structure from wellness data
+                        enhanced_stress_data = {
+                            'stress_score': stress_score,
+                            'stress_level': 'Moderate Stress Indicators' if stress_score > 50 else 'Low Stress Indicators',
+                            'stress_indicators': wellness_data.get('stress_indicators', {}),
+                            'stress_timeline': [],  # Wellness analyzer doesn't provide timeline
+                            'personal_triggers': [],  # Convert if available
+                            'recommendations': wellness_data.get('therapeutic_suggestions', []),
+                            'confidence': wellness_data.get('confidence', 60)
+                        }
+                        
+                        print(f"DEBUG: Converted wellness data to enhanced format with stress_score {stress_score}")
+                        # Use the same enhanced visualization for consistency
+                        return create_enhanced_stress_analysis_card(enhanced_stress_data)
+                    else:
+                        # If wellness analysis also fails, return default enhanced response
+                        print(f"DEBUG: Wellness analysis incomplete, using default enhanced response")
+                        default_response = enhanced_stress_detector._default_stress_response()
+                        return create_enhanced_stress_analysis_card(default_response)
+                        
+                except Exception as wellness_error:
+                    print(f"❌ Wellness analyzer also failed: {wellness_error}")
+                    # Final fallback - use default enhanced response
+                    print(f"DEBUG: Using default enhanced stress response")
+                    default_response = enhanced_stress_detector._default_stress_response()
+                    return create_enhanced_stress_analysis_card(default_response)
 
     except Exception as e:
         print(f"Error updating wellness analysis card: {e}")
-        # Fallback to basic wellness analysis
+        # Final fallback - always use enhanced visualization for consistency
+        print(f"DEBUG: Using final fallback - default enhanced stress response")
         try:
-            wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
-            return create_spotify_card(
-                title="🏥 Wellness Analysis",
-                content=html.Div([
-                    html.Div([
-                        html.H2(f"{wellness_data['wellness_score']}", className="wellness-score"),
-                        html.P("Wellness Score", style={'textAlign': 'center', 'color': 'rgba(255,255,255,0.7)'})
-                    ]),
-                    html.Hr(style={'margin': '20px 0', 'border': '1px solid rgba(29, 185, 84, 0.3)'}),
-                    html.H5("🎵 Therapeutic Suggestions", style={'color': '#1DB954', 'fontFamily': 'Orbitron, monospace'}),
-                    html.Div([
-                        html.Div([
-                            html.H6(suggestion['title'], className="therapeutic-suggestion"),
-                            html.P(suggestion['description'], style={'fontSize': '0.9rem', 'color': 'rgba(255,255,255,0.8)'})
-                        ], style={'marginBottom': '15px'}) for suggestion in wellness_data.get('therapeutic_suggestions', [])[:3]
-                    ])
-                ]),
-                icon="fa-heart",
-                card_type="glass"
-            )
-        except Exception as fallback_error:
-            print(f"Fallback wellness analysis also failed: {fallback_error}")
+            default_response = enhanced_stress_detector._default_stress_response()
+            return create_enhanced_stress_analysis_card(default_response)
+        except Exception as final_error:
+            print(f"❌ Even default response failed: {final_error}")
             return html.Div(f"Error loading stress analysis: {str(e)}", className="alert alert-danger")
 
 @app.callback(
