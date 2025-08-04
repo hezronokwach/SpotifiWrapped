@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import time
 import json
+import random
 from datetime import datetime, timedelta
 
 # Import custom modules
@@ -50,6 +51,16 @@ animations = SpotifyAnimations()
 # Initialize database and data collector
 db = SpotifyDatabase()  # This will create tables if they don't exist
 data_collector = SpotifyDataCollector(spotify_api, db)
+
+def get_database_for_mode(use_sample=False):
+    """Get the appropriate database instance based on mode."""
+    if use_sample:
+        # Use separate sample database
+        sample_db = SpotifyDatabase(db_path='data/sample_spotify_data.db')
+        return sample_db
+    else:
+        # Use regular database
+        return db
 
 # Initialize personality analyzer
 personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
@@ -346,22 +357,34 @@ def toggle_advanced_options(n_clicks, is_open):
     [Output('auth-status-store', 'data'),
      Output('client-id-store', 'data'),
      Output('client-secret-store', 'data'),
-     Output('use-sample-data-store', 'data')],
-    [Input('connect-button', 'n_clicks')],
+     Output('use-sample-data-store', 'data'),
+     Output('url', 'pathname')],
+    [Input('connect-button', 'n_clicks'),
+     Input('sample-data-button', 'n_clicks')],
     [State('client-id-input', 'value'),
      State('client-secret-input', 'value')],
     prevent_initial_call=True
 )
-def handle_onboarding(connect_clicks, client_id, client_secret):
+def handle_onboarding(connect_clicks, sample_clicks, client_id, client_secret):
     ctx = dash.callback_context
     if not ctx.triggered:
-        return dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if button_id == 'connect-button':
+    # Handle sample data button - this is a deliberate user choice
+    if button_id == 'sample-data-button':
+        print("🎭 DEBUG: User chose sample data mode")
+        # Import and populate sample database
+        from modules.sample_data_generator import sample_data_generator
+        sample_data_generator.populate_sample_database()
+
+        # Set sample data mode, mark as "authenticated", and redirect to dashboard
+        return {'authenticated': True}, None, None, {'use_sample': True}, '/dashboard'
+
+    elif button_id == 'connect-button':
         if not client_id or not client_secret:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
         print(f"🔐 DEBUG: Attempting to connect with Client ID: {client_id[:8]}...")
         print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
@@ -385,22 +408,62 @@ def handle_onboarding(connect_clicks, client_id, client_secret):
 
             if auth_result:
                 print("✅ DEBUG: Connection successful!")
-                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}
+                return {'authenticated': True}, client_id, client_secret, {'use_sample': False}, '/dashboard'
             else:
                 print("⚠️ DEBUG: Need authorization")
                 # Get auth URL using our safe method
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
                     # Store credentials in session even when authorization is needed
-                    return dash.no_update, client_id, client_secret, dash.no_update
+                    return dash.no_update, client_id, client_secret, dash.no_update, dash.no_update
                 else:
                     print(f"❌ DEBUG: Could not get auth URL")
-                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
         else:
             print("❌ DEBUG: Connection failed - no Spotify API object created")
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-    return dash.no_update
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+# Sample data status callback
+@app.callback(
+    Output('sample-data-status', 'children'),
+    [Input('sample-data-button', 'n_clicks'),
+     Input('use-sample-data-store', 'data')],
+    prevent_initial_call=True
+)
+def update_sample_data_status(n_clicks, sample_data_flag):
+    """Update sample data status display."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return html.Div()
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'sample-data-button' and n_clicks:
+        return html.Div([
+            html.I(className="fas fa-check-circle", style={
+                'color': '#1DB954',
+                'marginRight': '8px'
+            }),
+            html.Span("Sample data loaded! Redirecting to dashboard...", style={
+                'color': '#1DB954',
+                'fontWeight': 'bold'
+            })
+        ])
+
+    if sample_data_flag and sample_data_flag.get('use_sample'):
+        return html.Div([
+            html.I(className="fas fa-info-circle", style={
+                'color': '#1ED760',
+                'marginRight': '8px'
+            }),
+            html.Span("Currently using sample data", style={
+                'color': '#1ED760'
+            })
+        ])
+
+    return html.Div()
 
 # Auto-check for completed authentication
 @app.callback(
@@ -650,19 +713,26 @@ def display_page(pathname, auth_data, client_id_data, client_secret_data, use_sa
         from modules.layout import create_settings_page
         return create_settings_page()
     elif pathname == '/dashboard':
-        # Dashboard route - check if we have working spotify_api even if session storage is broken
+        # Dashboard route - check if we have working spotify_api or sample data mode
         print(f"🔍 DEBUG: Dashboard access check - auth_data: {auth_data}")
-        
-        # Check if spotify_api is working (user is actually authenticated)
-        if spotify_api.sp and spotify_api.is_authenticated():
-            print("✅ DEBUG: Spotify API is working, allowing dashboard access")
+        print(f"🔍 DEBUG: use_sample_data_flag: {use_sample_data_flag}")
+
+        # Check for sample data mode
+        use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+        # Check if spotify_api is working (user is actually authenticated) OR sample mode
+        if (spotify_api.sp and spotify_api.is_authenticated()) or use_sample:
+            if use_sample:
+                print("✅ DEBUG: Sample data mode active, allowing dashboard access")
+            else:
+                print("✅ DEBUG: Spotify API is working, allowing dashboard access")
             return dashboard_layout.create_layout()
-        
+
         # Fallback to session storage check
         is_authenticated = bool(auth_data and auth_data.get('authenticated'))
-        
+
         if not is_authenticated:
-            print("❌ DEBUG: Not authenticated, redirecting to onboarding")
+            print("❌ DEBUG: Not authenticated and not sample mode, redirecting to onboarding")
             return dcc.Location(pathname='/onboarding', id='redirect-to-onboarding')
         
         # Re-initialize API with stored credentials if needed for dashboard functionality
@@ -715,14 +785,8 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
 
     if use_sample:
         print("📊 DEBUG: Using sample data for user profile.")
-        return {
-            'display_name': 'Sample User',
-            'id': 'sample-user-id',
-            'followers': 123,
-            'following': 45,
-            'image_url': '',
-            'product': 'premium'
-        }
+        from modules.sample_data_generator import sample_data_generator
+        return sample_data_generator.generate_user_profile()
 
     if not spotify_api.sp:
         if client_id_data and client_secret_data:
@@ -829,12 +893,67 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
 # Update header with user data
 @app.callback(
     Output('header-container', 'children'),
-    Input('user-data-store', 'data')
+    Input('user-data-store', 'data'),
+    State('use-sample-data-store', 'data')
 )
-def update_header(user_data):
-    """Update the header with user profile data."""
+def update_header(user_data, use_sample_data_flag):
+    """Update the header with user profile data and sample mode indicator."""
     print(f"Updating header with user data: {user_data}")  # Debug log
+
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    # Create the main header
     header = dashboard_layout.create_header(user_data)
+
+    # Add sample mode indicator if in sample mode
+    if use_sample:
+        sample_banner = html.Div([
+            html.Div([
+                html.I(className="fas fa-flask", style={
+                    'marginRight': '8px',
+                    'color': '#1ED760'
+                }),
+                html.Span("Demo Mode Active", style={
+                    'fontWeight': 'bold',
+                    'marginRight': '12px'
+                }),
+                html.Span("You're exploring with sample data (separate database)", style={
+                    'opacity': '0.9'
+                }),
+                html.A([
+                    html.I(className="fas fa-cog", style={'marginLeft': '12px', 'marginRight': '4px'}),
+                    "Switch to Real Data"
+                ], href="/onboarding", style={
+                    'color': '#1ED760',
+                    'textDecoration': 'none',
+                    'marginLeft': '12px',
+                    'fontSize': '14px'
+                }),
+                html.Br(),
+                html.Span("(Sample data will be automatically cleaned when you connect real Spotify)", style={
+                    'fontSize': '12px',
+                    'opacity': '0.7',
+                    'fontStyle': 'italic'
+                })
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'justifyContent': 'center'
+            })
+        ], style={
+            'backgroundColor': 'rgba(29, 215, 96, 0.1)',
+            'border': '1px solid rgba(29, 215, 96, 0.3)',
+            'borderRadius': '8px',
+            'padding': '12px 20px',
+            'marginBottom': '20px',
+            'textAlign': 'center',
+            'color': '#FFFFFF',
+            'fontSize': '14px'
+        })
+
+        # Combine banner with header
+        return html.Div([sample_banner, header])
+
     print(f"Created header: {header}")  # Debug log
     return header
 
@@ -850,10 +969,10 @@ def update_current_track(n_intervals, use_sample_data_flag):
 
     print(f"🎵 DEBUG: Current track update - use_sample: {use_sample}, spotify_api.sp: {spotify_api.sp is not None}")
 
-    # Never use sample data - always try to get real data
     if use_sample:
-        print("🚫 DEBUG: Sample data requested but disabled - fetching real data instead")
-        use_sample = False
+        print("📊 DEBUG: Using sample data for current track.")
+        from modules.sample_data_generator import sample_data_generator
+        return sample_data_generator.generate_current_track()
 
     try:
         current_track = spotify_api.get_currently_playing()
@@ -1050,10 +1169,20 @@ def update_current_track_display(current_track):
 @app.callback(
     Output('top-tracks-chart', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_top_tracks_chart(n_intervals, n_clicks):
-    """Update the top tracks chart using Spotify's official top tracks."""
+def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the top tracks chart using Spotify's official top tracks or sample data."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for top tracks.")
+        from modules.sample_data_generator import sample_data_generator
+        top_tracks_data = sample_data_generator.generate_top_tracks(limit=10)
+        top_tracks_df = pd.DataFrame(top_tracks_data)
+        return visualizations.create_top_tracks_soundwave(top_tracks_df)
+
     # Use Spotify's official top tracks directly - this is the correct approach!
     try:
         # Get top tracks from Spotify's algorithm (short_term = last 4 weeks)
@@ -1145,10 +1274,38 @@ def update_top_tracks_chart(n_intervals, n_clicks):
 @app.callback(
     Output('saved-tracks-chart', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_saved_tracks_chart(n_intervals, n_clicks):
-    """Update the saved tracks chart."""
+def update_saved_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the saved tracks chart with sample data support."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for saved tracks.")
+        from modules.sample_data_generator import sample_data_generator
+
+        # Generate sample saved tracks
+        saved_tracks_data = []
+        for i, track in enumerate(sample_data_generator.sample_tracks[:8]):  # 8 saved tracks
+            saved_tracks_data.append({
+                'id': f"sample-saved-{i+1}",
+                'track': track['name'],
+                'artist': track['artist'],
+                'album': track['album'],
+                'duration_ms': track['duration_ms'],
+                'duration_minutes': round(track['duration_ms'] / 60000, 1),
+                'popularity': track['popularity'],
+                'added_at': (datetime.now() - timedelta(days=random.randint(1, 30))).isoformat(),
+                'image_url': ''
+            })
+
+        saved_tracks_df = pd.DataFrame(saved_tracks_data)
+        saved_tracks_df['added_at'] = pd.to_datetime(saved_tracks_df['added_at'])
+
+        print(f"Generated {len(saved_tracks_df)} sample saved tracks for visualization")
+        return visualizations.create_saved_tracks_list(saved_tracks_df)
+
     # Fetch new data if refresh button clicked
     if n_clicks is not None and n_clicks > 0:
         user_data = spotify_api.get_user_profile()
@@ -1229,17 +1386,26 @@ def update_saved_tracks_chart(n_intervals, n_clicks):
 @app.callback(
     Output('playlists-container', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_playlists_list(n_intervals, n_clicks):
+def update_playlists_list(n_intervals, n_clicks, use_sample_data_flag):
     """Update the playlists fancy list."""
-    # Get playlists data directly from API (playlists don't need database storage for this view)
-    try:
-        playlists_data = spotify_api.get_playlists(limit=10)
-        playlists_df = pd.DataFrame(playlists_data) if playlists_data else pd.DataFrame()
-    except Exception as e:
-        print(f"Error getting playlists: {e}")
-        playlists_df = pd.DataFrame()
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for playlists.")
+        from modules.sample_data_generator import sample_data_generator
+        playlists_data = sample_data_generator.generate_playlists(limit=8)
+        playlists_df = pd.DataFrame(playlists_data)
+    else:
+        # Get playlists data directly from API (playlists don't need database storage for this view)
+        try:
+            playlists_data = spotify_api.get_playlists(limit=10)
+            playlists_df = pd.DataFrame(playlists_data) if playlists_data else pd.DataFrame()
+        except Exception as e:
+            print(f"Error getting playlists: {e}")
+            playlists_df = pd.DataFrame()
 
     # Create visualization - import the standalone function
     from modules.visualizations import create_playlists_fancy_list
@@ -1249,10 +1415,40 @@ def update_playlists_list(n_intervals, n_clicks):
 @app.callback(
     Output('audio-features-chart', 'figure'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_audio_features_chart(n_intervals, n_clicks):
-    """Update the audio features chart."""
+def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the audio features chart with sample data support."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for audio features.")
+        from modules.sample_data_generator import sample_data_generator
+
+        # Get sample audio features
+        audio_features_data = []
+        for i, track in enumerate(sample_data_generator.sample_tracks[:5]):  # Top 5 tracks
+            audio_features_data.append({
+                'track': track['name'],
+                'artist': track['artist'],
+                'id': f"sample-track-{i+1}",
+                'danceability': track['audio_features']['danceability'],
+                'energy': track['audio_features']['energy'],
+                'key': random.randint(0, 11),
+                'loudness': round(random.uniform(-12, -5), 2),
+                'mode': random.randint(0, 1),
+                'speechiness': round(random.uniform(0.03, 0.2), 3),
+                'acousticness': track['audio_features']['acousticness'],
+                'instrumentalness': round(random.uniform(0, 0.4), 3),
+                'liveness': round(random.uniform(0.05, 0.3), 3),
+                'valence': track['audio_features']['valence'],
+                'tempo': track['audio_features']['tempo']
+            })
+
+        audio_features_df = pd.DataFrame(audio_features_data)
+        return visualizations.create_audio_features_radar(audio_features_df)
+
     # Fetch new data if refresh button clicked
     if n_clicks is not None and n_clicks > 0:
         user_data = spotify_api.get_user_profile()
@@ -1376,11 +1572,22 @@ def update_audio_features_chart(n_intervals, n_clicks):
 @app.callback(
     Output('top-artists-chart', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_top_artists_chart(n_intervals, n_clicks):
-    """Update the top artists chart using Spotify's official top artists."""
+def update_top_artists_chart(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the top artists chart using Spotify's official top artists or sample data."""
     print(f"=== TOP ARTISTS CALLBACK TRIGGERED: intervals={n_intervals}, clicks={n_clicks} ===")
+
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for top artists.")
+        from modules.sample_data_generator import sample_data_generator
+        top_artists_data = sample_data_generator.generate_top_artists(limit=10)
+        artists_df = pd.DataFrame(top_artists_data)
+        visualizations = SpotifyVisualizations()
+        return visualizations.create_top_artists_soundwave(artists_df)
 
     # Use Spotify's official top artists directly - this is the correct approach!
     try:
@@ -1419,10 +1626,38 @@ def update_top_artists_chart(n_intervals, n_clicks):
 @app.callback(
     Output('top-track-highlight-container', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_top_track_highlight(n_intervals, n_clicks):
-    """Update the top track highlight card."""
+def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the top track highlight card with sample data support."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for top track highlight.")
+        from modules.sample_data_generator import sample_data_generator
+
+        # Get the top sample track
+        top_track = sample_data_generator.sample_tracks[0]  # First track is the top one
+
+        track_data = {
+            'track': top_track['name'],
+            'artist': top_track['artist'],
+            'album': top_track['album'],
+            'popularity': top_track['popularity'],
+            'danceability': top_track['audio_features']['danceability'],
+            'energy': top_track['audio_features']['energy'],
+            'valence': top_track['audio_features']['valence'],
+            'tempo': top_track['audio_features']['tempo'],
+            'acousticness': top_track['audio_features']['acousticness']
+        }
+
+        return create_spotify_card(
+            title="Your #1 Track",
+            content=f"🎵 {track_data['track']} by {track_data['artist']}\nFrom {track_data['album']}",
+            icon="fa-music"
+        )
+
     try:
         # Get top track from database
         conn = sqlite3.connect(db.db_path)
@@ -1473,10 +1708,26 @@ def update_top_track_highlight(n_intervals, n_clicks):
 @app.callback(
     Output('top-artist-highlight-container', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_top_artist_highlight(n_intervals, n_clicks):
-    """Update the top artist highlight card."""
+def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the top artist highlight card with sample data support."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for top artist highlight.")
+        from modules.sample_data_generator import sample_data_generator
+
+        # Get the top sample artist
+        top_artist = sample_data_generator.sample_artists[0]  # First artist is the top one
+
+        return create_spotify_card(
+            title="Your Top Artist",
+            content=f"🎤 {top_artist['name']}\nGenres: {', '.join(top_artist['genres'][:2])}",
+            icon="fa-user"
+        )
+
     try:
         # Get top artist from database
         conn = sqlite3.connect(db.db_path)
@@ -1525,12 +1776,35 @@ def update_top_artist_highlight(n_intervals, n_clicks):
 @app.callback(
     Output('genre-chart', 'figure'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_genre_chart(n_intervals, n_clicks):
-    """Update the genre chart."""
+def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the genre chart with sample data support."""
     try:
         print("=== Genre Chart Update Started ===")
+
+        use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+        if use_sample:
+            print("📊 DEBUG: Using sample data for genre chart.")
+            from modules.sample_data_generator import sample_data_generator
+
+            # Generate genre data from sample artists
+            all_genres = []
+            for artist in sample_data_generator.sample_artists:
+                for genre in artist['genres']:
+                    all_genres.append(genre)
+
+            from collections import Counter
+            genre_counts = Counter(all_genres)
+
+            genre_data = [{'genre': genre, 'count': count} for genre, count in genre_counts.items()]
+            genre_df = pd.DataFrame(genre_data)
+
+            # Create visualization
+            fig = visualizations.create_genre_pie_chart(genre_df)
+            return fig
 
         # Fetch new data if refresh button clicked
         if n_clicks is not None and n_clicks > 0:
@@ -1819,10 +2093,51 @@ def cleanup_historical_data():
 # Update listening patterns chart
 @app.callback(
     Output('listening-patterns-chart', 'figure'),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    State('use-sample-data-store', 'data')
 )
-def update_listening_patterns_chart(n_intervals):
-    """Update the listening patterns chart."""
+def update_listening_patterns_chart(n_intervals, use_sample_data_flag):
+    """Update the listening patterns chart with sample data support."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for listening patterns.")
+        from modules.sample_data_generator import sample_data_generator
+
+        # Generate sample listening patterns
+        patterns_data = []
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+        # Create realistic patterns - more listening on weekends, peak hours in evening
+        for day in range(7):
+            for hour in range(24):
+                # Weekend vs weekday patterns
+                is_weekend = day in [0, 6]  # Sunday, Saturday
+                base_count = 3 if is_weekend else 2
+
+                # Peak hours: morning (7-9), lunch (12-14), evening (18-22)
+                if hour in [7, 8, 9, 12, 13, 14, 18, 19, 20, 21, 22]:
+                    multiplier = 2.5
+                elif hour in [10, 11, 15, 16, 17, 23]:
+                    multiplier = 1.5
+                elif hour in [0, 1, 2, 3, 4, 5, 6]:
+                    multiplier = 0.2
+                else:
+                    multiplier = 1.0
+
+                play_count = int(base_count * multiplier * random.uniform(0.7, 1.3))
+
+                patterns_data.append({
+                    'day_of_week': day,
+                    'hour_of_day': hour,
+                    'play_count': play_count,
+                    'day_name': day_names[day]
+                })
+
+        patterns_df = pd.DataFrame(patterns_data)
+        print(f"Sample listening patterns data: {len(patterns_df)} time slots with total {patterns_df['play_count'].sum()} tracks played")
+        return visualizations.create_listening_patterns_heatmap(patterns_df, date_range_days=7)
+
     user_data = spotify_api.get_user_profile()
     if not user_data:
         return visualizations.create_empty_chart("Log in to see your listening patterns")
@@ -1975,28 +2290,54 @@ def update_listening_patterns_chart(n_intervals):
 @app.callback(
     Output('top-albums-container', 'children'),
     Input('interval-component', 'n_intervals'),
-    Input('refresh-button', 'n_clicks')
+    Input('refresh-button', 'n_clicks'),
+    State('use-sample-data-store', 'data')
 )
-def update_top_albums(n_intervals, n_clicks):
-    """Update the top albums section."""
+def update_top_albums(n_intervals, n_clicks, use_sample_data_flag):
+    """Update the top albums section with sample data support."""
     try:
-        # Get user data first to ensure we have a valid user
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Log in to see your top albums",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+        use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
-        # Get top albums directly from database
-        try:
-            top_albums_data = get_top_albums(spotify_api, limit=10)
-            if top_albums_data.empty:
-                return html.Div("No album data available. Please refresh your data to see your top albums.",
+        if use_sample:
+            print("📊 DEBUG: Using sample data for top albums.")
+            from modules.sample_data_generator import sample_data_generator
+
+            # Generate sample albums from tracks
+            albums = {}
+            for track in sample_data_generator.sample_tracks:
+                album_name = track['album']
+                artist_name = track['artist']
+                if album_name not in albums:
+                    albums[album_name] = {
+                        'album': album_name,
+                        'artist': artist_name,
+                        'play_count': 0,
+                        'total_tracks': random.randint(8, 15),
+                        'image_url': ''
+                    }
+                albums[album_name]['play_count'] += random.randint(5, 25)
+
+            # Convert to DataFrame and sort by play count
+            top_albums_df = pd.DataFrame(list(albums.values()))
+            top_albums_df = top_albums_df.sort_values('play_count', ascending=False).head(10)
+        else:
+            # Get user data first to ensure we have a valid user
+            user_data = spotify_api.get_user_profile()
+            if not user_data:
+                return html.Div("Log in to see your top albums",
                                style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-            top_albums_df = top_albums_data
-        except Exception as e:
-            print(f"Error getting top albums: {e}")
-            return html.Div("Error loading album data",
-                           style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+            # Get top albums directly from database
+            try:
+                top_albums_data = get_top_albums(spotify_api, limit=10)
+                if top_albums_data.empty:
+                    return html.Div("No album data available. Please refresh your data to see your top albums.",
+                                   style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+                top_albums_df = top_albums_data
+            except Exception as e:
+                print(f"Error getting top albums: {e}")
+                return html.Div("Error loading album data",
+                               style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
         # Create album cards
         album_cards = []
@@ -2052,12 +2393,21 @@ def get_listening_style(completion_rate, sequential_score):
     [Input('refresh-button', 'n_clicks'),
      Input('interval-component', 'n_intervals'),
      Input('url', 'pathname')],  # Trigger when page loads
+    State('use-sample-data-store', 'data'),
     prevent_initial_call=False  # Allow initial call to load data immediately
 )
-def update_wrapped_summary(n_clicks, n_intervals, pathname):
+def update_wrapped_summary(n_clicks, n_intervals, pathname, use_sample_data_flag):
     """Generate and store Spotify Wrapped style summary using only database data."""
     try:
         print(f"Updating wrapped summary - clicks: {n_clicks}, intervals: {n_intervals}, pathname: {pathname}")
+
+        use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+        if use_sample:
+            print("📊 DEBUG: Using sample data for wrapped summary.")
+            from modules.sample_data_generator import sample_data_generator
+            summary = sample_data_generator.generate_wrapped_summary()
+            return summary
 
         # Always generate fresh data for Music DNA card
         # Clear cache if refresh button was clicked
@@ -2073,7 +2423,7 @@ def update_wrapped_summary(n_clicks, n_intervals, pathname):
                 print(f"Error clearing cache: {e}")
 
         # Generate summary from database (always fresh)
-        summary = generate_wrapped_summary_from_db()
+        summary = generate_wrapped_summary_from_db(use_sample=False)
         print(f"Generated summary with total_minutes: {summary.get('total_minutes', 'NOT_FOUND')}")
         return summary
     except Exception as e:
@@ -2143,10 +2493,52 @@ def update_wrapped_summary_display(summary):
         Output('listening-sessions-stat', 'children'),
         Output('playlist-count-stat', 'children')
     ],
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    State('use-sample-data-store', 'data')
 )
-def update_stat_cards(n_intervals):
+def update_stat_cards(n_intervals, use_sample_data_flag):
     """Update the stat cards with user statistics."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+    if use_sample:
+        print("📊 DEBUG: Using sample data for stat cards.")
+        from modules.sample_data_generator import sample_data_generator
+        from modules.visualizations import create_stat_card
+
+        # Generate sample stats
+        sample_summary = sample_data_generator.generate_wrapped_summary()
+        sample_playlists = sample_data_generator.generate_playlists()
+
+        total_minutes_card = create_stat_card(
+            "Minutes Listened",
+            f"{sample_summary['total_minutes']:,}",
+            icon="fa-clock",
+            color=SPOTIFY_GREEN
+        )
+
+        unique_artists_card = create_stat_card(
+            "Unique Artists",
+            str(sample_summary['metrics']['unique_artists']),
+            icon="fa-user",
+            color="#1ED760"
+        )
+
+        listening_sessions_card = create_stat_card(
+            "Listening Sessions",
+            str(random.randint(45, 120)),
+            icon="fa-calendar-day",
+            color="#8b5cf6"
+        )
+
+        playlist_count_card = create_stat_card(
+            "Your Playlists",
+            str(len(sample_playlists)),
+            icon="fa-list",
+            color="#F037A5"
+        )
+
+        return total_minutes_card, unique_artists_card, listening_sessions_card, playlist_count_card
+
     user_data = spotify_api.get_user_profile()
     if not user_data:
         return create_empty_stats()
@@ -2275,7 +2667,7 @@ def create_empty_stats():
         create_stat_card("Your Playlists", "0", icon="fa-list", color="#F037A5")
     ]
 
-def generate_wrapped_summary_from_db():
+def generate_wrapped_summary_from_db(database=None, use_sample=False):
     """Generate a Spotify Wrapped style summary using database data."""
     print("Starting wrapped summary generation...")
 
@@ -2313,7 +2705,11 @@ def generate_wrapped_summary_from_db():
         'genre_highlight': None
     }
 
-    conn = sqlite3.connect(db.db_path)
+    # Use appropriate database
+    if database is None:
+        database = get_database_for_mode(use_sample)
+
+    conn = sqlite3.connect(database.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2640,31 +3036,35 @@ def generate_wrapped_summary_from_db():
 @app.callback(
     Output('error-message', 'children'),
     Output('error-message', 'style'),
-    Input('interval-component', 'n_intervals')
+    Input('interval-component', 'n_intervals'),
+    State('use-sample-data-store', 'data')
 )
-def update_error_message(n_intervals):
-    """Update error message if API connection fails."""
-    if spotify_api.sp is None:
-        error_style = {
-            'color': '#FF5555',
-            'textAlign': 'center',
-            'margin': '10px',
-            'padding': '10px',
-            'backgroundColor': '#2A0A0A',
-            'borderRadius': '5px',
-            'display': 'block'
-        }
-        return [
-            "Error connecting to Spotify API. Please check your credentials and internet connection.",
-            html.Br(),
-            "The dashboard will display limited data until connection is restored."
-        ], error_style
+def update_error_message(n_intervals, use_sample_data_flag):
+    """Update error message if API connection fails (but not in sample mode)."""
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
-    # No error, hide the message
+    # Don't show error message in sample mode
+    if use_sample or spotify_api.sp is not None:
+        error_style = {
+            'display': 'none'
+        }
+        return "", error_style
+
+    # Show error only when not in sample mode and no API connection
     error_style = {
-        'display': 'none'
+        'color': '#FF5555',
+        'textAlign': 'center',
+        'margin': '10px',
+        'padding': '10px',
+        'backgroundColor': '#2A0A0A',
+        'borderRadius': '5px',
+        'display': 'block'
     }
-    return "", error_style
+    return [
+        "Error connecting to Spotify API. Please check your credentials and internet connection.",
+        html.Br(),
+        "The dashboard will display limited data until connection is restored."
+    ], error_style
 
 # Collection status callback removed - no longer showing collection status message
 

@@ -570,20 +570,64 @@ def create_onboarding_page():
                 ])
             ], style={'backgroundColor': '#181818', 'border': '1px solid #282828', 'marginBottom': '30px'}),
 
-            # Temporarily disabled sample data to force proper authentication
-            # dbc.Card([
-            #     dbc.CardBody([
-            #         html.H4("Or Use Sample Data", className="card-title", style={'color': SPOTIFY_GREEN}),
-            #         html.P("Don't have Spotify API credentials? No problem! Explore the dashboard with pre-generated sample data.", className="card-text", style={'color': SPOTIFY_WHITE}),
-            #         dbc.Button(
-            #             "Use Sample Data",
-            #             id="sample-data-button",
-            #             color="info",
-            #             style={'backgroundColor': SPOTIFY_GRAY, 'borderColor': SPOTIFY_GRAY, 'color': SPOTIFY_WHITE}
-            #         ),
-            #         html.Div(id='sample-data-status', className='mt-3', style={'color': SPOTIFY_WHITE})
-            #     ])
-            # ], style={'backgroundColor': '#181818', 'border': '1px solid #282828'}),
+            # Sample Data Option - Only shown as a deliberate choice
+            dbc.Card([
+                dbc.CardBody([
+                    html.Div([
+                        html.I(className="fas fa-play-circle", style={
+                            'fontSize': '24px',
+                            'color': SPOTIFY_GREEN,
+                            'marginRight': '12px'
+                        }),
+                        html.H4("Try the Demo Experience", className="card-title", style={
+                            'color': SPOTIFY_GREEN,
+                            'display': 'inline-block',
+                            'margin': '0'
+                        })
+                    ], style={'display': 'flex', 'alignItems': 'center', 'marginBottom': '15px'}),
+
+                    html.P([
+                        "Want to explore the dashboard before setting up your Spotify API? ",
+                        html.Br(),
+                        "Experience all features with realistic sample data that showcases the full potential of Spotify Wrapped Remix."
+                    ], className="card-text", style={'color': SPOTIFY_WHITE, 'marginBottom': '20px'}),
+
+                    html.Div([
+                        html.I(className="fas fa-info-circle", style={
+                            'color': '#1ED760',
+                            'marginRight': '8px'
+                        }),
+                        html.Span("Includes: Sample listening history, top tracks & artists, playlists, and AI insights", style={
+                            'color': '#B3B3B3',
+                            'fontSize': '14px'
+                        })
+                    ], style={'marginBottom': '20px'}),
+
+                    dbc.Button([
+                        html.I(className="fas fa-rocket", style={'marginRight': '8px'}),
+                        "Explore with Sample Data"
+                    ],
+                        id="sample-data-button",
+                        color="success",
+                        size="lg",
+                        style={
+                            'backgroundColor': '#1ED760',
+                            'borderColor': '#1ED760',
+                            'color': '#000000',
+                            'fontWeight': 'bold',
+                            'width': '100%',
+                            'padding': '12px',
+                            'borderRadius': '25px'
+                        }
+                    ),
+                    html.Div(id='sample-data-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                ])
+            ], style={
+                'backgroundColor': '#181818',
+                'border': '1px solid #282828',
+                'marginBottom': '30px',
+                'borderRadius': '12px'
+            }),
 
             html.Div([
                 html.P([
