@@ -586,6 +586,287 @@ class SampleDataGenerator:
         finally:
             conn.close()
 
+    def generate_ai_personality_data(self) -> Dict[str, Any]:
+        """Generate AI personality analysis sample data."""
+        personality_types = [
+            {
+                'type': 'Sonic Explorer',
+                'description': "You're a musical adventurer who thrives on discovering new sounds and pushing the boundaries of your listening experience. Your taste evolves constantly, and you're always seeking that next perfect track that captures a feeling you didn't know existed.",
+                'confidence': 0.87
+            },
+            {
+                'type': 'Mood Curator',
+                'description': "You're a master of emotional soundscapes, carefully crafting the perfect musical atmosphere for every moment. Your listening habits reveal a deep understanding of how music shapes feelings and memories.",
+                'confidence': 0.92
+            },
+            {
+                'type': 'Genre Hopper',
+                'description': "You refuse to be confined by musical boundaries, seamlessly jumping between genres with the confidence of someone who truly understands that good music transcends categories. Your eclectic taste tells a story of curiosity and open-mindedness.",
+                'confidence': 0.78
+            },
+            {
+                'type': 'Rhythm Analyst',
+                'description': "You have an innate connection to the mathematical beauty of music - the way beats align, how melodies interweave, and the subtle complexities that make a song truly special. Your listening patterns reveal a deep appreciation for musical craftsmanship.",
+                'confidence': 0.85
+            }
+        ]
+
+        personality = random.choice(personality_types)
+
+        # Generate AI recommendations based on sample tracks
+        recommendations = []
+        sample_tracks_subset = random.sample(self.sample_tracks, min(3, len(self.sample_tracks)))
+
+        reasons = [
+            "Matches your love for atmospheric soundscapes",
+            "Perfect for your genre-blending tendencies",
+            "Aligns with your preference for complex rhythms",
+            "Captures the emotional depth you seek",
+            "Reflects your adventurous musical spirit",
+            "Complements your sophisticated taste profile"
+        ]
+
+        for track in sample_tracks_subset:
+            recommendations.append({
+                'name': track['name'],
+                'artist': track['artist'],
+                'reason': random.choice(reasons)
+            })
+
+        return {
+            'personality_type': personality['type'],
+            'ai_description': personality['description'],
+            'confidence_score': personality['confidence'],
+            'recommendations': recommendations
+        }
+
+    def generate_genre_evolution_data(self) -> Dict[str, Any]:
+        """Generate genre evolution timeline sample data."""
+        genres = ['pop', 'indie', 'electronic', 'synthwave', 'alternative', 'rock', 'ambient', 'jazz']
+        months = ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05', '2024-06',
+                 '2024-07', '2024-08', '2024-09', '2024-10', '2024-11', '2024-12']
+
+        timeline_data = []
+        current_genre_weights = {genre: random.uniform(0.1, 0.3) for genre in genres}
+
+        for month in months:
+            # Simulate genre evolution - gradually shift preferences
+            if random.random() < 0.3:  # 30% chance of significant change each month
+                # Pick a genre to boost
+                boost_genre = random.choice(genres)
+                current_genre_weights[boost_genre] = min(1.0, current_genre_weights[boost_genre] + random.uniform(0.2, 0.4))
+
+                # Reduce others slightly
+                for genre in genres:
+                    if genre != boost_genre:
+                        current_genre_weights[genre] = max(0.05, current_genre_weights[genre] - random.uniform(0.05, 0.15))
+
+            # Normalize weights
+            total_weight = sum(current_genre_weights.values())
+            normalized_weights = {genre: weight/total_weight for genre, weight in current_genre_weights.items()}
+
+            # Convert to play counts
+            total_plays = random.randint(80, 150)
+            for genre, weight in normalized_weights.items():
+                play_count = int(total_plays * weight)
+                if play_count > 0:
+                    timeline_data.append({
+                        'month': month,
+                        'genre': genre,
+                        'play_count': play_count
+                    })
+
+        # Generate insights
+        insights = [
+            "Your taste evolved from mainstream pop to indie exploration",
+            "You discovered electronic music and it became a major part of your identity",
+            "Your genre preferences show increasing sophistication over time",
+            "You've developed a unique blend of ambient and synthwave preferences"
+        ]
+
+        return {
+            'timeline_data': timeline_data,
+            'insights': random.sample(insights, 2)
+        }
+
+    def generate_wellness_analysis_data(self) -> Dict[str, Any]:
+        """Generate enhanced wellness and stress analysis sample data matching the real implementation."""
+        stress_score = random.randint(15, 75)
+
+        if stress_score < 25:
+            stress_level = "Low Stress Indicators"
+            level_color = "#1DB954"
+            stress_icon = "🟢"
+        elif stress_score < 45:
+            stress_level = "Moderate Stress Indicators"
+            level_color = "#FFD93D"
+            stress_icon = "🟡"
+        elif stress_score < 65:
+            stress_level = "Elevated Stress Indicators"
+            level_color = "#FF6B35"
+            stress_icon = "🟠"
+        else:
+            stress_level = "High Stress Indicators"
+            level_color = "#FF6B6B"
+            stress_icon = "🔴"
+
+        # Generate detailed stress indicators like the real implementation
+        stress_indicators = {
+            'agitated_listening': {
+                'severity': random.choice(['low', 'mild', 'moderate', 'high']),
+                'frequency': random.randint(2, 15),
+                'description': 'Frequent track skipping and high-energy music selection during emotional periods'
+            },
+            'repetitive_behavior': {
+                'unique_repeated_tracks': random.randint(5, 25),
+                'stress_repetitive_tracks': random.randint(2, 12),
+                'happy_repetitive_tracks': random.randint(3, 15),
+                'max_repetitions': random.randint(8, 30),
+                'description': 'Repetitive listening patterns that may indicate rumination or comfort-seeking'
+            },
+            'late_night_listening': {
+                'frequency': random.randint(3, 20),
+                'avg_mood': random.uniform(0.2, 0.7),
+                'description': 'Late-night listening sessions that may disrupt sleep patterns'
+            },
+            'mood_volatility': {
+                'severity': random.choice(['low', 'mild', 'moderate', 'high']),
+                'daily_volatility': random.uniform(0.1, 0.8),
+                'description': 'Rapid changes in music mood preferences indicating emotional instability'
+            }
+        }
+
+        # Generate stress timeline data (last 30 days)
+        stress_timeline = []
+        base_date = datetime.now() - timedelta(days=30)
+        for i in range(30):
+            date = base_date + timedelta(days=i)
+            daily_stress = max(0, min(100, stress_score + random.randint(-20, 20)))
+            stress_timeline.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'stress_score': daily_stress,
+                'avg_mood': random.uniform(0.3, 0.8),
+                'avg_energy': random.uniform(0.4, 0.9),
+                'listening_intensity': random.randint(10, 80)
+            })
+
+        # Generate personal triggers
+        personal_triggers = [
+            {
+                'trigger': 'Work Deadlines',
+                'frequency': random.randint(2, 8),
+                'impact': random.choice(['mild', 'moderate', 'high']),
+                'music_response': 'Increased high-energy music selection'
+            },
+            {
+                'trigger': 'Social Situations',
+                'frequency': random.randint(1, 5),
+                'impact': random.choice(['mild', 'moderate']),
+                'music_response': 'Preference for familiar, comforting tracks'
+            },
+            {
+                'trigger': 'Evening Hours',
+                'frequency': random.randint(5, 15),
+                'impact': random.choice(['mild', 'moderate', 'high']),
+                'music_response': 'Shift towards melancholic or repetitive listening'
+            }
+        ]
+
+        # Generate evidence-based recommendations
+        recommendations = [
+            {
+                'type': 'calming',
+                'title': 'Progressive Muscle Relaxation with Music',
+                'description': 'Combine slow-tempo music (60-80 BPM) with progressive muscle relaxation techniques',
+                'evidence': 'Studies show music-assisted relaxation reduces cortisol levels by 23%',
+                'action': 'Practice 10 minutes daily during identified stress periods',
+                'confidence': random.uniform(0.7, 0.9)
+            },
+            {
+                'type': 'sleep',
+                'title': 'Sleep Hygiene Music Protocol',
+                'description': 'Use ambient or classical music 30 minutes before bedtime to improve sleep quality',
+                'evidence': 'Research indicates music therapy improves sleep quality in 78% of participants',
+                'action': 'Create a dedicated sleep playlist with tracks under 70 BPM',
+                'confidence': random.uniform(0.6, 0.8)
+            },
+            {
+                'type': 'focus',
+                'title': 'Binaural Beats for Concentration',
+                'description': 'Use binaural beats or instrumental music during work to reduce stress and improve focus',
+                'evidence': 'Neuroscience research shows binaural beats enhance cognitive performance',
+                'action': 'Listen during work sessions, especially during identified trigger periods',
+                'confidence': random.uniform(0.5, 0.7)
+            },
+            {
+                'type': 'stability',
+                'title': 'Mood Regulation Playlist',
+                'description': 'Create playlists that gradually shift from current mood to desired emotional state',
+                'evidence': 'Music therapy protocols show 65% improvement in mood regulation',
+                'action': 'Use during mood volatility periods identified in your patterns',
+                'confidence': random.uniform(0.7, 0.9)
+            }
+        ]
+
+        return {
+            'stress_score': stress_score,
+            'stress_level': stress_level,
+            'level_color': level_color,
+            'stress_icon': stress_icon,
+            'stress_indicators': stress_indicators,
+            'stress_timeline': stress_timeline,
+            'personal_triggers': random.sample(personal_triggers, random.randint(2, 3)),
+            'recommendations': random.sample(recommendations, random.randint(2, 3)),
+            'confidence': random.uniform(0.75, 0.95)
+        }
+
+    def generate_advanced_recommendations(self) -> Dict[str, Any]:
+        """Generate advanced content-based recommendations sample data."""
+        recommendations = []
+
+        # Use sample tracks as base for recommendations
+        base_tracks = random.sample(self.sample_tracks, min(8, len(self.sample_tracks)))
+
+        recommendation_reasons = [
+            "Similar audio DNA to your top tracks",
+            "Matches your preferred energy and danceability profile",
+            "Recommended based on your genre evolution patterns",
+            "Aligns with your mood-based listening habits",
+            "Discovered through your unique taste fingerprint",
+            "Perfect match for your musical personality type",
+            "Complements your current listening session patterns",
+            "Suggested by AI analysis of your audio feature preferences"
+        ]
+
+        for track in base_tracks:
+            # Create slight variations for recommendations
+            rec_track = track.copy()
+            rec_track['name'] = f"{track['name']} (Recommended)"
+            rec_track['recommendation_score'] = random.uniform(0.75, 0.95)
+            rec_track['reason'] = random.choice(recommendation_reasons)
+            rec_track['similarity_score'] = random.uniform(0.8, 0.98)
+            # Ensure image_url is included for display
+            rec_track['image_url'] = random.choice(self.placeholder_images)
+            recommendations.append(rec_track)
+
+        # Generate Music DNA profile
+        music_dna = {
+            'danceability': random.uniform(0.4, 0.8),
+            'energy': random.uniform(0.5, 0.9),
+            'valence': random.uniform(0.3, 0.7),
+            'acousticness': random.uniform(0.1, 0.6),
+            'instrumentalness': random.uniform(0.0, 0.3),
+            'tempo': random.uniform(100, 140)
+        }
+
+        return {
+            'recommendations': recommendations,
+            'music_dna': music_dna,
+            'recommendation_confidence': random.uniform(0.82, 0.94),
+            'total_analyzed_tracks': random.randint(150, 500),
+            'unique_features_identified': random.randint(12, 25)
+        }
+
     def get_all_sample_data(self) -> Dict[str, Any]:
         """Get all sample data in a single call for easy integration."""
         return {
@@ -596,7 +877,11 @@ class SampleDataGenerator:
             'current_track': self.generate_current_track(),
             'audio_features': self.generate_audio_features(20),
             'wrapped_summary': self.generate_wrapped_summary(),
-            'listening_history': self.generate_listening_history(30)
+            'listening_history': self.generate_listening_history(30),
+            'ai_personality': self.generate_ai_personality_data(),
+            'genre_evolution': self.generate_genre_evolution_data(),
+            'wellness_analysis': self.generate_wellness_analysis_data(),
+            'advanced_recommendations': self.generate_advanced_recommendations()
         }
 
 

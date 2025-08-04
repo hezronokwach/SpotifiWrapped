@@ -3148,22 +3148,30 @@ def update_error_message(n_intervals, use_sample_data_flag):
 # AI Insights Page Callbacks
 @app.callback(
     Output('ai-personality-card', 'children'),
-    Input('url', 'pathname')
+    Input('url', 'pathname'),
+    State('use-sample-data-store', 'data')
 )
-def update_ai_personality_card(pathname):
+def update_ai_personality_card(pathname, use_sample_data_flag):
     """Update AI personality card with enhanced descriptions."""
     if pathname != '/ai-insights':
         return html.Div()
 
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
     try:
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+        if use_sample:
+            print("📊 DEBUG: Using sample data for AI personality.")
+            from modules.sample_data_generator import sample_data_generator
+            ai_personality = sample_data_generator.generate_ai_personality_data()
+        else:
+            user_data = spotify_api.get_user_profile()
+            if not user_data:
+                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
 
-        user_id = user_data['id']
+            user_id = user_data['id']
 
-        # Get AI-enhanced personality analysis
-        ai_personality = enhanced_personality_analyzer.generate_enhanced_personality(user_id)
+            # Get AI-enhanced personality analysis
+            ai_personality = enhanced_personality_analyzer.generate_enhanced_personality(user_id)
 
         return create_spotify_card(
             title="🧠 AI-Enhanced Personality",
@@ -3199,25 +3207,63 @@ def update_ai_personality_card(pathname):
 
 @app.callback(
     Output('genre-evolution-chart', 'figure'),
-    Input('url', 'pathname')
+    Input('url', 'pathname'),
+    State('use-sample-data-store', 'data')
 )
-def update_genre_evolution_chart(pathname):
+def update_genre_evolution_chart(pathname, use_sample_data_flag):
     """Update genre evolution chart."""
     if pathname != '/ai-insights':
         return {}
 
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
     try:
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return {}
+        if use_sample:
+            print("📊 DEBUG: Using sample data for genre evolution.")
+            from modules.sample_data_generator import sample_data_generator
+            evolution_data = sample_data_generator.generate_genre_evolution_data()
 
-        user_id = user_data['id']
+            # Create a simple visualization for sample data
+            import plotly.express as px
+            import pandas as pd
 
-        # Get genre evolution data
-        evolution_data = genre_evolution_tracker.get_genre_evolution_data(user_id)
+            # Convert timeline data to DataFrame
+            df = pd.DataFrame(evolution_data['timeline_data'])
 
-        # Create visualization
-        return genre_evolution_tracker.create_evolution_visualization(evolution_data)
+            # Create stacked area chart
+            fig = px.area(df, x='month', y='play_count', color='genre',
+                         title='Your Genre Evolution Over Time',
+                         labels={'play_count': 'Play Count', 'month': 'Month'})
+
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                title_font_color='#1DB954',
+                title_font_size=16,
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                )
+            )
+
+            return fig
+        else:
+            user_data = spotify_api.get_user_profile()
+            if not user_data:
+                return {}
+
+            user_id = user_data['id']
+
+            # Get genre evolution data
+            evolution_data = genre_evolution_tracker.get_genre_evolution_data(user_id)
+
+            # Create visualization
+            return genre_evolution_tracker.create_evolution_visualization(evolution_data)
 
     except Exception as e:
         print(f"Error updating genre evolution chart: {e}")
@@ -3225,19 +3271,33 @@ def update_genre_evolution_chart(pathname):
 
 @app.callback(
     Output('wellness-analysis-card', 'children'),
-    Input('url', 'pathname')
+    Input('url', 'pathname'),
+    State('use-sample-data-store', 'data')
 )
-def update_wellness_analysis_card(pathname):
+def update_wellness_analysis_card(pathname, use_sample_data_flag):
     """Update wellness analysis card with enhanced stress detection."""
     if pathname != '/ai-insights':
         return html.Div()
 
-    try:
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
-        user_id = user_data['id']
+    try:
+        if use_sample:
+            print("📊 DEBUG: Using sample data for wellness analysis.")
+            from modules.sample_data_generator import sample_data_generator
+            from modules.stress_visualizations import create_enhanced_stress_analysis_card
+
+            # Generate enhanced sample stress data
+            stress_data = sample_data_generator.generate_wellness_analysis_data()
+
+            # Use the same enhanced stress analysis card as real data
+            return create_enhanced_stress_analysis_card(stress_data)
+        else:
+            user_data = spotify_api.get_user_profile()
+            if not user_data:
+                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+
+            user_id = user_data['id']
 
         # Try enhanced stress analysis first, fallback to basic if needed
         try:
@@ -3312,30 +3372,72 @@ def update_wellness_analysis_card(pathname):
 
 @app.callback(
     Output('advanced-recommendations-card', 'children'),
-    Input('url', 'pathname')
+    Input('url', 'pathname'),
+    State('use-sample-data-store', 'data')
 )
-def update_advanced_recommendations_card(pathname):
+def update_advanced_recommendations_card(pathname, use_sample_data_flag):
     """Update advanced recommendations card."""
     if pathname != '/ai-insights':
         return html.Div()
 
+    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
     try:
-        user_data = spotify_api.get_user_profile()
-        if not user_data:
-            return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+        if use_sample:
+            print("📊 DEBUG: Using sample data for advanced recommendations.")
+            from modules.sample_data_generator import sample_data_generator
+            rec_data = sample_data_generator.generate_advanced_recommendations()
+            recommendations = rec_data['recommendations']
+            music_dna = rec_data['music_dna']
 
-        user_id = user_data['id']
+            print(f"DEBUG: Got {len(recommendations)} sample recommendations")
+        else:
+            user_data = spotify_api.get_user_profile()
+            if not user_data:
+                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
 
-        # Get content-based recommendations
-        recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
-        print(f"DEBUG: Got {len(recommendations)} recommendations for user {user_id}")
+            user_id = user_data['id']
+
+            # Get content-based recommendations
+            recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
+            print(f"DEBUG: Got {len(recommendations)} recommendations for user {user_id}")
+            music_dna = None  # Will be handled by existing logic
 
         # Create content based on whether we have recommendations
         if recommendations:
-            content = html.Div([
+            content_elements = [
                 html.P("Based on your music DNA and listening patterns",
-                      style={'color': 'rgba(255,255,255,0.7)', 'marginBottom': '20px'}),
+                      style={'color': 'rgba(255,255,255,0.7)', 'marginBottom': '20px'})
+            ]
 
+            # Add Music DNA profile if available (sample data)
+            if use_sample and music_dna:
+                content_elements.append(
+                    html.Div([
+                        html.H5("🧬 Your Music DNA Profile", style={'color': '#1DB954', 'marginBottom': '15px'}),
+                        html.Div([
+                            html.Div([
+                                html.Strong("🕺 Danceability: "),
+                                html.Span(f"{music_dna['danceability']:.1%}", style={'color': '#00D4FF'})
+                            ], style={'marginBottom': '8px'}),
+                            html.Div([
+                                html.Strong("⚡ Energy: "),
+                                html.Span(f"{music_dna['energy']:.1%}", style={'color': '#00D4FF'})
+                            ], style={'marginBottom': '8px'}),
+                            html.Div([
+                                html.Strong("😊 Mood: "),
+                                html.Span(f"{music_dna['valence']:.1%}", style={'color': '#00D4FF'})
+                            ], style={'marginBottom': '8px'}),
+                            html.Div([
+                                html.Strong("🎵 Tempo: "),
+                                html.Span(f"{music_dna['tempo']:.0f} BPM", style={'color': '#1DB954'})
+                            ], style={'marginBottom': '15px'})
+                        ], style={'backgroundColor': 'rgba(29, 185, 84, 0.1)', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px'})
+                    ])
+                )
+
+            # Add recommendations
+            content_elements.append(
                 html.Div([
                     html.Div([
                         html.Div([
@@ -3346,13 +3448,15 @@ def update_advanced_recommendations_card(pathname):
                                 html.Br(),
                                 html.Small(rec['artist'], style={'color': 'rgba(255,255,255,0.7)'}),
                                 html.Br(),
-                                html.Small(rec['reason'], style={'color': '#1DB954', 'fontSize': '0.8rem'})
+                                html.Small(rec.get('reason', 'AI-generated recommendation'), style={'color': '#1DB954', 'fontSize': '0.8rem'})
                             ])
                         ], style={'display': 'flex', 'alignItems': 'center', 'padding': '10px',
                                 'backgroundColor': 'rgba(255,255,255,0.05)', 'borderRadius': '8px', 'marginBottom': '8px'})
                     ]) for rec in recommendations
                 ])
-            ])
+            )
+
+            content = html.Div(content_elements)
         else:
             # Get user's music DNA for display
             try:
