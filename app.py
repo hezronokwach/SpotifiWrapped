@@ -900,11 +900,10 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
         # Try to get user data from database if API fails
         print("⚠️ DEBUG: API failed, trying to load from database...")
         try:
-            conn = sqlite3.connect(db.db_path)
-            cursor = conn.cursor()
-            cursor.execute('SELECT user_id, display_name, followers FROM users ORDER BY last_updated DESC LIMIT 1')
-            row = cursor.fetchone()
-            conn.close()
+            with sqlite3.connect(db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT user_id, display_name, followers FROM users ORDER BY last_updated DESC LIMIT 1')
+                row = cursor.fetchone()
 
             if row:
                 user_data = {
@@ -1053,29 +1052,28 @@ def update_current_track(n_intervals, use_sample_data_flag):
         # If no current track, try to get the most recent one from the database
         user_data = spotify_api.get_user_profile()
         if user_data and user_data.get('id') != 'sample-user-id': # Don't query DB if using sample user
-            conn = sqlite3.connect(db.db_path)
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            with sqlite3.connect(db.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
 
-            # Get the most recent track
-            cursor.execute('''
-                SELECT
-                    t.track_id as id,
-                    t.name as track,
-                    t.artist,
-                    t.album,
-                    t.duration_ms,
-                    t.image_url,
-                    h.played_at
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE h.user_id = ?
-                ORDER BY h.played_at DESC
-                LIMIT 1
-            ''', (user_data['id'],))
+                # Get the most recent track
+                cursor.execute('''
+                    SELECT
+                        t.track_id as id,
+                        t.name as track,
+                        t.artist,
+                        t.album,
+                        t.duration_ms,
+                        t.image_url,
+                        h.played_at
+                    FROM tracks t
+                    JOIN listening_history h ON t.track_id = h.track_id
+                    WHERE h.user_id = ?
+                    ORDER BY h.played_at DESC
+                    LIMIT 1
+                ''', (user_data['id'],))
 
-            row = cursor.fetchone()
-            conn.close()
+                row = cursor.fetchone()
 
             if row:
                 # Create a "not currently playing" track object
@@ -1249,50 +1247,49 @@ def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
         print(f"Error getting top tracks: {e}")
         return html.Div("Error loading top tracks",
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-    conn = sqlite3.connect(db.db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    # Enhanced top tracks ranking with duration weighting and improved scoring
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute('''
-        SELECT
-            t.track_id as id,
-            t.name as track,
-            t.artist,
-            t.album,
-            t.popularity,
-            t.image_url,
-            t.duration_ms,
-            COUNT(DISTINCT h.history_id) as play_count,
-            SUM(CASE
-                WHEN t.duration_ms > 0 THEN t.duration_ms
-                ELSE 180000
-            END) as total_listening_time_ms,
-            AVG(CASE
-                WHEN t.duration_ms > 0 THEN t.duration_ms
-                ELSE 180000
-            END) as avg_duration_ms,
-            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
-            (
-                (COUNT(DISTINCT h.history_id) * 0.5) +
-                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                (t.popularity / 100.0 * 0.2)
-            ) as weighted_score
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-        AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        AND t.name IS NOT NULL AND t.name != ''
-        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
-        HAVING play_count >= 2  -- Minimum 2 plays to be considered
-        ORDER BY weighted_score DESC
-        LIMIT 10
-    ''', (current_date,))
+        # Enhanced top tracks ranking with duration weighting and improved scoring
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute('''
+            SELECT
+                t.track_id as id,
+                t.name as track,
+                t.artist,
+                t.album,
+                t.popularity,
+                t.image_url,
+                t.duration_ms,
+                COUNT(DISTINCT h.history_id) as play_count,
+                SUM(CASE
+                    WHEN t.duration_ms > 0 THEN t.duration_ms
+                    ELSE 180000
+                END) as total_listening_time_ms,
+                AVG(CASE
+                    WHEN t.duration_ms > 0 THEN t.duration_ms
+                    ELSE 180000
+                END) as avg_duration_ms,
+                -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+                (
+                    (COUNT(DISTINCT h.history_id) * 0.5) +
+                    (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                    (t.popularity / 100.0 * 0.2)
+                ) as weighted_score
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            AND date(h.played_at) <= ?     -- Ensure dates are not in the future
+            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+            AND t.name IS NOT NULL AND t.name != ''
+            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
+            HAVING play_count >= 2  -- Minimum 2 plays to be considered
+            ORDER BY weighted_score DESC
+            LIMIT 10
+        ''', (current_date,))
 
-    top_tracks_data = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+        top_tracks_data = [dict(row) for row in cursor.fetchall()]
 
     # Convert to DataFrame
     if top_tracks_data:
@@ -1367,33 +1364,32 @@ def update_saved_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
                     )
 
     # Get data from database
-    conn = sqlite3.connect(db.db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    # Query for saved tracks with duration information - prevent duplicates
-    cursor.execute('''
-        SELECT
-            t.track_id as id,
-            t.name as track,
-            t.artist,
-            t.album,
-            t.image_url,
-            t.duration_ms,
-            t.popularity,
-            MAX(h.played_at) as added_at
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source = 'saved'
-        AND t.name IS NOT NULL
-        AND t.artist IS NOT NULL
-        GROUP BY t.track_id, t.name, t.artist, t.album, t.image_url, t.duration_ms, t.popularity
-        ORDER BY added_at DESC
-        LIMIT 20
-    ''')
+        # Query for saved tracks with duration information - prevent duplicates
+        cursor.execute('''
+            SELECT
+                t.track_id as id,
+                t.name as track,
+                t.artist,
+                t.album,
+                t.image_url,
+                t.duration_ms,
+                t.popularity,
+                MAX(h.played_at) as added_at
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE h.source = 'saved'
+            AND t.name IS NOT NULL
+            AND t.artist IS NOT NULL
+            GROUP BY t.track_id, t.name, t.artist, t.album, t.image_url, t.duration_ms, t.popularity
+            ORDER BY added_at DESC
+            LIMIT 20
+        ''')
 
-    saved_tracks_data = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+        saved_tracks_data = [dict(row) for row in cursor.fetchall()]
 
     # Convert to DataFrame and process
     if saved_tracks_data:
@@ -1527,42 +1523,42 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
                     )
 
     # Get data from database
-    conn = sqlite3.connect(db.db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    with sqlite3.connect(db.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    # Query for top tracks using enhanced ranking system (consistent with main top tracks)
-    current_date = datetime.now().strftime('%Y-%m-%d')
-    cursor.execute('''
-        SELECT
-            t.track_id as id,
-            t.name as track,
-            t.artist,
-            t.album,
-            COUNT(DISTINCT h.history_id) as play_count,
-            SUM(CASE
-                WHEN t.duration_ms > 0 THEN t.duration_ms
-                ELSE 180000
-            END) as total_listening_time_ms,
-            -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
-            (
-                (COUNT(DISTINCT h.history_id) * 0.5) +
-                (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                (t.popularity / 100.0 * 0.2)
-            ) as weighted_score
-        FROM tracks t
-        JOIN listening_history h ON t.track_id = h.track_id
-        WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-        AND date(h.played_at) <= ?
-        AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-        AND t.name IS NOT NULL AND t.name != ''
-        GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
-        HAVING play_count >= 2  -- Minimum 2 plays to be considered
-        ORDER BY weighted_score DESC
-        LIMIT 5
-    ''', (current_date,))
+        # Query for top tracks using enhanced ranking system (consistent with main top tracks)
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute('''
+            SELECT
+                t.track_id as id,
+                t.name as track,
+                t.artist,
+                t.album,
+                COUNT(DISTINCT h.history_id) as play_count,
+                SUM(CASE
+                    WHEN t.duration_ms > 0 THEN t.duration_ms
+                    ELSE 180000
+                END) as total_listening_time_ms,
+                -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
+                (
+                    (COUNT(DISTINCT h.history_id) * 0.5) +
+                    (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
+                    (t.popularity / 100.0 * 0.2)
+                ) as weighted_score
+            FROM tracks t
+            JOIN listening_history h ON t.track_id = h.track_id
+            WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+            AND date(h.played_at) <= ?
+            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+            AND t.name IS NOT NULL AND t.name != ''
+            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
+            HAVING play_count >= 2  -- Minimum 2 plays to be considered
+            ORDER BY weighted_score DESC
+            LIMIT 5
+        ''', (current_date,))
 
-    tracks_data = [dict(row) for row in cursor.fetchall()]
+        tracks_data = [dict(row) for row in cursor.fetchall()]
 
     # Get audio features for these tracks
     audio_features_data = []
@@ -1587,8 +1583,6 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
             'valence': features.get('valence', 0),
             'tempo': features.get('tempo', 0)
         })
-
-    conn.close()
 
     # Convert to DataFrame
     if audio_features_data:
@@ -1737,29 +1731,28 @@ def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
 
     try:
         # Get top track from database
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(db.db_path) as conn:
+            cursor = conn.cursor()
 
-        # Play count calculation: COUNT(DISTINCT h.history_id) counts unique listening events
-        # This uses all historical data while preventing duplicate counting from same timestamp/source
-        # Database UNIQUE constraint on (user_id, track_id, played_at) prevents exact duplicates
-        cursor.execute('''
-            SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
-                   t.popularity, t.image_url,
-                   COUNT(DISTINCT h.history_id) as play_count,
-                   COUNT(h.history_id) as total_entries
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE t.name IS NOT NULL AND t.name != ''
-            AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
-            ORDER BY play_count DESC, t.popularity DESC
-            LIMIT 1
-        ''')
+            # Play count calculation: COUNT(DISTINCT h.history_id) counts unique listening events
+            # This uses all historical data while preventing duplicate counting from same timestamp/source
+            # Database UNIQUE constraint on (user_id, track_id, played_at) prevents exact duplicates
+            cursor.execute('''
+                SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
+                       t.popularity, t.image_url,
+                       COUNT(DISTINCT h.history_id) as play_count,
+                       COUNT(h.history_id) as total_entries
+                FROM tracks t
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE t.name IS NOT NULL AND t.name != ''
+                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+                GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
+                ORDER BY play_count DESC, t.popularity DESC
+                LIMIT 1
+            ''')
 
-        result = cursor.fetchone()
-        conn.close()
+            result = cursor.fetchone()
 
         if result:
             track_data = {
@@ -1843,29 +1836,28 @@ def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
 
     try:
         # Get top artist from database
-        conn = sqlite3.connect(db.db_path)
-        cursor = conn.cursor()
+        with sqlite3.connect(db.db_path) as conn:
+            cursor = conn.cursor()
 
-        # Play count calculation for artists: COUNT(DISTINCT h.history_id) counts unique listening events
-        # This uses all historical data while preventing duplicate counting from same timestamp/source
-        cursor.execute('''
-            SELECT t.artist as artist_name,
-                   COUNT(DISTINCT h.history_id) as play_count,
-                   AVG(t.popularity) as avg_popularity,
-                   MAX(t.image_url) as image_url,
-                   COUNT(h.history_id) as total_entries
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE t.artist IS NOT NULL AND t.artist != ''
-            AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-            GROUP BY t.artist
-            ORDER BY play_count DESC, avg_popularity DESC
-            LIMIT 1
-        ''')
+            # Play count calculation for artists: COUNT(DISTINCT h.history_id) counts unique listening events
+            # This uses all historical data while preventing duplicate counting from same timestamp/source
+            cursor.execute('''
+                SELECT t.artist as artist_name,
+                       COUNT(DISTINCT h.history_id) as play_count,
+                       AVG(t.popularity) as avg_popularity,
+                       MAX(t.image_url) as image_url,
+                       COUNT(h.history_id) as total_entries
+                FROM tracks t
+                JOIN listening_history h ON t.track_id = h.track_id
+                WHERE t.artist IS NOT NULL AND t.artist != ''
+                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+                GROUP BY t.artist
+                ORDER BY play_count DESC, avg_popularity DESC
+                LIMIT 1
+            ''')
 
-        result = cursor.fetchone()
-        conn.close()
+            result = cursor.fetchone()
 
         if result:
             artist_data = {
@@ -3361,14 +3353,17 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
                 
                 # Fallback to basic wellness analysis but convert to enhanced format for consistency
                 print(f"DEBUG: Falling back to wellness analyzer")
+                if wellness_analyzer is None:
+                    raise Exception("Wellness analyzer is not initialized")
                 try:
                     wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
                     print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
 
                     # Convert wellness data to enhanced stress data format for consistent visualization
-                    if 'wellness_score' in wellness_data:
+                    wellness_score = wellness_data.get('wellness_score')
+                    if wellness_score is not None:
                         # Convert wellness score (higher = better) to stress score (higher = worse)
-                        stress_score = max(0, 100 - wellness_data['wellness_score'])
+                        stress_score = max(0, 100 - wellness_score)
                         
                         # Create enhanced stress data structure from wellness data
                         enhanced_stress_data = {

@@ -24,25 +24,23 @@ class SpotifyDatabase:
 
     def ensure_tables_exist(self):
         """Make sure all necessary tables exist in the database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
         try:
-            # Check if the genres table exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genres'")
-            if cursor.fetchone() is None:
-                # Create the genres table if it doesn't exist
-                self._create_tables(conn)
-                logger.info("Created missing tables in database")
-            else:
-                logger.info("All tables exist in database")
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Check if the genres table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='genres'")
+                if cursor.fetchone() is None:
+                    # Create the genres table if it doesn't exist
+                    self._create_tables(conn)
+                    logger.info("Created missing tables in database")
+                else:
+                    logger.info("All tables exist in database")
 
-            conn.commit()
+                conn.commit()
         except sqlite3.Error as e:
             logger.error(f"Error ensuring tables exist: {e}")
             raise
-        finally:
-            conn.close()
 
     def _create_tables(self, conn):
         """Create all database tables."""
