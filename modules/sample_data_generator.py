@@ -1,5 +1,5 @@
 """
-Comprehensive Sample Data Generator for Spotify Wrapped Remix
+Comprehensive Sample Data Generator for Spotifi Wrapped
 Generates realistic sample data for users without Spotify accounts.
 """
 

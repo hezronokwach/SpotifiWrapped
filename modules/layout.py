@@ -28,7 +28,7 @@ class DashboardLayout:
         if not user_data:
             # Default header without user data
             return html.Div([
-                html.H1("Spotify Wrapped Remix", style={
+                html.H1("Spotifi Wrapped", style={
                     'textAlign': 'center',
                     'color': self.theme['accent_color'],
                     'marginBottom': '20px',
@@ -546,7 +546,7 @@ def create_onboarding_page():
             html.Div([
                 html.Div([
                     html.H1([
-                        html.Span("SPOTIFY", className="title-part", style={
+                        html.Span("SPOTIFI", className="title-part", style={
                             'fontFamily': 'Orbitron, monospace',
                             'fontWeight': '900',
                             'fontSize': '3.5rem',
@@ -570,18 +570,6 @@ def create_onboarding_page():
                             'textShadow': '0 0 30px rgba(0, 212, 255, 0.5)',
                             'animation': 'shimmer 3s ease-in-out infinite 1.5s',
                             'display': 'inline-block'
-                        }),
-                        html.Br(),
-                        html.Span("REMIX", className="title-part", style={
-                            'fontFamily': 'Orbitron, monospace',
-                            'fontWeight': '900',
-                            'fontSize': '2.5rem',
-                            'color': SPOTIFY_WHITE,
-                            'textShadow': '0 0 20px rgba(255, 255, 255, 0.3)',
-                            'animation': 'pulse 2s ease-in-out infinite',
-                            'display': 'block',
-                            'marginTop': '10px',
-                            'letterSpacing': '8px'
                         })
                     ], style={
                         'textAlign': 'center',
@@ -596,7 +584,7 @@ def create_onboarding_page():
                             'fontWeight': 'bold',
                             'textShadow': '0 0 10px rgba(0, 212, 255, 0.5)'
                         }),
-                        " to the Spotify matrix or explore with ",
+                        " to the Spotifi matrix or explore with ",
                         html.Span("synthetic data", style={
                             'color': '#8b5cf6',
                             'fontWeight': 'bold',
@@ -644,7 +632,7 @@ def create_onboarding_page():
                                 'alignItems': 'center',
                                 'marginBottom': '10px'
                             }),
-                            html.P("Establish direct connection to Spotify mainframe", style={
+                            html.P("Establish direct connection to Spotifi mainframe", style={
                                 'color': '#b3b3b3',
                                 'margin': '0',
                                 'fontSize': '0.9rem',
@@ -984,7 +972,7 @@ def create_onboarding_page():
             html.Div([
                 html.P([
                     "Need assistance accessing the developer matrix? Visit the ",
-                    html.A("Spotify Developer Portal", 
+                    html.A("Spotifi Developer Portal", 
                            href="https://developer.spotify.com/dashboard/", 
                            target="_blank", 
                            style={

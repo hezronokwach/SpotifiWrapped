@@ -89,7 +89,7 @@ app = dash.Dash(
     suppress_callback_exceptions=True  # Allow callbacks to components not in initial layout
 )
 
-app.title = "Spotify Wrapped Remix"
+app.title = "Spotifi Wrapped"
 
 # Add callback route for Spotify OAuth
 @app.server.route('/callback')
@@ -321,7 +321,7 @@ app.layout = html.Div([
     html.Div([
         # Header with navigation
         html.Div([
-            html.H1("Spotify Wrapped Remix", style={
+            html.H1("Spotifi Wrapped", style={
                 'color': '#1DB954',
                 'fontFamily': 'Orbitron, monospace',
                 'fontWeight': '700',
