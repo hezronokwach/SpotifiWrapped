@@ -1297,7 +1297,7 @@ def update_saved_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
                 'duration_minutes': round(track['duration_ms'] / 60000, 1),
                 'popularity': track['popularity'],
                 'added_at': (datetime.now() - timedelta(days=random.randint(1, 30))).isoformat(),
-                'image_url': ''
+                'image_url': random.choice(sample_data_generator.placeholder_images)
             })
 
         saved_tracks_df = pd.DataFrame(saved_tracks_data)
@@ -1652,11 +1652,52 @@ def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
             'acousticness': top_track['audio_features']['acousticness']
         }
 
-        return create_spotify_card(
-            title="Your #1 Track",
-            content=f"🎵 {track_data['track']} by {track_data['artist']}\nFrom {track_data['album']}",
-            icon="fa-music"
-        )
+        # Create custom card with image for top track
+        return html.Div([
+            html.Div([
+                html.Img(
+                    src=sample_data_generator.placeholder_images[0],
+                    style={
+                        'width': '80px',
+                        'height': '80px',
+                        'borderRadius': '8px',
+                        'marginRight': '15px',
+                        'objectFit': 'cover'
+                    }
+                ),
+                html.Div([
+                    html.H3("Your #1 Track", style={
+                        'margin': '0 0 8px 0',
+                        'color': SPOTIFY_GREEN,
+                        'fontSize': '1.1rem',
+                        'fontWeight': '600'
+                    }),
+                    html.Div(f"🎵 {track_data['track']}", style={
+                        'color': 'white',
+                        'fontSize': '1rem',
+                        'fontWeight': '500',
+                        'marginBottom': '4px'
+                    }),
+                    html.Div(f"by {track_data['artist']}", style={
+                        'color': SPOTIFY_GRAY,
+                        'fontSize': '0.9rem',
+                        'marginBottom': '4px'
+                    }),
+                    html.Div(f"From {track_data['album']}", style={
+                        'color': SPOTIFY_GRAY,
+                        'fontSize': '0.8rem'
+                    })
+                ], style={'flex': '1'})
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'padding': '20px',
+                'backgroundColor': '#1a1a1a',
+                'borderRadius': '12px',
+                'border': f'1px solid {SPOTIFY_GREEN}',
+                'margin': '15px 0'
+            })
+        ])
 
     try:
         # Get top track from database
@@ -1722,11 +1763,47 @@ def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
         # Get the top sample artist
         top_artist = sample_data_generator.sample_artists[0]  # First artist is the top one
 
-        return create_spotify_card(
-            title="Your Top Artist",
-            content=f"🎤 {top_artist['name']}\nGenres: {', '.join(top_artist['genres'][:2])}",
-            icon="fa-user"
-        )
+        # Create custom card with image for top artist
+        return html.Div([
+            html.Div([
+                html.Img(
+                    src=sample_data_generator.placeholder_images[1],  # Different image than track
+                    style={
+                        'width': '80px',
+                        'height': '80px',
+                        'borderRadius': '8px',
+                        'marginRight': '15px',
+                        'objectFit': 'cover'
+                    }
+                ),
+                html.Div([
+                    html.H3("Your Top Artist", style={
+                        'margin': '0 0 8px 0',
+                        'color': SPOTIFY_GREEN,
+                        'fontSize': '1.1rem',
+                        'fontWeight': '600'
+                    }),
+                    html.Div(f"🎤 {top_artist['name']}", style={
+                        'color': 'white',
+                        'fontSize': '1rem',
+                        'fontWeight': '500',
+                        'marginBottom': '4px'
+                    }),
+                    html.Div(f"Genres: {', '.join(top_artist['genres'][:2])}", style={
+                        'color': SPOTIFY_GRAY,
+                        'fontSize': '0.9rem'
+                    })
+                ], style={'flex': '1'})
+            ], style={
+                'display': 'flex',
+                'alignItems': 'center',
+                'padding': '20px',
+                'backgroundColor': '#1a1a1a',
+                'borderRadius': '12px',
+                'border': f'1px solid {SPOTIFY_GREEN}',
+                'margin': '15px 0'
+            })
+        ])
 
     try:
         # Get top artist from database
@@ -2313,7 +2390,7 @@ def update_top_albums(n_intervals, n_clicks, use_sample_data_flag):
                         'artist': artist_name,
                         'play_count': 0,
                         'total_tracks': random.randint(8, 15),
-                        'image_url': ''
+                        'image_url': random.choice(sample_data_generator.placeholder_images)
                     }
                 albums[album_name]['play_count'] += random.randint(5, 25)
 

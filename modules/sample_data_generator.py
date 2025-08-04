@@ -17,7 +17,31 @@ class SampleDataGenerator:
     
     def __init__(self):
         """Initialize the sample data generator with realistic data pools."""
-        
+
+        # Placeholder image URLs for demo purposes
+        self.placeholder_images = [
+            "https://picsum.photos/300/300?random=1",
+            "https://picsum.photos/300/300?random=2",
+            "https://picsum.photos/300/300?random=3",
+            "https://picsum.photos/300/300?random=4",
+            "https://picsum.photos/300/300?random=5",
+            "https://picsum.photos/300/300?random=6",
+            "https://picsum.photos/300/300?random=7",
+            "https://picsum.photos/300/300?random=8",
+            "https://picsum.photos/300/300?random=9",
+            "https://picsum.photos/300/300?random=10",
+            "https://picsum.photos/300/300?random=11",
+            "https://picsum.photos/300/300?random=12",
+            "https://picsum.photos/300/300?random=13",
+            "https://picsum.photos/300/300?random=14",
+            "https://picsum.photos/300/300?random=15",
+            "https://picsum.photos/300/300?random=16",
+            "https://picsum.photos/300/300?random=17",
+            "https://picsum.photos/300/300?random=18",
+            "https://picsum.photos/300/300?random=19",
+            "https://picsum.photos/300/300?random=20"
+        ]
+
         # Sample artists with realistic genres and popularity
         self.sample_artists = [
             {"name": "The Midnight", "genres": ["synthwave", "electronic", "retrowave"], "popularity": 75, "followers": 850000},
@@ -118,7 +142,7 @@ class SampleDataGenerator:
             'id': 'demo-user-spotify-wrapped',
             'followers': random.randint(15, 150),
             'following': random.randint(25, 200),
-            'image_url': '',  # No image for demo user
+            'image_url': 'https://picsum.photos/150/150?random=user',  # Demo user avatar
             'product': 'premium',
             'country': 'US'
         }
@@ -148,7 +172,7 @@ class SampleDataGenerator:
                     'duration_ms': track['duration_ms'] + random.randint(-30000, 30000),
                     'explicit': random.choice([True, False]),
                     'preview_url': '',  # No preview for sample data
-                    'image_url': '',  # No image for sample data
+                    'image_url': random.choice(self.placeholder_images),  # Random album art
                     # Audio features with slight variations
                     'danceability': min(1.0, max(0.0, track['audio_features']['danceability'] + random.uniform(-0.1, 0.1))),
                     'energy': min(1.0, max(0.0, track['audio_features']['energy'] + random.uniform(-0.1, 0.1))),
@@ -183,7 +207,7 @@ class SampleDataGenerator:
                 'genres': ', '.join(artist['genres']),
                 'followers': artist['followers'] + random.randint(-50000, 50000),
                 'id': f"sample-artist-{i + 1}",
-                'image_url': ''  # No image for sample data
+                'image_url': random.choice(self.placeholder_images)  # Random artist photo
             }
             artists.append(artist_data)
 
@@ -201,7 +225,7 @@ class SampleDataGenerator:
                 'public': playlist['public'],
                 'collaborative': playlist['collaborative'],
                 'id': f"sample-playlist-{i + 1}",
-                'image_url': '',  # No image for sample data
+                'image_url': random.choice(self.placeholder_images),  # Random playlist cover
                 'owner': 'Demo User',
                 'description': playlist['description']
             }
@@ -227,7 +251,7 @@ class SampleDataGenerator:
             'name': track['name'],
             'popularity': track['popularity'],
             'preview_url': '',
-            'image_url': '',
+            'image_url': random.choice(self.placeholder_images),
             'user_id': 'demo-user-spotify-wrapped'
         }
 
