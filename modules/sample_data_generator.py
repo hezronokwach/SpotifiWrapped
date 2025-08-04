@@ -528,63 +528,60 @@ class SampleDataGenerator:
         # Initialize the sample database with proper schema
         self._initialize_sample_database(db_path)
 
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-
         try:
-            # Generate sample data
-            user_profile = self.generate_user_profile()
-            top_tracks = self.generate_top_tracks(50)
-            top_artists = self.generate_top_artists(30)
-            listening_history = self.generate_listening_history(90)  # 3 months of history
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Generate sample data
+                user_profile = self.generate_user_profile()
+                top_tracks = self.generate_top_tracks(50)
+                top_artists = self.generate_top_artists(30)
+                listening_history = self.generate_listening_history(90)  # 3 months of history
 
-            # Insert user profile (matching existing schema)
-            cursor.execute('''
-                INSERT OR REPLACE INTO users (user_id, display_name, followers)
-                VALUES (?, ?, ?)
-            ''', (
-                user_profile['id'], user_profile['display_name'], user_profile['followers']
-            ))
-
-            # Insert tracks with audio features
-            for track in top_tracks:
+                # Insert user profile (matching existing schema)
                 cursor.execute('''
-                    INSERT OR REPLACE INTO tracks (
-                        track_id, name, artist, album, duration_ms, popularity,
-                        preview_url, image_url, added_at, last_seen,
-                        danceability, energy, key, loudness, mode,
-                        speechiness, acousticness, instrumentalness,
-                        liveness, valence, tempo
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP,
-                              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO users (user_id, display_name, followers)
+                    VALUES (?, ?, ?)
                 ''', (
-                    track['id'], track['name'], track['artist'], track['album'],
-                    track['duration_ms'], track['popularity'], track.get('preview_url', ''),
-                    track.get('image_url', ''), datetime.now().isoformat(),
-                    track['danceability'], track['energy'], track['key'],
-                    track['loudness'], track['mode'], track['speechiness'],
-                    track['acousticness'], track['instrumentalness'],
-                    track['liveness'], track['valence'], track['tempo']
+                    user_profile['id'], user_profile['display_name'], user_profile['followers']
                 ))
 
-            # Insert listening history (matching existing schema)
-            for entry in listening_history:
-                cursor.execute('''
-                    INSERT OR REPLACE INTO listening_history (
-                        user_id, track_id, played_at, source
-                    ) VALUES (?, ?, ?, ?)
-                ''', (
-                    entry['user_id'], entry['track_id'], entry['played_at'], 'sample'
-                ))
+                # Insert tracks with audio features
+                for track in top_tracks:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO tracks (
+                            track_id, name, artist, album, duration_ms, popularity,
+                            preview_url, image_url, added_at, last_seen,
+                            danceability, energy, key, loudness, mode,
+                            speechiness, acousticness, instrumentalness,
+                            liveness, valence, tempo
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP,
+                                  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        track['id'], track['track'], track['artist'], track['album'],
+                        track['duration_ms'], track['popularity'], track.get('preview_url', ''),
+                        track.get('image_url', ''), datetime.now().isoformat(),
+                        track['danceability'], track['energy'], track['key'],
+                        track['loudness'], track['mode'], track['speechiness'],
+                        track['acousticness'], track['instrumentalness'],
+                        track['liveness'], track['valence'], track['tempo']
+                    ))
 
-            conn.commit()
-            print(f"✅ Sample database populated with {len(top_tracks)} tracks and {len(listening_history)} listening entries")
+                # Insert listening history (matching existing schema)
+                for entry in listening_history:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO listening_history (
+                            user_id, track_id, played_at, source
+                        ) VALUES (?, ?, ?, ?)
+                    ''', (
+                        entry['user_id'], entry['track_id'], entry['played_at'], 'sample'
+                    ))
+
+                conn.commit()
+                print(f"✅ Sample database populated with {len(top_tracks)} tracks and {len(listening_history)} listening entries")
 
         except Exception as e:
             print(f"❌ Error populating sample database: {e}")
-            conn.rollback()
-        finally:
-            conn.close()
 
     def generate_ai_personality_data(self) -> Dict[str, Any]:
         """Generate AI personality analysis sample data."""

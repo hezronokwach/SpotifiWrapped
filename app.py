@@ -952,7 +952,7 @@ def update_header(user_data, use_sample_data_flag):
                     'fontWeight': 'bold',
                     'marginRight': '12px'
                 }),
-                html.Span("You're exploring with sample data (separate database)", style={
+                html.Span("You're exploring with sample data", style={
                     'opacity': '0.9'
                 }),
                 html.A([
@@ -965,7 +965,7 @@ def update_header(user_data, use_sample_data_flag):
                     'fontSize': '14px'
                 }),
                 html.Br(),
-                html.Span("(Sample data will be automatically cleaned when you connect real Spotify)", style={
+                html.Span("Note: Images are randomized placeholders, not actual album/artist artwork", style={
                     'fontSize': '12px',
                     'opacity': '0.7',
                     'fontStyle': 'italic'
