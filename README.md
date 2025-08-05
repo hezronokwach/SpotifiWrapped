@@ -1,6 +1,8 @@
-# SpotifyWrappedRemix
+# SpotifiWrapped
 
-SpotifyWrappedRemix is a comprehensive, AI-powered interactive remake of Spotify Wrapped that transforms your music data into stunning, dynamic dashboards. Built with Dash, Plotly, and advanced AI analytics, it provides deep insights into your listening habits, personality analysis, and music trends with beautiful visualizations and real-time interactions. 🎶📊✨
+SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrapped that transforms your music data into stunning, dynamic dashboards. Built with Dash, Plotly, and advanced AI analytics, it provides deep insights into your listening habits, personality analysis, and music trends with beautiful visualizations and real-time interactions. 🎶📊✨
+
+![SpotifiWrapped Dashboard](https://via.placeholder.com/800x400?text=SpotifiWrapped+Dashboard)
 
 ## ✨ Key Features
 
@@ -30,7 +32,7 @@ SpotifyWrappedRemix is a comprehensive, AI-powered interactive remake of Spotify
 ### Option 1: Try Demo Mode (No Spotify Account Required)
 1. Clone and set up the project (steps 1-4 below)
 2. Run `python app.py`
-3. Open `http://127.0.0.1:8080/`
+3. Open `http://127.0.0.1:8050/`
 4. Click **"Try Sample Data"** to explore with realistic demo data
 5. **Note**: Demo mode uses randomized placeholder images, not actual album artwork
 
@@ -40,8 +42,8 @@ SpotifyWrappedRemix is a comprehensive, AI-powered interactive remake of Spotify
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/SpotifyWrappedRemix.git
-   cd SpotifyWrappedRemix
+   git clone https://github.com/your-username/SpotifiWrapped.git
+   cd SpotifiWrapped
    ```
 
 2. **Create and activate virtual environment**
@@ -55,12 +57,16 @@ SpotifyWrappedRemix is a comprehensive, AI-powered interactive remake of Spotify
    pip install -r requirements.txt
    ```
 
-4. **Set up environment variables** (Optional - only needed for real Spotify data)
-   Create a `.env` file in the project root:
+4. **Set up environment variables**
+   Create a `.env` file in the project root by copying the example:
+   ```bash
+   cp .env.example .env
+   ```
+   Then edit the `.env` file with your Spotify API credentials:
    ```env
    CLIENT_ID=your_spotify_client_id
    CLIENT_SECRET=your_spotify_client_secret
-   REDIRECT_URI=http://127.0.0.1:8080/callback
+   REDIRECT_URI=http://127.0.0.1:8000/callback
    GEMINI_API_KEY=your_gemini_api_key  # Optional for AI features
    ```
 
@@ -70,16 +76,27 @@ SpotifyWrappedRemix is a comprehensive, AI-powered interactive remake of Spotify
    ```
 
 6. **Open your browser**
-   Navigate to `http://127.0.0.1:8080/`
+   Navigate to `http://127.0.0.1:8050/`
+   
+7. **Troubleshooting**
+   If you encounter any issues with the callback server, check the logs in the `logs/` directory.
 
-## 🔑 Getting Spotify API Credentials (Optional)
+## 🔑 Getting Spotify API Credentials
 
 To use your real Spotify data:
 
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Create a new app
-3. Add `http://127.0.0.1:8080/callback` to Redirect URIs
-4. Copy your Client ID and Client Secret to the `.env` file
+2. Log in with your Spotify account
+3. Create a new app (click "Create App")
+4. Fill in the app details:
+   - App name: SpotifiWrapped
+   - App description: Personal Spotify data visualization
+   - Website: http://localhost:8000
+   - Redirect URI: http://127.0.0.1:8000/callback
+5. Accept the terms and click "Create"
+6. Once created, you'll see your Client ID on the dashboard
+7. Click "Show Client Secret" to reveal your Client Secret
+8. Copy both values to your `.env` file
 
 ## 🎭 Demo Mode Features
 
@@ -104,6 +121,30 @@ The demo mode provides a full experience without requiring Spotify credentials:
 - **API Integration**: Spotipy for Spotify Web API
 - **AI Analytics**: Custom algorithms for personality and wellness analysis
 - **Real-time Updates**: Live data refresh and playback tracking
+
+### **Project Structure**
+```
+SpotifiWrapped/
+├── app.py                 # Main application entry point
+├── callback_server.py     # OAuth callback server
+├── requirements.txt       # Python dependencies
+├── .env.example           # Example environment variables
+├── assets/                # Static assets (CSS, JS)
+│   ├── style.css          # Custom styling
+│   └── futuristic-interactions.js  # Custom JavaScript
+├── data/                  # Data storage
+│   ├── spotify_data.db    # Main SQLite database
+│   └── sample_spotify_data.db  # Demo data
+├── logs/                  # Application logs
+├── modules/               # Application modules
+│   ├── api.py             # Spotify API integration
+│   ├── database.py        # Database operations
+│   ├── data_collector.py  # Data collection logic
+│   ├── data_processing.py # Data processing utilities
+│   ├── logging_config.py  # Centralized logging configuration
+│   └── ...                # Other modules
+└── scripts/               # Utility scripts
+```
 
 ## 🚀 Production Deployment
 
@@ -202,19 +243,33 @@ PORT=8080
 1. **"No module named 'modules'"**
    - Ensure you're running from the project root directory
    - Check that all dependencies are installed
+   - Make sure your virtual environment is activated
 
 2. **Spotify API errors**
    - Verify your credentials in `.env`
-   - Check redirect URI matches exactly
+   - Check redirect URI matches exactly (http://127.0.0.1:8000/callback)
    - Ensure your Spotify app is not in development mode restrictions
+   - Check the logs in `logs/spotifi_wrapped.log` and `spotify_oauth.log`
 
 3. **Database errors**
-   - Delete `data/*.db` files to reset
-   - Check file permissions in the `data/` directory
+   - Delete `data/*.db` files to reset: `rm data/*.db`
+   - Check file permissions in the `data/` directory: `chmod 755 data`
+   - Ensure SQLite is installed: `sqlite3 --version`
 
 4. **Port already in use**
    - Change the port in the code or kill the existing process
-   - Use `lsof -i :8080` to find processes using the port
+   - Use `lsof -i :8000` to find processes using the port
+   - Kill the process: `kill -9 <PID>`
+   
+5. **Callback server issues**
+   - Check if the callback server is running: `ps aux | grep callback_server`
+   - Ensure ports 8000 and 8080 are available
+   - Check firewall settings if running on a remote server
+
+6. **Authentication problems**
+   - Clear browser cookies and cache
+   - Try using incognito/private browsing mode
+   - Check if your Spotify account has the necessary permissions
 
 ## 🤝 Contributing
 
