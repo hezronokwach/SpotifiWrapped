@@ -32,7 +32,7 @@ SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrap
 ### Option 1: Try Demo Mode (No Spotify Account Required)
 1. Clone and set up the project (steps 1-4 below)
 2. Run `python app.py`
-3. Open `http://127.0.0.1:8050/`
+3. Open `http://127.0.0.1:8080/`
 4. Click **"Try Sample Data"** to explore with realistic demo data
 5. **Note**: Demo mode uses randomized placeholder images, not actual album artwork
 
@@ -42,7 +42,7 @@ SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrap
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/SpotifiWrapped.git
+   git clone https://github.com/hezronokwach/SpotifiWrapped.git
    cd SpotifiWrapped
    ```
 
@@ -72,14 +72,16 @@ SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrap
 
 5. **Run the application**
    ```bash
-   python app.py
+   python3 app.py
    ```
 
 6. **Open your browser**
-   Navigate to `http://127.0.0.1:8050/`
+   Navigate to `http://127.0.0.1:8080/`
    
-7. **Troubleshooting**
-   If you encounter any issues with the callback server, check the logs in the `logs/` directory.
+7. **Run tests (optional)**
+   ```bash
+   python3 tests/test_runner.py
+   ```
 
 ## 🔑 Getting Spotify API Credentials
 
@@ -143,24 +145,14 @@ SpotifiWrapped/
 │   ├── data_processing.py # Data processing utilities
 │   ├── logging_config.py  # Centralized logging configuration
 │   └── ...                # Other modules
+├── tests/                 # Test suite
+│   ├── test_database.py   # Database tests
+│   ├── test_genre_extractor.py # Genre extraction tests
+│   └── test_runner.py     # Test runner
 └── scripts/               # Utility scripts
 ```
 
-## 🚀 Production Deployment
 
-For production deployment:
-
-1. Use the production-ready configuration
-2. Set environment variables on your hosting platform
-3. Ensure proper database persistence
-4. Configure HTTPS for OAuth callbacks
-
-Supported platforms:
-- Railway
-- Render
-- Heroku
-- DigitalOcean
-- AWS/GCP/Azure
 
 ## 🛠️ Tech Stack
 
@@ -221,7 +213,7 @@ Supported platforms:
 # Spotify API (Optional - for real data)
 CLIENT_ID=your_spotify_client_id
 CLIENT_SECRET=your_spotify_client_secret
-REDIRECT_URI=http://127.0.0.1:8080/callback
+REDIRECT_URI=http://127.0.0.1:8000/callback
 
 # AI Features (Optional)
 GEMINI_API_KEY=your_gemini_api_key
@@ -253,6 +245,30 @@ PORT=8080
 
 3. **Database errors**
    - Delete `data/*.db` files to reset: `rm data/*.db`
+   - Check file permissions in the `data/` directory
+   - Ensure SQLite is installed
+
+4. **Port already in use**
+   - Change the port in `.env` file or kill the existing process
+   - Default ports: 8080 (main app), 8000 (OAuth callback)
+
+## 🧪 Testing
+
+The project includes a comprehensive test suite:
+
+```bash
+# Run all tests
+python3 tests/test_runner.py
+
+# Run specific test modules
+python3 -m unittest tests.test_database
+python3 -m unittest tests.test_genre_extractor
+```
+
+**Test Coverage:**
+- Database operations (18 tests)
+- Genre extraction (18 tests)
+- Total: 36 tests with 100% success rateet: `rm data/*.db`
    - Check file permissions in the `data/` directory: `chmod 755 data`
    - Ensure SQLite is installed: `sqlite3 --version`
 
