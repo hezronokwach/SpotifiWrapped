@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Union, Any
 # Import the AI audio feature extractor
 from modules.ai_audio_features import get_track_audio_features
 from modules.genre_cache import get_genre_cache
+from modules.sample_data_generator import SampleDataGenerator
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
@@ -33,6 +34,9 @@ class SpotifyAPI:
         # Cache for user profile to reduce API calls
         self._user_profile_cache = None
         self._user_profile_cache_time = 0
+        # Initialize sample data generator if needed
+        if self.use_sample_data:
+            self.sample_generator = SampleDataGenerator()
         if not self.use_sample_data:
             self.initialize_connection()
 
@@ -373,6 +377,19 @@ class SpotifyAPI:
             self.audio_features_cache[track_id] = fallback
             return fallback
 
+    def get_audio_features(self, track_ids: List[str]) -> Dict[str, Any]:
+        """Get audio features for a list of track IDs."""
+        if not self.sp:
+            if self.use_sample_data:
+                return self.sample_generator.generate_audio_features(track_ids)
+            return {'audio_features': []}
+        
+        # Use the existing batch method
+        features_map = self.get_audio_features_batch(track_ids)
+        return {
+            'audio_features': [features_map.get(track_id, {}) for track_id in track_ids]
+        }
+
     def get_audio_features_batch(self, track_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         Get audio features for multiple tracks efficiently.
@@ -454,6 +471,8 @@ class SpotifyAPI:
         """
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
+            if self.use_sample_data:
+                return self.sample_generator.generate_top_tracks(limit=limit)
             return []
 
         try:
@@ -616,6 +635,8 @@ class SpotifyAPI:
 
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
+            if self.use_sample_data:
+                return self.sample_generator.generate_user_profile()
             return {}
 
         try:
@@ -669,6 +690,8 @@ class SpotifyAPI:
         """
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
+            if self.use_sample_data:
+                return self.sample_generator.generate_recently_played(limit=limit)
             return []
 
         for attempt in range(max_retries + 1):
@@ -994,3 +1017,32 @@ class SpotifyAPI:
         except Exception as e:
             logger.error(f"Error searching for artists by genre {genre_name}: {e}")
             return []
+
+    # Method aliases for test compatibility
+    def get_current_user_profile(self):
+        """Alias for get_user_profile for test compatibility."""
+        return self.get_user_profile()
+    
+    def get_current_user_top_tracks(self, limit=10, time_range='short_term'):
+        """Alias for get_top_tracks for test compatibility."""
+        return self.get_top_tracks(limit=limit, time_range=time_range)
+    
+    def get_current_user_top_artists(self, limit=10, time_range='short_term'):
+        """Alias for get_top_artists for test compatibility."""
+        return self.get_top_artists(limit=limit, time_range=time_range)
+    
+    def get_current_user_recently_played(self, limit=50, before=None, after=None):
+        """Alias for get_recently_played for test compatibility."""
+        return self.get_recently_played(limit=limit, before=before, after=after)
+    
+    def get_current_user_saved_tracks(self, limit=50, offset=0):
+        """Alias for get_saved_tracks for test compatibility."""
+        return self.get_saved_tracks(limit=limit, offset=offset)
+    
+    def get_current_playback(self):
+        """Alias for get_currently_playing for test compatibility."""
+        return self.get_currently_playing()
+    
+    def get_sample_playlists(self, limit=10):
+        """Alias for get_playlists for test compatibility."""
+        return self.get_playlists(limit=limit)
