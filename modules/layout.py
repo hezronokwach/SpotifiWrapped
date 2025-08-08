@@ -28,7 +28,7 @@ class DashboardLayout:
         if not user_data:
             # Default header without user data
             return html.Div([
-                html.H1("Spotify Wrapped Remix", style={
+                html.H1("Spotifi Wrapped", style={
                     'textAlign': 'center',
                     'color': self.theme['accent_color'],
                     'marginBottom': '20px',
@@ -515,99 +515,498 @@ class DashboardLayout:
         return html.Div(id="css-container", style={"display": "none"})
 
 def create_onboarding_page():
-    """Create the layout for the onboarding page."""
+    """Create the layout for the onboarding page with futuristic cyberpunk styling."""
     return html.Div([
+        # Animated background particles
         html.Div([
-            html.H2("Welcome to Spotify Wrapped Remix!", style={'color': SPOTIFY_GREEN, 'textAlign': 'center', 'marginBottom': '20px'}),
-            html.P("To get started, please provide your Spotify API credentials or choose to use sample data.", style={'color': SPOTIFY_WHITE, 'textAlign': 'center', 'marginBottom': '30px'}),
+            html.Div(className="particle", style={
+                'position': 'absolute',
+                'width': '2px',
+                'height': '2px',
+                'backgroundColor': SPOTIFY_GREEN,
+                'borderRadius': '50%',
+                'animation': f'float 6s ease-in-out infinite, glow 2s ease-in-out infinite alternate',
+                'top': f'{i*15}%',
+                'left': f'{(i*23) % 100}%',
+                'animationDelay': f'{i*0.5}s'
+            }) for i in range(8)
+        ], style={
+            'position': 'fixed',
+            'top': '0',
+            'left': '0',
+            'width': '100%',
+            'height': '100%',
+            'pointerEvents': 'none',
+            'zIndex': '1'
+        }),
+        
+        # Main content container
+        html.Div([
+            # Hero section with animated title
+            html.Div([
+                html.Div([
+                    html.H1([
+                        html.Span("SPOTIFI", className="title-part", style={
+                            'fontFamily': 'Orbitron, monospace',
+                            'fontWeight': '900',
+                            'fontSize': '3.5rem',
+                            'background': 'linear-gradient(45deg, #1DB954, #1ED760, #00d4ff)',
+                            'backgroundClip': 'text',
+                            'WebkitBackgroundClip': 'text',
+                            'WebkitTextFillColor': 'transparent',
+                            'textShadow': '0 0 30px rgba(29, 185, 84, 0.5)',
+                            'animation': 'shimmer 3s ease-in-out infinite',
+                            'display': 'inline-block',
+                            'marginRight': '20px'
+                        }),
+                        html.Span("WRAPPED", className="title-part", style={
+                            'fontFamily': 'Orbitron, monospace',
+                            'fontWeight': '900',
+                            'fontSize': '3.5rem',
+                            'background': 'linear-gradient(45deg, #00d4ff, #8b5cf6, #f472b6)',
+                            'backgroundClip': 'text',
+                            'WebkitBackgroundClip': 'text',
+                            'WebkitTextFillColor': 'transparent',
+                            'textShadow': '0 0 30px rgba(0, 212, 255, 0.5)',
+                            'animation': 'shimmer 3s ease-in-out infinite 1.5s',
+                            'display': 'inline-block'
+                        })
+                    ], style={
+                        'textAlign': 'center',
+                        'marginBottom': '20px',
+                        'animation': 'fadeIn 2s ease-out'
+                    }),
+                    
+                    html.P([
+                        "Initialize your ",
+                        html.Span("neural connection", style={
+                            'color': '#00d4ff',
+                            'fontWeight': 'bold',
+                            'textShadow': '0 0 10px rgba(0, 212, 255, 0.5)'
+                        }),
+                        " to the Spotifi matrix or explore with ",
+                        html.Span("synthetic data", style={
+                            'color': '#8b5cf6',
+                            'fontWeight': 'bold',
+                            'textShadow': '0 0 10px rgba(139, 92, 246, 0.5)'
+                        })
+                    ], style={
+                        'color': SPOTIFY_WHITE,
+                        'textAlign': 'center',
+                        'fontSize': '1.2rem',
+                        'marginBottom': '40px',
+                        'fontFamily': 'Montserrat, sans-serif',
+                        'animation': 'slideUp 1.5s ease-out 0.5s both'
+                    })
+                ], className="hero-content")
+            ], style={
+                'marginBottom': '50px',
+                'position': 'relative',
+                'zIndex': '2'
+            }),
 
-            dbc.Card([
-                dbc.CardBody([
-                    html.H4("Connect Your Spotify Account", className="card-title", style={'color': SPOTIFY_GREEN}),
-                    html.P("Enter your Spotify Developer Client ID and Client Secret below. You can get these from the Spotify Developer Dashboard.", className="card-text", style={'color': SPOTIFY_WHITE}),
+            # Connection cards container
+            html.Div([
+                # Spotify API Connection Card
+                html.Div([
+                    html.Div([
+                        # Card header with animated icon
+                        html.Div([
+                            html.Div([
+                                html.I(className="fab fa-spotify", style={
+                                    'fontSize': '2.5rem',
+                                    'color': SPOTIFY_GREEN,
+                                    'animation': 'spin 10s linear infinite, glow 2s ease-in-out infinite alternate',
+                                    'marginRight': '15px'
+                                }),
+                                html.H3("NEURAL LINK", style={
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'fontWeight': '700',
+                                    'color': SPOTIFY_GREEN,
+                                    'margin': '0',
+                                    'textShadow': '0 0 15px rgba(29, 185, 84, 0.5)',
+                                    'letterSpacing': '2px'
+                                })
+                            ], style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'marginBottom': '10px'
+                            }),
+                            html.P("Establish direct connection to Spotifi mainframe", style={
+                                'color': '#b3b3b3',
+                                'margin': '0',
+                                'fontSize': '0.9rem',
+                                'fontFamily': 'Montserrat, sans-serif'
+                            })
+                        ], style={'marginBottom': '25px'}),
 
-                    # Important note about redirect URI
-                    dbc.Alert([
-                        html.Strong("📋 Setup Instructions:"),
-                        html.Br(),
-                        "1. Go to your ", html.A("Spotify Developer Dashboard", href="https://developer.spotify.com/dashboard", target="_blank", style={'color': SPOTIFY_GREEN, 'textDecoration': 'underline'}),
-                        html.Br(),
-                        "2. Select your app and click 'Edit Settings'",
-                        html.Br(),
-                        "3. Add this Redirect URI: ",
-                        html.Code("http://127.0.0.1:8080/callback", style={'backgroundColor': '#404040', 'padding': '2px 6px', 'borderRadius': '4px', 'color': SPOTIFY_GREEN, 'fontWeight': 'bold'}),
-                        html.Br(),
-                        html.Small("⚠️ The redirect URI must match exactly (including the port 8080)", style={'opacity': '0.8', 'fontStyle': 'italic'})
-                    ], color="info", className="mb-3", style={'backgroundColor': 'rgba(0, 123, 255, 0.1)', 'border': '1px solid rgba(0, 123, 255, 0.3)', 'color': SPOTIFY_WHITE}),
+                        # Setup instructions with cyberpunk styling
+                        html.Div([
+                            html.Div([
+                                html.I(className="fas fa-terminal", style={
+                                    'color': '#00d4ff',
+                                    'marginRight': '10px',
+                                    'fontSize': '1.2rem'
+                                }),
+                                html.Strong("INITIALIZATION PROTOCOL:", style={
+                                    'color': '#00d4ff',
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'fontSize': '0.9rem',
+                                    'letterSpacing': '1px'
+                                })
+                            ], style={'marginBottom': '15px'}),
+                            
+                            html.Div([
+                                html.Div([
+                                    html.Span("01", style={
+                                        'color': SPOTIFY_GREEN,
+                                        'fontFamily': 'Orbitron, monospace',
+                                        'fontWeight': 'bold',
+                                        'marginRight': '10px',
+                                        'fontSize': '0.8rem'
+                                    }),
+                                    "Access ", 
+                                    html.A("Spotify Developer Matrix", 
+                                           href="https://developer.spotify.com/dashboard", 
+                                           target="_blank", 
+                                           style={
+                                               'color': SPOTIFY_GREEN,
+                                               'textDecoration': 'none',
+                                               'borderBottom': f'1px solid {SPOTIFY_GREEN}',
+                                               'transition': 'all 0.3s ease',
+                                               'textShadow': '0 0 5px rgba(29, 185, 84, 0.3)'
+                                           })
+                                ], style={'marginBottom': '8px', 'fontSize': '0.9rem'}),
+                                
+                                html.Div([
+                                    html.Span("02", style={
+                                        'color': SPOTIFY_GREEN,
+                                        'fontFamily': 'Orbitron, monospace',
+                                        'fontWeight': 'bold',
+                                        'marginRight': '10px',
+                                        'fontSize': '0.8rem'
+                                    }),
+                                    "Configure application settings"
+                                ], style={'marginBottom': '8px', 'fontSize': '0.9rem'}),
+                                
+                                html.Div([
+                                    html.Span("03", style={
+                                        'color': SPOTIFY_GREEN,
+                                        'fontFamily': 'Orbitron, monospace',
+                                        'fontWeight': 'bold',
+                                        'marginRight': '10px',
+                                        'fontSize': '0.8rem'
+                                    }),
+                                    "Install redirect endpoint: ",
+                                    html.Code("http://127.0.0.1:8080/callback", style={
+                                        'backgroundColor': 'rgba(0, 212, 255, 0.1)',
+                                        'color': '#00d4ff',
+                                        'padding': '4px 8px',
+                                        'borderRadius': '4px',
+                                        'border': '1px solid rgba(0, 212, 255, 0.3)',
+                                        'fontFamily': 'Orbitron, monospace',
+                                        'fontSize': '0.8rem',
+                                        'textShadow': '0 0 5px rgba(0, 212, 255, 0.3)'
+                                    })
+                                ], style={'marginBottom': '15px', 'fontSize': '0.9rem'})
+                            ], style={
+                                'backgroundColor': 'rgba(0, 212, 255, 0.05)',
+                                'border': '1px solid rgba(0, 212, 255, 0.2)',
+                                'borderRadius': '8px',
+                                'padding': '15px',
+                                'marginBottom': '25px'
+                            })
+                        ]),
 
-                    # Client ID Input with Label
-                    html.Label("Spotify Client ID:", style={'color': SPOTIFY_WHITE, 'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
-                    dbc.Input(
-                        id="client-id-input",
-                        placeholder="Enter your Spotify Client ID",
-                        type="text",
-                        className="mb-3",
-                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
-                    ),
+                        # Input fields with futuristic styling
+                        html.Div([
+                            html.Label([
+                                html.I(className="fas fa-key", style={
+                                    'color': SPOTIFY_GREEN,
+                                    'marginRight': '8px'
+                                }),
+                                "CLIENT ID"
+                            ], style={
+                                'color': SPOTIFY_WHITE,
+                                'fontFamily': 'Orbitron, monospace',
+                                'fontWeight': 'bold',
+                                'fontSize': '0.9rem',
+                                'letterSpacing': '1px',
+                                'marginBottom': '8px',
+                                'display': 'block'
+                            }),
+                            dbc.Input(
+                                id="client-id-input",
+                                placeholder="Enter neural access key...",
+                                type="text",
+                                className="cyberpunk-input",
+                                style={
+                                    'backgroundColor': 'rgba(0, 0, 0, 0.7)',
+                                    'color': SPOTIFY_WHITE,
+                                    'border': '2px solid rgba(29, 185, 84, 0.3)',
+                                    'borderRadius': '8px',
+                                    'padding': '12px',
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'fontSize': '0.9rem',
+                                    'transition': 'all 0.3s ease',
+                                    'boxShadow': 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
+                                    'marginBottom': '20px'
+                                }
+                            )
+                        ]),
 
-                    # Client Secret Input with Label
-                    html.Label("Spotify Client Secret:", style={'color': SPOTIFY_WHITE, 'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
-                    dbc.Input(
-                        id="client-secret-input",
-                        placeholder="Enter your Spotify Client Secret",
-                        type="password",
-                        className="mb-3",
-                        style={'backgroundColor': '#282828', 'color': SPOTIFY_WHITE, 'border': '1px solid #404040'}
-                    ),
-                    dbc.Button(
-                        "Connect to Spotify",
-                        id="connect-button",
-                        color="success",
-                        className="me-2",
-                        style={'backgroundColor': SPOTIFY_GREEN, 'borderColor': SPOTIFY_GREEN, 'color': SPOTIFY_BLACK}
-                    ),
-                    html.Div(id='connect-status', className='mt-3', style={'color': SPOTIFY_WHITE})
-                ])
-            ], style={'backgroundColor': '#181818', 'border': '1px solid #282828', 'marginBottom': '30px'}),
+                        html.Div([
+                            html.Label([
+                                html.I(className="fas fa-lock", style={
+                                    'color': SPOTIFY_GREEN,
+                                    'marginRight': '8px'
+                                }),
+                                "CLIENT SECRET"
+                            ], style={
+                                'color': SPOTIFY_WHITE,
+                                'fontFamily': 'Orbitron, monospace',
+                                'fontWeight': 'bold',
+                                'fontSize': '0.9rem',
+                                'letterSpacing': '1px',
+                                'marginBottom': '8px',
+                                'display': 'block'
+                            }),
+                            dbc.Input(
+                                id="client-secret-input",
+                                placeholder="Enter encryption cipher...",
+                                type="password",
+                                className="cyberpunk-input",
+                                style={
+                                    'backgroundColor': 'rgba(0, 0, 0, 0.7)',
+                                    'color': SPOTIFY_WHITE,
+                                    'border': '2px solid rgba(29, 185, 84, 0.3)',
+                                    'borderRadius': '8px',
+                                    'padding': '12px',
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'fontSize': '0.9rem',
+                                    'transition': 'all 0.3s ease',
+                                    'boxShadow': 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
+                                    'marginBottom': '25px'
+                                }
+                            )
+                        ]),
 
-            # Temporarily disabled sample data to force proper authentication
-            # dbc.Card([
-            #     dbc.CardBody([
-            #         html.H4("Or Use Sample Data", className="card-title", style={'color': SPOTIFY_GREEN}),
-            #         html.P("Don't have Spotify API credentials? No problem! Explore the dashboard with pre-generated sample data.", className="card-text", style={'color': SPOTIFY_WHITE}),
-            #         dbc.Button(
-            #             "Use Sample Data",
-            #             id="sample-data-button",
-            #             color="info",
-            #             style={'backgroundColor': SPOTIFY_GRAY, 'borderColor': SPOTIFY_GRAY, 'color': SPOTIFY_WHITE}
-            #         ),
-            #         html.Div(id='sample-data-status', className='mt-3', style={'color': SPOTIFY_WHITE})
-            #     ])
-            # ], style={'backgroundColor': '#181818', 'border': '1px solid #282828'}),
+                        # Connect button with advanced styling
+                        dbc.Button([
+                            html.I(className="fas fa-plug", style={'marginRight': '10px'}),
+                            "INITIATE CONNECTION"
+                        ],
+                            id="connect-button",
+                            className="cyberpunk-button",
+                            style={
+                                'background': f'linear-gradient(45deg, {SPOTIFY_GREEN}, #1ED760)',
+                                'border': 'none',
+                                'borderRadius': '25px',
+                                'color': SPOTIFY_BLACK,
+                                'fontFamily': 'Orbitron, monospace',
+                                'fontWeight': 'bold',
+                                'fontSize': '1rem',
+                                'letterSpacing': '2px',
+                                'padding': '15px 30px',
+                                'width': '100%',
+                                'position': 'relative',
+                                'overflow': 'hidden',
+                                'transition': 'all 0.3s ease',
+                                'textShadow': 'none',
+                                'boxShadow': f'0 0 20px rgba(29, 185, 84, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                            }
+                        ),
+                        html.Div(id='connect-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                    ])
+                ], className="connection-card", style={
+                    'background': 'linear-gradient(135deg, rgba(29, 185, 84, 0.1) 0%, rgba(0, 0, 0, 0.8) 100%)',
+                    'border': '2px solid rgba(29, 185, 84, 0.3)',
+                    'borderRadius': '15px',
+                    'padding': '30px',
+                    'marginBottom': '30px',
+                    'position': 'relative',
+                    'overflow': 'hidden',
+                    'backdropFilter': 'blur(10px)',
+                    'boxShadow': '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(29, 185, 84, 0.05)',
+                    'animation': 'slideUp 1s ease-out 1s both',
+                    'transition': 'all 0.3s ease'
+                }),
 
+                # Sample Data Card
+                html.Div([
+                    html.Div([
+                        # Card header
+                        html.Div([
+                            html.Div([
+                                html.I(className="fas fa-database", style={
+                                    'fontSize': '2.5rem',
+                                    'color': '#8b5cf6',
+                                    'animation': 'pulse 2s ease-in-out infinite, glow 2s ease-in-out infinite alternate',
+                                    'marginRight': '15px'
+                                }),
+                                html.H3("DEMO MATRIX", style={
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'fontWeight': '700',
+                                    'color': '#8b5cf6',
+                                    'margin': '0',
+                                    'textShadow': '0 0 15px rgba(139, 92, 246, 0.5)',
+                                    'letterSpacing': '2px'
+                                })
+                            ], style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'marginBottom': '10px'
+                            }),
+                            html.P("Experience the full system with synthetic data streams", style={
+                                'color': '#b3b3b3',
+                                'margin': '0',
+                                'fontSize': '0.9rem',
+                                'fontFamily': 'Montserrat, sans-serif'
+                            })
+                        ], style={'marginBottom': '25px'}),
+
+                        html.P([
+                            "Explore the complete ",
+                            html.Span("neural interface", style={
+                                'color': '#f472b6',
+                                'fontWeight': 'bold',
+                                'textShadow': '0 0 10px rgba(244, 114, 182, 0.5)'
+                            }),
+                            " without establishing a live connection. ",
+                            html.Br(),
+                            "All systems operational with ",
+                            html.Span("realistic data simulation", style={
+                                'color': '#00d4ff',
+                                'fontWeight': 'bold',
+                                'textShadow': '0 0 10px rgba(0, 212, 255, 0.5)'
+                            }),
+                            "."
+                        ], style={
+                            'color': SPOTIFY_WHITE,
+                            'marginBottom': '25px',
+                            'fontSize': '1rem',
+                            'lineHeight': '1.6'
+                        }),
+
+                        # Features list
+                        html.Div([
+                            html.Div([
+                                html.I(className="fas fa-check-circle", style={
+                                    'color': '#1ED760',
+                                    'marginRight': '10px'
+                                }),
+                                html.Span("Synthetic listening patterns & AI analysis", style={
+                                    'color': '#b3b3b3',
+                                    'fontSize': '0.9rem'
+                                })
+                            ], style={'marginBottom': '8px'}),
+                            html.Div([
+                                html.I(className="fas fa-check-circle", style={
+                                    'color': '#1ED760',
+                                    'marginRight': '10px'
+                                }),
+                                html.Span("Simulated top tracks, artists & playlists", style={
+                                    'color': '#b3b3b3',
+                                    'fontSize': '0.9rem'
+                                })
+                            ], style={'marginBottom': '8px'}),
+                            html.Div([
+                                html.I(className="fas fa-check-circle", style={
+                                    'color': '#1ED760',
+                                    'marginRight': '10px'
+                                }),
+                                html.Span("Full dashboard experience preview", style={
+                                    'color': '#b3b3b3',
+                                    'fontSize': '0.9rem'
+                                })
+                            ], style={'marginBottom': '25px'})
+                        ]),
+
+                        # Demo button
+                        dbc.Button([
+                            html.I(className="fas fa-rocket", style={'marginRight': '10px'}),
+                            "ENTER DEMO MATRIX"
+                        ],
+                            id="sample-data-button",
+                            className="demo-button",
+                            style={
+                                'background': 'linear-gradient(45deg, #8b5cf6, #f472b6)',
+                                'border': 'none',
+                                'borderRadius': '25px',
+                                'color': SPOTIFY_WHITE,
+                                'fontFamily': 'Orbitron, monospace',
+                                'fontWeight': 'bold',
+                                'fontSize': '1rem',
+                                'letterSpacing': '2px',
+                                'padding': '15px 30px',
+                                'width': '100%',
+                                'position': 'relative',
+                                'overflow': 'hidden',
+                                'transition': 'all 0.3s ease',
+                                'boxShadow': '0 0 20px rgba(139, 92, 246, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                            }
+                        ),
+                        html.Div(id='sample-data-status', className='mt-3', style={'color': SPOTIFY_WHITE})
+                    ])
+                ], className="demo-card", style={
+                    'background': 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(0, 0, 0, 0.8) 100%)',
+                    'border': '2px solid rgba(139, 92, 246, 0.3)',
+                    'borderRadius': '15px',
+                    'padding': '30px',
+                    'marginBottom': '30px',
+                    'position': 'relative',
+                    'overflow': 'hidden',
+                    'backdropFilter': 'blur(10px)',
+                    'boxShadow': '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.05)',
+                    'animation': 'slideUp 1s ease-out 1.5s both',
+                    'transition': 'all 0.3s ease'
+                })
+            ], className="cards-container", style={
+                'display': 'grid',
+                'gridTemplateColumns': 'repeat(auto-fit, minmax(400px, 1fr))',
+                'gap': '30px',
+                'marginBottom': '40px'
+            }),
+
+            # Footer with help link
             html.Div([
                 html.P([
-                    "Need help getting your Spotify API credentials? Visit the ",
-                    html.A("Spotify Developer Dashboard", href="https://developer.spotify.com/dashboard/", target="_blank", style={'color': SPOTIFY_GREEN}),
+                    "Need assistance accessing the developer matrix? Visit the ",
+                    html.A("Spotifi Developer Portal", 
+                           href="https://developer.spotify.com/dashboard/", 
+                           target="_blank", 
+                           style={
+                               'color': SPOTIFY_GREEN,
+                               'textDecoration': 'none',
+                               'borderBottom': f'1px solid {SPOTIFY_GREEN}',
+                               'transition': 'all 0.3s ease'
+                           }),
                     "."
-                ], style={'color': SPOTIFY_GRAY, 'marginTop': '30px', 'textAlign': 'center'})
+                ], style={
+                    'color': SPOTIFY_GRAY,
+                    'textAlign': 'center',
+                    'fontSize': '0.9rem',
+                    'animation': 'fadeIn 2s ease-out 2s both'
+                })
             ])
 
         ], style={
-            'maxWidth': '600px',
-            'margin': '50px auto',
-            'padding': '30px',
-            'backgroundColor': '#000000',
-            'borderRadius': '15px',
-            'boxShadow': '0 0 50px rgba(29, 185, 84, 0.2)',
-            'border': '1px solid rgba(29, 185, 84, 0.3)'
+            'maxWidth': '1000px',
+            'margin': '0 auto',
+            'padding': '40px 20px',
+            'position': 'relative',
+            'zIndex': '2'
         })
     ], style={
-        'backgroundColor': SPOTIFY_BLACK,
+        'backgroundColor': '#0a0a0a',
+        'backgroundImage': '''
+            radial-gradient(circle at 20% 80%, rgba(29, 185, 84, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.05) 0%, transparent 50%)
+        ''',
         'minHeight': '100vh',
-        'display': 'flex',
-        'alignItems': 'center',
-        'justifyContent': 'center'
+        'position': 'relative',
+        'overflow': 'hidden'
     })
 
 def create_settings_page():

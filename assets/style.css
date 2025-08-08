@@ -553,6 +553,194 @@ body {
     animation-duration: 3s;
 }
 
+/* Onboarding Page Cyberpunk Styles */
+.cyberpunk-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 
+        inset 0 0 10px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(29, 185, 84, 0.4) !important;
+    outline: none !important;
+}
+
+.cyberpunk-input:hover {
+    border-color: rgba(29, 185, 84, 0.5);
+    box-shadow: 
+        inset 0 0 10px rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(29, 185, 84, 0.2);
+}
+
+.cyberpunk-button:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 0 30px rgba(29, 185, 84, 0.5),
+        inset 0 0 30px rgba(255, 255, 255, 0.2) !important;
+}
+
+.cyberpunk-button:active {
+    transform: translateY(-1px) scale(1.02);
+}
+
+.demo-button:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 0 30px rgba(139, 92, 246, 0.5),
+        inset 0 0 30px rgba(255, 255, 255, 0.2) !important;
+}
+
+.connection-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(29, 185, 84, 0.6);
+    box-shadow: 
+        0 15px 40px rgba(0, 0, 0, 0.4),
+        inset 0 0 30px rgba(29, 185, 84, 0.1),
+        0 0 30px rgba(29, 185, 84, 0.2);
+}
+
+.demo-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(139, 92, 246, 0.6);
+    box-shadow: 
+        0 15px 40px rgba(0, 0, 0, 0.4),
+        inset 0 0 30px rgba(139, 92, 246, 0.1),
+        0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+.connection-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(29, 185, 84, 0.05) 50%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    border-radius: 15px;
+}
+
+.connection-card:hover::before {
+    opacity: 1;
+}
+
+.demo-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(139, 92, 246, 0.05) 50%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    border-radius: 15px;
+}
+
+.demo-card:hover::before {
+    opacity: 1;
+}
+
+/* Particle animation for background */
+.particle {
+    animation: particleFloat 8s ease-in-out infinite, particleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes particleFloat {
+    0%, 100% {
+        transform: translateY(0px) translateX(0px) scale(1);
+    }
+    25% {
+        transform: translateY(-20px) translateX(10px) scale(1.2);
+    }
+    50% {
+        transform: translateY(-10px) translateX(-15px) scale(0.8);
+    }
+    75% {
+        transform: translateY(-30px) translateX(5px) scale(1.1);
+    }
+}
+
+@keyframes particleGlow {
+    0% {
+        box-shadow: 0 0 5px currentColor;
+        opacity: 0.6;
+    }
+    100% {
+        box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+        opacity: 1;
+    }
+}
+
+/* Enhanced title animations */
+.title-part {
+    animation-fill-mode: both;
+}
+
+/* Responsive adjustments for onboarding */
+@media (max-width: 768px) {
+    .cards-container {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    
+    .title-part {
+        font-size: 2.5rem !important;
+    }
+    
+    .title-part:last-child {
+        font-size: 2rem !important;
+        letter-spacing: 4px !important;
+    }
+    
+    .connection-card,
+    .demo-card {
+        padding: 20px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .title-part {
+        font-size: 2rem !important;
+    }
+    
+    .title-part:last-child {
+        font-size: 1.5rem !important;
+        letter-spacing: 2px !important;
+    }
+}
+
+/* Advanced button effects */
+.cyberpunk-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s ease;
+}
+
+.cyberpunk-button:hover::before {
+    left: 100%;
+}
+
+.demo-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s ease;
+}
+
+.demo-button:hover::before {
+    left: 100%;
+}
+
 /* Stat Card Specific Animations */
 .spotify-card:hover #stat-card-value {
     animation: numberPulse 0.6s ease-in-out;
