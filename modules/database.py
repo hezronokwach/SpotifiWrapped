@@ -120,6 +120,19 @@ class SpotifyDatabase:
             )
         ''')
 
+        # OAuth tokens table for storing user authentication
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS oauth_tokens (
+                user_id TEXT PRIMARY KEY,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (user_id)
+            )
+        ''')
+
         # Create indexes for better query performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_user_time ON listening_history (user_id, played_at)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_listening_history_track ON listening_history (track_id)')
@@ -970,5 +983,63 @@ class SpotifyDatabase:
                 'total_hours': 0,
                 'average_track_minutes': 0
             }
+        finally:
+            conn.close()
+
+    def store_oauth_tokens(self, user_id: str, tokens: dict):
+        """Store OAuth tokens for a user."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                INSERT OR REPLACE INTO oauth_tokens 
+                (user_id, access_token, refresh_token, expires_at, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ''', (
+                user_id,
+                tokens.get('access_token'),
+                tokens.get('refresh_token'),
+                tokens.get('expires_at')
+            ))
+            conn.commit()
+            logger.info(f"Stored OAuth tokens for user {user_id}")
+            
+        except sqlite3.Error as e:
+            logger.error(f"Error storing OAuth tokens: {e}")
+            raise
+        finally:
+            conn.close()
+    
+    def get_oauth_tokens(self, user_id: str = None) -> dict:
+        """Get OAuth tokens for a user or from current database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            if user_id:
+                cursor.execute('''
+                    SELECT access_token, refresh_token, expires_at
+                    FROM oauth_tokens WHERE user_id = ?
+                ''', (user_id,))
+            else:
+                # If no user_id provided, get the most recent tokens from this database
+                cursor.execute('''
+                    SELECT access_token, refresh_token, expires_at
+                    FROM oauth_tokens ORDER BY updated_at DESC LIMIT 1
+                ''')
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'access_token': row[0],
+                    'refresh_token': row[1],
+                    'expires_at': row[2]
+                }
+            return None
+            
+        except sqlite3.Error as e:
+            logger.error(f"Error getting OAuth tokens: {e}")
+            return None
         finally:
             conn.close()

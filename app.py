@@ -307,6 +307,7 @@ app.layout = html.Div([
     dcc.Store(id='client-secret-store', storage_type='session'),
     dcc.Store(id='use-sample-data-store', storage_type='session', data={'use_sample': False}),
     dcc.Store(id='auth-status-store', storage_type='session', data={'authenticated': False}),
+    dcc.Store(id='current-user-id-store', storage_type='session'),  # Track current user
 
     # Auto-refresh component (global)
     dcc.Interval(
@@ -798,7 +799,8 @@ def display_page(pathname, auth_data, client_id_data, client_secret_data, use_sa
 
 # Update user data
 @app.callback(
-    Output('user-data-store', 'data'),
+    [Output('user-data-store', 'data'),
+     Output('current-user-id-store', 'data')],
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks'),
     State('client-id-store', 'data'),
@@ -822,7 +824,8 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
     if use_sample:
         print("📊 DEBUG: Using sample data for user profile.")
         from modules.sample_data_generator import sample_data_generator
-        return sample_data_generator.generate_user_profile()
+        sample_user = sample_data_generator.generate_user_profile()
+        return sample_user, sample_user.get('id', 'sample-user')
 
     if not spotify_api.sp:
         if client_id_data and client_secret_data:
@@ -830,7 +833,7 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
             spotify_api.set_credentials(client_id_data, client_secret_data, os.getenv('REDIRECT_URI'))
         else:
             print("❌ DEBUG: Spotify API not initialized. Cannot fetch user data.")
-            return {}
+            return {}, None
 
     try:
         # Always try to fetch from API first when we have a connection
@@ -895,7 +898,7 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
                 print(f"⚠️ Error during data collection: {e}")
                 # Continue anyway - user can still use the app
 
-            return user_data
+            return user_data, user_data.get('id')
 
         # Try to get user data from database if API fails
         print("⚠️ DEBUG: API failed, trying to load from database...")
@@ -915,15 +918,15 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
                     'product': 'Unknown'
                 }
                 print(f"📁 DEBUG: Loaded user data from database: {user_data}")
-                return user_data
+                return user_data, user_data.get('id')
         except Exception as e:
             print(f"❌ DEBUG: Error loading user data from database: {e}")
 
         print("❌ DEBUG: No user data available from any source.")
-        return {}
+        return {}, None
     except Exception as e:
         print(f"Error in update_user_data callback: {e}")
-        return {}
+        return {}, None
 
 # Update header with user data
 @app.callback(
@@ -1204,9 +1207,10 @@ def update_current_track_display(current_track):
     Output('top-tracks-chart', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks'),
-    State('use-sample-data-store', 'data')
+    State('use-sample-data-store', 'data'),
+    State('current-user-id-store', 'data')
 )
-def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
+def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag, current_user_id):
     """Update the top tracks chart using Spotify's official top tracks or sample data."""
     use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
@@ -1283,11 +1287,12 @@ def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
             AND date(h.played_at) <= ?     -- Ensure dates are not in the future
             AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
             AND t.name IS NOT NULL AND t.name != ''
+            AND (h.user_id = ? OR ? IS NULL)  -- Filter by current user
             GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
             HAVING play_count >= 2  -- Minimum 2 plays to be considered
             ORDER BY weighted_score DESC
             LIMIT 10
-        ''', (current_date,))
+        ''', (current_date, current_user_id, current_user_id))
 
         top_tracks_data = [dict(row) for row in cursor.fetchall()]
 
@@ -1779,9 +1784,10 @@ def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
     Output('top-artist-highlight-container', 'children'),
     Input('interval-component', 'n_intervals'),
     Input('refresh-button', 'n_clicks'),
-    State('use-sample-data-store', 'data')
+    State('use-sample-data-store', 'data'),
+    State('current-user-id-store', 'data')
 )
-def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
+def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag, current_user_id):
     """Update the top artist highlight card with sample data support."""
     use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
@@ -1852,10 +1858,11 @@ def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
                 WHERE t.artist IS NOT NULL AND t.artist != ''
                 AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
                 AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+                AND (h.user_id = ? OR ? IS NULL)  -- Filter by current user
                 GROUP BY t.artist
                 ORDER BY play_count DESC, avg_popularity DESC
                 LIMIT 1
-            ''')
+            ''', (current_user_id, current_user_id))
 
             result = cursor.fetchone()
 
@@ -2599,9 +2606,10 @@ def update_wrapped_summary_display(summary):
         Output('playlist-count-stat', 'children')
     ],
     Input('interval-component', 'n_intervals'),
-    State('use-sample-data-store', 'data')
+    State('use-sample-data-store', 'data'),
+    State('current-user-id-store', 'data')
 )
-def update_stat_cards(n_intervals, use_sample_data_flag):
+def update_stat_cards(n_intervals, use_sample_data_flag, current_user_id):
     """Update the stat cards with user statistics."""
     use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
 
@@ -2681,7 +2689,8 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND t.duration_ms IS NOT NULL
         AND t.duration_ms > 0
-    ''', (current_date,))
+        AND (h.user_id = ? OR ? IS NULL)  -- Filter by current user
+    ''', (current_date, current_user_id, current_user_id))
 
     db_stats = cursor.fetchone()
     conn.close()
@@ -2714,7 +2723,8 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
         SELECT COUNT(DISTINCT DATE(played_at)) as session_count
         FROM listening_history
         WHERE source IN ('played', 'recently_played', 'current')
-    ''')
+        AND (user_id = ? OR ? IS NULL)
+    ''', (current_user_id, current_user_id))
     session_result = cursor.fetchone()
     listening_sessions = session_result[0] if session_result and session_result[0] else 0
     cursor.close()

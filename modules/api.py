@@ -25,7 +25,7 @@ class SpotifyAPI:
         self.client_secret = client_secret if client_secret else os.getenv('CLIENT_SECRET')
         self.redirect_uri = redirect_uri if redirect_uri else os.getenv('REDIRECT_URI')
         self.use_sample_data = use_sample_data
-        self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played'
+        self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played user-follow-read'
         self.sp = None
         # Flag to enable AI-based audio features instead of Spotify API
         self.use_ai_audio_features = True
