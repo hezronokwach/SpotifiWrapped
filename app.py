@@ -1564,43 +1564,43 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
             }
         }
 
-    with sqlite3.connect(user_db.db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    # Get top tracks from Spotify API (same source as top tracks chart for consistency)
+    try:
+        top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='short_term')
 
-        # Query for top tracks using enhanced ranking system (consistent with main top tracks)
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute('''
-            SELECT
-                t.track_id as id,
-                t.name as track,
-                t.artist,
-                t.album,
-                COUNT(DISTINCT h.history_id) as play_count,
-                SUM(CASE
-                    WHEN t.duration_ms > 0 THEN t.duration_ms
-                    ELSE 180000
-                END) as total_listening_time_ms,
-                -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
-                (
-                    (COUNT(DISTINCT h.history_id) * 0.5) +
-                    (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                    (t.popularity / 100.0 * 0.2)
-                ) as weighted_score
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE h.user_id = ?
-            AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-            AND date(h.played_at) <= ?
-            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-            AND t.name IS NOT NULL AND t.name != ''
-            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
-            HAVING play_count >= 1  -- Minimum 1 play to be considered (reduced for new users)
-            ORDER BY weighted_score DESC
-            LIMIT 5
-        ''', (user_id, current_date))
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='medium_term')
 
-        tracks_data = [dict(row) for row in cursor.fetchall()]
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='long_term')
+
+        if not top_tracks_data:
+            # Return empty chart if no tracks available
+            return {
+                'data': [],
+                'layout': {
+                    'title': 'No tracks available for audio features analysis',
+                    'paper_bgcolor': 'rgba(0,0,0,0)',
+                    'plot_bgcolor': 'rgba(0,0,0,0)',
+                    'font': {'color': SPOTIFY_GRAY}
+                }
+            }
+
+        tracks_data = top_tracks_data  # Use Spotify API data directly
+
+    except Exception as e:
+        print(f"Error getting top tracks for audio features: {e}")
+        return {
+            'data': [],
+            'layout': {
+                'title': 'Error loading audio features',
+                'paper_bgcolor': 'rgba(0,0,0,0)',
+                'plot_bgcolor': 'rgba(0,0,0,0)',
+                'font': {'color': SPOTIFY_GRAY}
+            }
+        }
 
     # Get audio features for these tracks
     audio_features_data = []
@@ -1610,8 +1610,8 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
 
         # Combine track info with audio features
         audio_features_data.append({
-            'track': track['track'],
-            'artist': track['artist'],
+            'track': track['track'],  # Spotify API uses 'track' key
+            'artist': track['artist'],  # Spotify API uses 'artist' key
             'id': track['id'],
             'danceability': features.get('danceability', 0),
             'energy': features.get('energy', 0),

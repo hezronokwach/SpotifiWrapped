@@ -33,6 +33,14 @@ def get_top_albums(spotify_api, limit=10, user_db=None):
 
         current_date = datetime.now().strftime('%Y-%m-%d')
 
+        # Get user_id from the database
+        cursor.execute("SELECT user_id FROM users LIMIT 1")
+        user_result = cursor.fetchone()
+        if not user_result:
+            print("❌ ERROR: No user found in database")
+            return pd.DataFrame()
+        user_id = user_result[0]
+
         # Enhanced album ranking query with completion rate and listening time
         cursor.execute('''
             WITH album_stats AS (
@@ -54,7 +62,8 @@ def get_top_albums(spotify_api, limit=10, user_db=None):
                     AVG(t.popularity) as avg_popularity
                 FROM tracks t
                 JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.album IS NOT NULL
+                WHERE h.user_id = ?
+                AND t.album IS NOT NULL
                 AND t.album != ''
                 AND t.track_id NOT LIKE 'artist-%'
                 AND t.track_id NOT LIKE 'genre-%'
@@ -110,7 +119,7 @@ def get_top_albums(spotify_api, limit=10, user_db=None):
             FROM album_completion
             ORDER BY weighted_score DESC
             LIMIT ?
-        ''', (current_date, limit))
+        ''', (user_id, current_date, limit))
 
         albums_data = [dict(row) for row in cursor.fetchall()]
         conn.close()
