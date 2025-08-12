@@ -2293,14 +2293,14 @@ class SpotifyVisualizations:
                     # Stats row
                     html.Div([
                         html.Div([
-                            html.Span(f"{track_data.get('play_count', 0)}", style={
+                            html.Span(f"#{track_data.get('rank', 1)}", style={
                                 'fontSize': '20px',
                                 'fontWeight': '700',
                                 'color': '#1DB954',
                                 'fontFamily': 'Orbitron, monospace'
                             }),
                             html.Br(),
-                            html.Span("PLAYS", style={
+                            html.Span("RANK", style={
                                 'fontSize': '10px',
                                 'color': 'rgba(255,255,255,0.7)',
                                 'letterSpacing': '0.5px'
@@ -2433,14 +2433,14 @@ class SpotifyVisualizations:
                     # Stats row
                     html.Div([
                         html.Div([
-                            html.Span(f"{artist_data.get('play_count', 0)}", style={
+                            html.Span(f"#{artist_data.get('rank', 1)}", style={
                                 'fontSize': '20px',
                                 'fontWeight': '700',
                                 'color': '#8B5CF6',
                                 'fontFamily': 'Orbitron, monospace'
                             }),
                             html.Br(),
-                            html.Span("PLAYS", style={
+                            html.Span("RANK", style={
                                 'fontSize': '10px',
                                 'color': 'rgba(255,255,255,0.7)',
                                 'letterSpacing': '0.5px'
