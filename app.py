@@ -1778,40 +1778,19 @@ def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
     try:
-        # Get top track from database
-        with sqlite3.connect(user_db.db_path) as conn:
-            cursor = conn.cursor()
+        # Get top track from Spotify API (same source as top tracks chart)
+        top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='short_term')
 
-            # Play count calculation: COUNT(DISTINCT h.history_id) counts unique listening events
-            # This uses all historical data while preventing duplicate counting from same timestamp/source
-            # Database UNIQUE constraint on (user_id, track_id, played_at) prevents exact duplicates
-            cursor.execute('''
-                SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
-                       t.popularity, t.image_url,
-                       COUNT(DISTINCT h.history_id) as play_count,
-                       COUNT(h.history_id) as total_entries
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE h.user_id = ?
-                AND t.name IS NOT NULL AND t.name != ''
-                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-                GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
-                ORDER BY play_count DESC, t.popularity DESC
-                LIMIT 1
-            ''', (user_id,))
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='medium_term')
 
-            result = cursor.fetchone()
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='long_term')
 
-        if result:
-            track_data = {
-                'track': result[0],      # track_name
-                'artist': result[1],     # artist_name
-                'album': result[2] or 'Unknown Album',  # album_name
-                'popularity': result[3] or 0,           # popularity
-                'image_url': result[4] or '',           # image_url
-                'play_count': result[5]                 # play_count
-            }
+        if top_tracks_data:
+            track_data = top_tracks_data[0]  # Get the #1 track
             return visualizations.create_top_track_highlight_component(track_data)
         else:
             return html.Div([
@@ -1890,38 +1869,19 @@ def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
     try:
-        # Get top artist from database
-        with sqlite3.connect(user_db.db_path) as conn:
-            cursor = conn.cursor()
+        # Get top artist from Spotify API (same source as top artists chart)
+        top_artists_data = spotify_api.get_top_artists(limit=1, time_range='short_term')
 
-            # Play count calculation for artists: COUNT(DISTINCT h.history_id) counts unique listening events
-            # This uses all historical data while preventing duplicate counting from same timestamp/source
-            cursor.execute('''
-                SELECT t.artist as artist_name,
-                       COUNT(DISTINCT h.history_id) as play_count,
-                       AVG(t.popularity) as avg_popularity,
-                       MAX(t.image_url) as image_url,
-                       COUNT(h.history_id) as total_entries
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE h.user_id = ?
-                AND t.artist IS NOT NULL AND t.artist != ''
-                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-                GROUP BY t.artist
-                ORDER BY play_count DESC, avg_popularity DESC
-                LIMIT 1
-            ''', (user_id,))
+        if not top_artists_data:
+            # Try medium_term if short_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='medium_term')
 
-            result = cursor.fetchone()
+        if not top_artists_data:
+            # Try long_term if medium_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='long_term')
 
-        if result:
-            artist_data = {
-                'artist': result[0],
-                'play_count': result[1],
-                'popularity': int(result[2]) if result[2] else 0,
-                'image_url': result[3] or ''
-            }
+        if top_artists_data:
+            artist_data = top_artists_data[0]  # Get the #1 artist
             return visualizations.create_top_artist_highlight_component(artist_data)
         else:
             return html.Div([
