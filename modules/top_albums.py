@@ -4,13 +4,14 @@ import seaborn as sns
 from collections import defaultdict
 from modules.api import SpotifyAPI
 
-def get_top_albums(spotify_api, limit=10):
+def get_top_albums(spotify_api, limit=10, user_db=None):
     """
     Get top albums based on comprehensive listening metrics from database.
 
     Args:
         spotify_api: SpotifyAPI instance
         limit: Number of albums to return
+        user_db: User-specific database instance
 
     Returns:
         DataFrame with enhanced album data including completion rates and listening time
@@ -20,9 +21,13 @@ def get_top_albums(spotify_api, limit=10):
     from datetime import datetime
 
     try:
-        # Get database connection
-        db = SpotifyDatabase()
-        conn = sqlite3.connect(db.db_path)
+        # Use provided user database or get current user's database
+        if user_db is None:
+            # This function should be called with a user_db parameter
+            print("❌ ERROR: get_top_albums called without user_db parameter")
+            return pd.DataFrame()
+
+        conn = sqlite3.connect(user_db.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
