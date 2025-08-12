@@ -115,11 +115,7 @@ personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
 
 # Note: Recent tracks collector and genre extractor created per-user as needed
 
-# Initialize AI modules
-enhanced_personality_analyzer = EnhancedPersonalityAnalyzer()
-genre_evolution_tracker = GenreEvolutionTracker()
-wellness_analyzer = WellnessAnalyzer()
-enhanced_stress_detector = EnhancedStressDetector()
+# AI modules are now created per-user as needed for security
 
 # Initialize Dash app
 app = dash.Dash(
@@ -3235,16 +3231,22 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
     try:
         user_data = spotify_api.get_user_profile()
         if user_data and user_data.get('id'):
-            from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
-            ai_analyzer = EnhancedPersonalityAnalyzer()
-            ai_personality = ai_analyzer.generate_enhanced_personality(user_data['id'])
+            # Get user-specific database for AI analysis
+            user_db, user_id = get_current_user_database()
+            if user_db and user_id:
+                from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
+                user_ai_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
+                ai_personality = user_ai_analyzer.generate_enhanced_personality(user_id)
 
-            if ai_personality and ai_personality.get('personality_type'):
-                summary['personality_type'] = ai_personality.get('personality_type', 'Music Explorer')
-                print(f"✅ Added personality type: {summary['personality_type']}")
+                if ai_personality and ai_personality.get('personality_type'):
+                    summary['personality_type'] = ai_personality.get('personality_type', 'Music Explorer')
+                    print(f"✅ Added personality type: {summary['personality_type']}")
+                else:
+                    summary['personality_type'] = 'Music Explorer'
+                    print("📁 Using default personality type: Music Explorer")
             else:
                 summary['personality_type'] = 'Music Explorer'
-                print("📁 Using default personality type: Music Explorer")
+                print("❌ No user database available for personality type")
         else:
             summary['personality_type'] = 'Music Explorer'
             print("❌ No user data for personality type")
@@ -3302,22 +3304,21 @@ def update_ai_personality_card(pathname, use_sample_data_flag):
     if pathname != '/ai-insights':
         return html.Div()
 
-    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
-
     try:
-        if use_sample:
+        if use_sample_data_flag and use_sample_data_flag.get('use_sample', False):
             print("📊 DEBUG: Using sample data for AI personality.")
             from modules.sample_data_generator import sample_data_generator
             ai_personality = sample_data_generator.generate_ai_personality_data()
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see AI insights",
+                               className="alert alert-warning")
 
-            user_id = user_data['id']
-
-            # Get AI-enhanced personality analysis
-            ai_personality = enhanced_personality_analyzer.generate_enhanced_personality(user_id)
+            # Create user-specific AI analyzer
+            user_personality_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
+            ai_personality = user_personality_analyzer.generate_enhanced_personality(user_id)
 
         return create_spotify_card(
             title="🧠 AI-Enhanced Personality",
@@ -3399,17 +3400,19 @@ def update_genre_evolution_chart(pathname, use_sample_data_flag):
 
             return fig
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
                 return {}
 
-            user_id = user_data['id']
+            # Create user-specific genre evolution tracker
+            user_genre_tracker = GenreEvolutionTracker(db_path=user_db.db_path)
 
             # Get genre evolution data
-            evolution_data = genre_evolution_tracker.get_genre_evolution_data(user_id)
+            evolution_data = user_genre_tracker.get_genre_evolution_data(user_id)
 
             # Create visualization
-            return genre_evolution_tracker.create_evolution_visualization(evolution_data)
+            return user_genre_tracker.create_evolution_visualization(evolution_data)
 
     except Exception as e:
         print(f"Error updating genre evolution chart: {e}")
@@ -3441,18 +3444,20 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
             # Use the same enhanced stress analysis card as real data
             return create_enhanced_stress_analysis_card(stress_data)
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
-
-            user_id = user_data['id']
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see wellness analysis",
+                               className="alert alert-warning")
 
             # Try enhanced stress analysis first, fallback to basic if needed
             try:
                 print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
-                print(f"DEBUG: Enhanced stress detector instance: {enhanced_stress_detector}")
-                print(f"DEBUG: Database path: {enhanced_stress_detector.db_path}")
-                stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
+                # Create user-specific stress detector
+                user_stress_detector = EnhancedStressDetector(db_path=user_db.db_path)
+                print(f"DEBUG: Enhanced stress detector instance: {user_stress_detector}")
+                print(f"DEBUG: Database path: {user_stress_detector.db_path}")
+                stress_data = user_stress_detector.analyze_stress_patterns(user_id)
 
                 # Enhanced stress detector always returns a valid response structure
                 # Use the enhanced visualization for any response from enhanced stress detector
@@ -3471,10 +3476,10 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
                 
                 # Fallback to basic wellness analysis but convert to enhanced format for consistency
                 print(f"DEBUG: Falling back to wellness analyzer")
-                if wellness_analyzer is None:
-                    raise Exception("Wellness analyzer is not initialized")
                 try:
-                    wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+                    # Create user-specific wellness analyzer
+                    user_wellness_analyzer = WellnessAnalyzer(db_path=user_db.db_path)
+                    wellness_data = user_wellness_analyzer.analyze_wellness_patterns(user_id)
                     print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
 
                     # Convert wellness data to enhanced stress data format for consistent visualization
@@ -3500,14 +3505,16 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
                     else:
                         # If wellness analysis also fails, return default enhanced response
                         print(f"DEBUG: Wellness analysis incomplete, using default enhanced response")
-                        default_response = enhanced_stress_detector._default_stress_response()
+                        user_stress_detector_fallback = EnhancedStressDetector(db_path=user_db.db_path)
+                        default_response = user_stress_detector_fallback._default_stress_response()
                         return create_enhanced_stress_analysis_card(default_response)
                         
                 except Exception as wellness_error:
                     print(f"❌ Wellness analyzer also failed: {wellness_error}")
                     # Final fallback - use default enhanced response
                     print(f"DEBUG: Using default enhanced stress response")
-                    default_response = enhanced_stress_detector._default_stress_response()
+                    user_stress_detector_final = EnhancedStressDetector(db_path=user_db.db_path)
+                    default_response = user_stress_detector_final._default_stress_response()
                     return create_enhanced_stress_analysis_card(default_response)
 
     except Exception as e:
@@ -3515,7 +3522,18 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
         # Final fallback - always use enhanced visualization for consistency
         print(f"DEBUG: Using final fallback - default enhanced stress response")
         try:
-            default_response = enhanced_stress_detector._default_stress_response()
+            # Try to create a user-specific stress detector for default response
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if user_db:
+                user_stress_detector_ultimate = EnhancedStressDetector(db_path=user_db.db_path)
+                default_response = user_stress_detector_ultimate._default_stress_response()
+            else:
+                # If even that fails, create a minimal response
+                default_response = {
+                    'stress_score': 50,
+                    'stress_level': 'Unable to analyze',
+                    'recommendations': ['Please authenticate to see personalized wellness insights']
+                }
             return create_enhanced_stress_analysis_card(default_response)
         except Exception as final_error:
             print(f"❌ Even default response failed: {final_error}")
@@ -3543,14 +3561,17 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
 
             print(f"DEBUG: Got {len(recommendations)} sample recommendations")
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see recommendations",
+                               className="alert alert-warning")
 
-            user_id = user_data['id']
+            # Create user-specific personality analyzer
+            user_personality_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
 
             # Get content-based recommendations
-            recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
+            recommendations = user_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
             print(f"DEBUG: Got {len(recommendations)} recommendations for user {user_id}")
             music_dna = None  # Will be handled by existing logic
 
@@ -3611,7 +3632,7 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
         else:
             # Get user's music DNA for display
             try:
-                user_data = enhanced_personality_analyzer._get_user_listening_data(user_id)
+                user_listening_data = user_personality_analyzer._get_user_listening_data(user_id)
                 content = html.Div([
                     html.H4("🧬 Your Music DNA Profile", style={'color': '#1DB954', 'textAlign': 'center', 'marginBottom': '20px'}),
 
@@ -3619,19 +3640,19 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
                     html.Div([
                         html.Div([
                             html.Strong("🕺 Danceability: "),
-                            html.Span(f"{user_data.get('avg_danceability', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_danceability', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("⚡ Energy: "),
-                            html.Span(f"{user_data.get('avg_energy', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_energy', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("😊 Mood: "),
-                            html.Span(f"{user_data.get('avg_valence', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_valence', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("🎭 Top Genre: "),
-                            html.Span(user_data.get('top_genre', 'Mixed'), style={'color': '#1DB954'})
+                            html.Span(user_listening_data.get('top_genre', 'Mixed'), style={'color': '#1DB954'})
                         ], style={'marginBottom': '15px'})
                     ], style={'backgroundColor': 'rgba(29, 185, 84, 0.1)', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px'}),
 

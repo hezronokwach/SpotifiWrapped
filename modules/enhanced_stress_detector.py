@@ -12,8 +12,10 @@ import threading
 class EnhancedStressDetector:
     """Advanced stress detection using machine learning and pattern analysis."""
     
-    def __init__(self, db_path: str = 'data/spotify_data.db'):
+    def __init__(self, db_path: str = None):
         """Initialize the enhanced stress detector."""
+        if db_path is None:
+            raise ValueError("db_path must be provided for user-specific analysis")
         self.db_path = db_path
         self._db_lock = threading.Lock()
         self.stress_weights = {

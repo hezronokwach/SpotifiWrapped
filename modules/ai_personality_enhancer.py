@@ -13,8 +13,10 @@ load_dotenv()
 class EnhancedPersonalityAnalyzer:
     """AI-enhanced personality analyzer with LLM-powered descriptions and content-based recommendations."""
     
-    def __init__(self, db_path: str = 'data/spotify_data.db'):
+    def __init__(self, db_path: str = None):
         """Initialize the analyzer with database path and Gemini client."""
+        if db_path is None:
+            raise ValueError("db_path must be provided for user-specific analysis")
         self.db_path = db_path
 
         # Initialize Gemini client

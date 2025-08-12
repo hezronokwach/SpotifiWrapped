@@ -8,8 +8,10 @@ from typing import Dict, List
 class WellnessAnalyzer:
     """Analyze listening patterns for wellness insights and therapeutic recommendations."""
     
-    def __init__(self, db_path: str = 'data/spotify_data.db'):
+    def __init__(self, db_path: str = None):
         """Initialize the wellness analyzer."""
+        if db_path is None:
+            raise ValueError("db_path must be provided for user-specific analysis")
         self.db_path = db_path
         # Research-validated thresholds based on HRV and emotion recognition studies
         self.stress_indicators = {
