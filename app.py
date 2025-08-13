@@ -639,33 +639,77 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
                     return html.Div([
-                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
-                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
-                        html.A(
-                            "🎵 Authorize Spotify Access",
-                            href=auth_url,
-                            target="_blank",
-                            style={
-                                'display': 'inline-block',
-                                'padding': '12px 24px',
-                                'backgroundColor': '#1DB954',
-                                'color': '#000000',
-                                'textDecoration': 'none',
-                                'borderRadius': '25px',
+                        # Prominent header with animation
+                        html.Div([
+                            html.I(className="fas fa-rocket", style={
+                                'fontSize': '2rem',
+                                'color': '#1DB954',
+                                'marginBottom': '10px',
+                                'animation': 'authPulse 2s infinite'
+                            }),
+                            html.H3("🚀 AUTHORIZATION REQUIRED", style={
+                                'color': '#1DB954',
+                                'fontFamily': 'Orbitron, monospace',
                                 'fontWeight': 'bold',
-                                'fontSize': '16px',
-                                'transition': 'all 0.3s ease',
-                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.3)'
-                            },
-                            className="spotify-auth-button"
-                        ),
-                        html.P("After authorizing, you'll be redirected back to the app automatically.", style={'color': '#B3B3B3', 'marginTop': '15px', 'fontSize': '14px'})
-                    ], style={
-                        'padding': '20px',
-                        'backgroundColor': 'rgba(29, 185, 84, 0.1)',
-                        'border': '1px solid rgba(29, 185, 84, 0.3)',
-                        'borderRadius': '10px',
-                        'textAlign': 'center'
+                                'letterSpacing': '2px',
+                                'marginBottom': '15px',
+                                'textShadow': '0 0 10px rgba(29, 185, 84, 0.5)'
+                            })
+                        ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+
+                        html.P("🎯 Almost there! Click the button below to authorize Spotify access:",
+                               style={
+                                   'color': '#FFFFFF',
+                                   'marginBottom': '25px',
+                                   'fontSize': '1.1rem',
+                                   'textAlign': 'center',
+                                   'fontWeight': '500'
+                               }),
+
+                        # Large, prominent authorization button
+                        html.Div([
+                            html.A([
+                                html.I(className="fab fa-spotify", style={'marginRight': '12px', 'fontSize': '1.2rem'}),
+                                "AUTHORIZE SPOTIFY ACCESS"
+                            ],
+                                href=auth_url,
+                                target="_blank",
+                                style={
+                                    'display': 'inline-block',
+                                    'padding': '20px 40px',
+                                    'background': 'linear-gradient(45deg, #1DB954, #1ED760)',
+                                    'color': '#000000',
+                                    'textDecoration': 'none',
+                                    'borderRadius': '30px',
+                                    'fontWeight': 'bold',
+                                    'fontSize': '1.2rem',
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'letterSpacing': '1px',
+                                    'transition': 'all 0.3s ease',
+                                    'boxShadow': '0 8px 25px rgba(29, 185, 84, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+                                    'border': '2px solid rgba(29, 185, 84, 0.3)',
+                                    'textTransform': 'uppercase'
+                                },
+                                className="spotify-auth-button-large"
+                            )
+                        ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+
+                        html.P("✨ After authorization, you'll be redirected back automatically",
+                               style={
+                                   'color': '#B3B3B3',
+                                   'fontSize': '0.9rem',
+                                   'textAlign': 'center',
+                                   'fontStyle': 'italic'
+                               })
+                    ], id='authorization-container', style={
+                        'padding': '30px',
+                        'background': 'linear-gradient(135deg, rgba(29, 185, 84, 0.15), rgba(0, 212, 255, 0.1))',
+                        'border': '2px solid rgba(29, 185, 84, 0.4)',
+                        'borderRadius': '20px',
+                        'textAlign': 'center',
+                        'marginTop': '20px',
+                        'boxShadow': '0 10px 30px rgba(29, 185, 84, 0.2), inset 0 0 30px rgba(29, 185, 84, 0.05)',
+                        'animation': 'authGlow 3s ease-in-out infinite alternate'
                     })
                 else:
                     return html.Div([
