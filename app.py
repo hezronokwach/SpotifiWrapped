@@ -133,6 +133,36 @@ app = dash.Dash(
 
 app.title = "Spotifi Wrapped"
 
+# Clean database on deployment startup (optional - uncomment if needed)
+def clean_database_on_startup():
+    """Clean the main database on startup to ensure fresh deployment."""
+    import os
+    import glob
+
+    # Only run in production/deployed environment
+    if os.getenv('RENDER') or os.getenv('NODE_ENV') == 'production':
+        print("🧹 DEPLOYMENT CLEANUP: Cleaning databases for fresh start...")
+
+        # Remove main database
+        main_db_path = 'data/spotify_data.db'
+        if os.path.exists(main_db_path):
+            os.remove(main_db_path)
+            print(f"✅ Removed main database: {main_db_path}")
+
+        # Remove user-specific databases
+        user_db_pattern = 'data/user_*.db'
+        user_dbs = glob.glob(user_db_pattern)
+        for db_path in user_dbs:
+            os.remove(db_path)
+            print(f"✅ Removed user database: {db_path}")
+
+        print("🎯 Database cleanup complete - fresh deployment ready!")
+    else:
+        print("🏠 Local development - skipping database cleanup")
+
+# Uncomment the next line if you want to clean databases on deployment
+clean_database_on_startup()  # Enabled for clean deployment start
+
 # Add callback route for Spotify OAuth
 @app.server.route('/callback')
 def spotify_callback():
@@ -737,19 +767,49 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
      Output('client-secret-store', 'data', allow_duplicate=True),
      Output('update-credentials-status', 'children')],
     [Input('update-credentials-button', 'n_clicks'),
-     Input('clear-data-button', 'n_clicks')],
+     Input('clear-data-button', 'n_clicks'),
+     Input('clean-database-button', 'n_clicks')],
     [State('settings-client-id-input', 'value'),
      State('settings-client-secret-input', 'value')],
     prevent_initial_call=True
 )
-def handle_settings_actions(update_clicks, clear_clicks, client_id, client_secret):
+def handle_settings_actions(update_clicks, clear_clicks, clean_clicks, client_id, client_secret):
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if button_id == 'update-credentials-button':
+    if button_id == 'clean-database-button':
+        # Clean all databases
+        import os
+        import glob
+
+        try:
+            cleaned_files = []
+
+            # Remove main database
+            main_db_path = 'data/spotify_data.db'
+            if os.path.exists(main_db_path):
+                os.remove(main_db_path)
+                cleaned_files.append('main database')
+
+            # Remove user-specific databases
+            user_db_pattern = 'data/user_*.db'
+            user_dbs = glob.glob(user_db_pattern)
+            for db_path in user_dbs:
+                os.remove(db_path)
+                cleaned_files.append(f'user database ({os.path.basename(db_path)})')
+
+            if cleaned_files:
+                return dash.no_update, dash.no_update, dash.no_update, f"✅ Database cleanup complete! Removed: {', '.join(cleaned_files)}"
+            else:
+                return dash.no_update, dash.no_update, dash.no_update, "ℹ️ No databases found to clean."
+
+        except Exception as e:
+            return dash.no_update, dash.no_update, dash.no_update, f"❌ Database cleanup failed: {str(e)}"
+
+    elif button_id == 'update-credentials-button':
         if not client_id or not client_secret:
             return dash.no_update, dash.no_update, dash.no_update, "Please provide both Client ID and Client Secret."
 

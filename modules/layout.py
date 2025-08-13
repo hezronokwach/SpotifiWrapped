@@ -1069,6 +1069,13 @@ def create_settings_page():
                         className="me-2",
                         style={'backgroundColor': '#e74c3c', 'borderColor': '#e74c3c', 'color': SPOTIFY_WHITE}
                     ),
+                    dbc.Button(
+                        "🗑️ Clean Database (Admin)",
+                        id="clean-database-button",
+                        color="warning",
+                        className="me-2",
+                        style={'backgroundColor': '#f39c12', 'borderColor': '#f39c12', 'color': SPOTIFY_BLACK}
+                    ),
                     html.Div(id='update-credentials-status', className='mt-3', style={'color': SPOTIFY_WHITE})
                 ])
             ], style={'backgroundColor': '#181818', 'border': '1px solid #282828', 'marginBottom': '30px'}),
