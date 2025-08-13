@@ -25,7 +25,7 @@ class SpotifyAPI:
         self.client_secret = client_secret if client_secret else os.getenv('CLIENT_SECRET')
         self.redirect_uri = redirect_uri if redirect_uri else os.getenv('REDIRECT_URI')
         self.use_sample_data = use_sample_data
-        self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played'
+        self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played user-follow-read'
         self.sp = None
         # Flag to enable AI-based audio features instead of Spotify API
         self.use_ai_audio_features = True
@@ -645,12 +645,41 @@ class SpotifyAPI:
             # Get the number of artists the user is following
             following_count = 0
             try:
-                # Get followed artists
+                print("🔍 DEBUG: Attempting to fetch followed artists...")
+                # Get followed artists with more detailed error handling
                 followed_artists = self.sp.current_user_followed_artists(limit=1)
-                following_count = followed_artists['artists']['total'] if followed_artists and 'artists' in followed_artists else 0
+                print(f"🔍 DEBUG: Followed artists response: {followed_artists}")
+
+                if followed_artists and 'artists' in followed_artists:
+                    following_count = followed_artists['artists']['total']
+                    print(f"✅ DEBUG: Successfully got following count: {following_count}")
+                else:
+                    print("⚠️ DEBUG: No 'artists' key in followed artists response")
+                    following_count = 0
+
             except Exception as e:
-                print(f"Error fetching followed artists: {e}")
-                following_count = 0
+                print(f"❌ Error fetching followed artists: {e}")
+                print(f"❌ Error type: {type(e).__name__}")
+
+                # Check if this is a scope permission error
+                if "insufficient client scope" in str(e).lower() or "scope" in str(e).lower():
+                    print("🔐 DEBUG: This appears to be a scope permission error.")
+                    print("🔐 DEBUG: The user may need to re-authenticate with updated permissions.")
+                    print("🔐 DEBUG: Added 'user-follow-read' scope to fix this issue.")
+
+                # Try alternative approach - get followed artists with different parameters
+                try:
+                    print("🔄 DEBUG: Trying alternative approach for followed artists...")
+                    followed_artists_alt = self.sp.current_user_followed_artists(limit=50)
+                    if followed_artists_alt and 'artists' in followed_artists_alt and 'items' in followed_artists_alt['artists']:
+                        following_count = len(followed_artists_alt['artists']['items'])
+                        print(f"✅ DEBUG: Alternative approach got following count: {following_count}")
+                    else:
+                        following_count = 0
+                        print("⚠️ DEBUG: Alternative approach also failed")
+                except Exception as alt_e:
+                    print(f"❌ Alternative approach also failed: {alt_e}")
+                    following_count = 0
 
             user_data = {
                 'display_name': user_profile.get('display_name', 'Unknown'),
