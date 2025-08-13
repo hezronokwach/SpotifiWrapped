@@ -4,13 +4,14 @@ import seaborn as sns
 from collections import defaultdict
 from modules.api import SpotifyAPI
 
-def get_top_albums(spotify_api, limit=10):
+def get_top_albums(spotify_api, limit=10, user_db=None):
     """
     Get top albums based on comprehensive listening metrics from database.
 
     Args:
         spotify_api: SpotifyAPI instance
         limit: Number of albums to return
+        user_db: User-specific database instance
 
     Returns:
         DataFrame with enhanced album data including completion rates and listening time
@@ -20,13 +21,25 @@ def get_top_albums(spotify_api, limit=10):
     from datetime import datetime
 
     try:
-        # Get database connection
-        db = SpotifyDatabase()
-        conn = sqlite3.connect(db.db_path)
+        # Use provided user database or get current user's database
+        if user_db is None:
+            # This function should be called with a user_db parameter
+            print("❌ ERROR: get_top_albums called without user_db parameter")
+            return pd.DataFrame()
+
+        conn = sqlite3.connect(user_db.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
         current_date = datetime.now().strftime('%Y-%m-%d')
+
+        # Get user_id from the database
+        cursor.execute("SELECT user_id FROM users LIMIT 1")
+        user_result = cursor.fetchone()
+        if not user_result:
+            print("❌ ERROR: No user found in database")
+            return pd.DataFrame()
+        user_id = user_result[0]
 
         # Enhanced album ranking query with completion rate and listening time
         cursor.execute('''
@@ -49,7 +62,8 @@ def get_top_albums(spotify_api, limit=10):
                     AVG(t.popularity) as avg_popularity
                 FROM tracks t
                 JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.album IS NOT NULL
+                WHERE h.user_id = ?
+                AND t.album IS NOT NULL
                 AND t.album != ''
                 AND t.track_id NOT LIKE 'artist-%'
                 AND t.track_id NOT LIKE 'genre-%'
@@ -105,7 +119,7 @@ def get_top_albums(spotify_api, limit=10):
             FROM album_completion
             ORDER BY weighted_score DESC
             LIMIT ?
-        ''', (current_date, limit))
+        ''', (user_id, current_date, limit))
 
         albums_data = [dict(row) for row in cursor.fetchall()]
         conn.close()

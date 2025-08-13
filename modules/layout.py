@@ -697,8 +697,28 @@ def create_onboarding_page():
                                         'marginRight': '10px',
                                         'fontSize': '0.8rem'
                                     }),
-                                    "Install redirect endpoint: ",
+                                    "Install redirect endpoint (choose one):"
+                                ], style={'marginBottom': '10px', 'fontSize': '0.9rem'}),
+
+                                # Local development option
+                                html.Div([
+                                    html.Span("• Local development: ", style={'fontWeight': 'bold'}),
                                     html.Code("http://127.0.0.1:8080/callback", style={
+                                        'backgroundColor': 'rgba(0, 212, 255, 0.1)',
+                                        'color': '#00d4ff',
+                                        'padding': '4px 8px',
+                                        'borderRadius': '4px',
+                                        'border': '1px solid rgba(0, 212, 255, 0.3)',
+                                        'fontFamily': 'Orbitron, monospace',
+                                        'fontSize': '0.8rem',
+                                        'textShadow': '0 0 5px rgba(0, 212, 255, 0.3)'
+                                    })
+                                ], style={'marginBottom': '8px', 'fontSize': '0.9rem'}),
+
+                                # Deployed version option
+                                html.Div([
+                                    html.Span("• Deployed version: ", style={'fontWeight': 'bold'}),
+                                    html.Code("https://spotifiwrapped.onrender.com/callback", style={
                                         'backgroundColor': 'rgba(0, 212, 255, 0.1)',
                                         'color': '#00d4ff',
                                         'padding': '4px 8px',
@@ -1048,6 +1068,13 @@ def create_settings_page():
                         color="danger",
                         className="me-2",
                         style={'backgroundColor': '#e74c3c', 'borderColor': '#e74c3c', 'color': SPOTIFY_WHITE}
+                    ),
+                    dbc.Button(
+                        "🗑️ Clean Database (Admin)",
+                        id="clean-database-button",
+                        color="warning",
+                        className="me-2",
+                        style={'backgroundColor': '#f39c12', 'borderColor': '#f39c12', 'color': SPOTIFY_BLACK}
                     ),
                     html.Div(id='update-credentials-status', className='mt-3', style={'color': SPOTIFY_WHITE})
                 ])

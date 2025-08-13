@@ -48,32 +48,74 @@ dashboard_layout = DashboardLayout()
 visualizations = SpotifyVisualizations()
 animations = SpotifyAnimations()
 
-# Initialize database and data collector
-db = SpotifyDatabase()  # This will create tables if they don't exist
-data_collector = SpotifyDataCollector(spotify_api, db)
+# Note: No global database - each user gets their own database
+# Global data collector removed - created per-user as needed
 
-def get_database_for_mode(use_sample=False):
-    """Get the appropriate database instance based on mode."""
+def get_database_for_mode(use_sample=False, user_id=None):
+    """Get the appropriate database instance based on mode and user."""
     if use_sample:
         # Use separate sample database
         sample_db = SpotifyDatabase(db_path='data/sample_spotify_data.db')
         return sample_db
+    elif user_id:
+        # Use user-specific database
+        user_db = SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db')
+        return user_db
     else:
-        # Use regular database
-        return db
+        # No fallback to shared database - this was the security vulnerability
+        print("❌ ERROR: No user database available - user must authenticate!")
+        return None
+
+def get_current_user_database(use_sample_data_flag=None):
+    """Get the database for the currently authenticated user."""
+    try:
+        # Check if we're in sample mode first
+        if use_sample_data_flag and use_sample_data_flag.get('use_sample', False):
+            print("🎭 Using sample database")
+            return SpotifyDatabase(db_path='data/sample_spotify_data.db'), 'demo-user-spotify-wrapped'
+
+        # Get current user from Spotify API
+        user_data = spotify_api.get_user_profile()
+        if user_data and user_data.get('id'):
+            user_id = user_data['id']
+            print(f"🔒 Using user-specific database for user: {user_id}")
+            return SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db'), user_id
+        else:
+            print("❌ No authenticated user found - cannot access user-specific database")
+            return None, None
+    except Exception as e:
+        print(f"❌ Error getting current user database: {e}")
+        return None, None
+
+def safe_database_operation(operation_func, use_sample_data_flag=None, fallback_result=None):
+    """
+    Safely execute a database operation with user-specific database.
+
+    Args:
+        operation_func: Function that takes (user_db, user_id) as parameters
+        use_sample_data_flag: Sample data flag from callback state
+        fallback_result: What to return if database operation fails
+
+    Returns:
+        Result of operation_func or fallback_result
+    """
+    try:
+        user_db, user_id = get_current_user_database(use_sample_data_flag)
+        if user_db and user_id:
+            return operation_func(user_db, user_id)
+        else:
+            print("⚠️ No user database available for operation")
+            return fallback_result
+    except Exception as e:
+        print(f"❌ Database operation failed: {e}")
+        return fallback_result
 
 # Initialize personality analyzer
 personality_analyzer = ListeningPersonalityAnalyzer(spotify_api)
 
-# Initialize recent tracks collector and genre extractor
-recent_tracks_collector = RecentTracksCollector(spotify_api, db)
-genre_extractor = GenreExtractor(spotify_api, db)
+# Note: Recent tracks collector and genre extractor created per-user as needed
 
-# Initialize AI modules
-enhanced_personality_analyzer = EnhancedPersonalityAnalyzer()
-genre_evolution_tracker = GenreEvolutionTracker()
-wellness_analyzer = WellnessAnalyzer()
-enhanced_stress_detector = EnhancedStressDetector()
+# AI modules are now created per-user as needed for security
 
 # Initialize Dash app
 app = dash.Dash(
@@ -90,6 +132,36 @@ app = dash.Dash(
 )
 
 app.title = "Spotifi Wrapped"
+
+# Clean database on deployment startup (optional - uncomment if needed)
+def clean_database_on_startup():
+    """Clean the main database on startup to ensure fresh deployment."""
+    import os
+    import glob
+
+    # Only run in production/deployed environment
+    if os.getenv('RENDER') or os.getenv('NODE_ENV') == 'production':
+        print("🧹 DEPLOYMENT CLEANUP: Cleaning databases for fresh start...")
+
+        # Remove main database
+        main_db_path = 'data/spotify_data.db'
+        if os.path.exists(main_db_path):
+            os.remove(main_db_path)
+            print(f"✅ Removed main database: {main_db_path}")
+
+        # Remove user-specific databases
+        user_db_pattern = 'data/user_*.db'
+        user_dbs = glob.glob(user_db_pattern)
+        for db_path in user_dbs:
+            os.remove(db_path)
+            print(f"✅ Removed user database: {db_path}")
+
+        print("🎯 Database cleanup complete - fresh deployment ready!")
+    else:
+        print("🏠 Local development - skipping database cleanup")
+
+# Uncomment the next line if you want to clean databases on deployment
+clean_database_on_startup()  # Enabled for clean deployment start
 
 # Add callback route for Spotify OAuth
 @app.server.route('/callback')
@@ -597,33 +669,77 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
                 auth_url = spotify_api.get_auth_url()
                 if auth_url:
                     return html.Div([
-                        html.H5("🔐 Authorization Required", style={'color': '#1DB954', 'marginBottom': '15px'}),
-                        html.P("Click the button below to authorize this app to access your Spotify data:", style={'color': '#FFFFFF', 'marginBottom': '15px'}),
-                        html.A(
-                            "🎵 Authorize Spotify Access",
-                            href=auth_url,
-                            target="_blank",
-                            style={
-                                'display': 'inline-block',
-                                'padding': '12px 24px',
-                                'backgroundColor': '#1DB954',
-                                'color': '#000000',
-                                'textDecoration': 'none',
-                                'borderRadius': '25px',
+                        # Prominent header with animation
+                        html.Div([
+                            html.I(className="fas fa-rocket", style={
+                                'fontSize': '2rem',
+                                'color': '#1DB954',
+                                'marginBottom': '10px',
+                                'animation': 'authPulse 2s infinite'
+                            }),
+                            html.H3("🚀 AUTHORIZATION REQUIRED", style={
+                                'color': '#1DB954',
+                                'fontFamily': 'Orbitron, monospace',
                                 'fontWeight': 'bold',
-                                'fontSize': '16px',
-                                'transition': 'all 0.3s ease',
-                                'boxShadow': '0 4px 15px rgba(29, 185, 84, 0.3)'
-                            },
-                            className="spotify-auth-button"
-                        ),
-                        html.P("After authorizing, you'll be redirected back to the app automatically.", style={'color': '#B3B3B3', 'marginTop': '15px', 'fontSize': '14px'})
-                    ], style={
-                        'padding': '20px',
-                        'backgroundColor': 'rgba(29, 185, 84, 0.1)',
-                        'border': '1px solid rgba(29, 185, 84, 0.3)',
-                        'borderRadius': '10px',
-                        'textAlign': 'center'
+                                'letterSpacing': '2px',
+                                'marginBottom': '15px',
+                                'textShadow': '0 0 10px rgba(29, 185, 84, 0.5)'
+                            })
+                        ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+
+                        html.P("🎯 Almost there! Click the button below to authorize Spotify access:",
+                               style={
+                                   'color': '#FFFFFF',
+                                   'marginBottom': '25px',
+                                   'fontSize': '1.1rem',
+                                   'textAlign': 'center',
+                                   'fontWeight': '500'
+                               }),
+
+                        # Large, prominent authorization button
+                        html.Div([
+                            html.A([
+                                html.I(className="fab fa-spotify", style={'marginRight': '12px', 'fontSize': '1.2rem'}),
+                                "AUTHORIZE SPOTIFY ACCESS"
+                            ],
+                                href=auth_url,
+                                target="_blank",
+                                style={
+                                    'display': 'inline-block',
+                                    'padding': '20px 40px',
+                                    'background': 'linear-gradient(45deg, #1DB954, #1ED760)',
+                                    'color': '#000000',
+                                    'textDecoration': 'none',
+                                    'borderRadius': '30px',
+                                    'fontWeight': 'bold',
+                                    'fontSize': '1.2rem',
+                                    'fontFamily': 'Orbitron, monospace',
+                                    'letterSpacing': '1px',
+                                    'transition': 'all 0.3s ease',
+                                    'boxShadow': '0 8px 25px rgba(29, 185, 84, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+                                    'border': '2px solid rgba(29, 185, 84, 0.3)',
+                                    'textTransform': 'uppercase'
+                                },
+                                className="spotify-auth-button-large"
+                            )
+                        ], style={'textAlign': 'center', 'marginBottom': '20px'}),
+
+                        html.P("✨ After authorization, you'll be redirected back automatically",
+                               style={
+                                   'color': '#B3B3B3',
+                                   'fontSize': '0.9rem',
+                                   'textAlign': 'center',
+                                   'fontStyle': 'italic'
+                               })
+                    ], id='authorization-container', style={
+                        'padding': '30px',
+                        'background': 'linear-gradient(135deg, rgba(29, 185, 84, 0.15), rgba(0, 212, 255, 0.1))',
+                        'border': '2px solid rgba(29, 185, 84, 0.4)',
+                        'borderRadius': '20px',
+                        'textAlign': 'center',
+                        'marginTop': '20px',
+                        'boxShadow': '0 10px 30px rgba(29, 185, 84, 0.2), inset 0 0 30px rgba(29, 185, 84, 0.05)',
+                        'animation': 'authGlow 3s ease-in-out infinite alternate'
                     })
                 else:
                     return html.Div([
@@ -651,19 +767,49 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
      Output('client-secret-store', 'data', allow_duplicate=True),
      Output('update-credentials-status', 'children')],
     [Input('update-credentials-button', 'n_clicks'),
-     Input('clear-data-button', 'n_clicks')],
+     Input('clear-data-button', 'n_clicks'),
+     Input('clean-database-button', 'n_clicks')],
     [State('settings-client-id-input', 'value'),
      State('settings-client-secret-input', 'value')],
     prevent_initial_call=True
 )
-def handle_settings_actions(update_clicks, clear_clicks, client_id, client_secret):
+def handle_settings_actions(update_clicks, clear_clicks, clean_clicks, client_id, client_secret):
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if button_id == 'update-credentials-button':
+    if button_id == 'clean-database-button':
+        # Clean all databases
+        import os
+        import glob
+
+        try:
+            cleaned_files = []
+
+            # Remove main database
+            main_db_path = 'data/spotify_data.db'
+            if os.path.exists(main_db_path):
+                os.remove(main_db_path)
+                cleaned_files.append('main database')
+
+            # Remove user-specific databases
+            user_db_pattern = 'data/user_*.db'
+            user_dbs = glob.glob(user_db_pattern)
+            for db_path in user_dbs:
+                os.remove(db_path)
+                cleaned_files.append(f'user database ({os.path.basename(db_path)})')
+
+            if cleaned_files:
+                return dash.no_update, dash.no_update, dash.no_update, f"✅ Database cleanup complete! Removed: {', '.join(cleaned_files)}"
+            else:
+                return dash.no_update, dash.no_update, dash.no_update, "ℹ️ No databases found to clean."
+
+        except Exception as e:
+            return dash.no_update, dash.no_update, dash.no_update, f"❌ Database cleanup failed: {str(e)}"
+
+    elif button_id == 'update-credentials-button':
         if not client_id or not client_secret:
             return dash.no_update, dash.no_update, dash.no_update, "Please provide both Client ID and Client Secret."
 
@@ -838,88 +984,87 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
         user_data = spotify_api.get_user_profile()
         if user_data:
             print(f"✅ DEBUG: Got user data from API: {user_data}")
-            # Save user data to database only
-            db.save_user(user_data)
 
-            # Start comprehensive data collection for new users
-            print("🔄 Starting comprehensive data collection...")
-            try:
-                # 1. Collect recently played tracks (last 50)
-                recently_played = spotify_api.get_recently_played(limit=50)
-                if recently_played:
-                    print(f"📀 Collecting {len(recently_played)} recently played tracks...")
-                    for track in recently_played:
-                        db.save_track(track)
-                        played_at = track.get('played_at', datetime.now().isoformat())
-                        db.save_listening_history(
-                            user_id=user_data['id'],
-                            track_id=track['id'],
-                            played_at=played_at,
-                            source='recently_played'
-                        )
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if user_db and user_id:
+                # Save user data to user-specific database
+                user_db.save_user(user_data)
 
-                # 2. Collect top tracks for different time ranges
-                for time_range in ['short_term', 'medium_term', 'long_term']:
-                    top_tracks = spotify_api.get_top_tracks(limit=20, time_range=time_range)
-                    if top_tracks:
-                        print(f"🎵 Collecting {len(top_tracks)} top tracks ({time_range})...")
-                        for track in top_tracks:
-                            db.save_track(track)
-                            db.save_listening_history(
+                # Start comprehensive data collection for new users
+                print("🔄 Starting comprehensive data collection...")
+                try:
+                    # 1. Collect recently played tracks (last 50)
+                    recently_played = spotify_api.get_recently_played(limit=50)
+                    if recently_played:
+                        print(f"📀 Collecting {len(recently_played)} recently played tracks...")
+                        for track in recently_played:
+                            user_db.save_track(track)
+                            played_at = track.get('played_at', datetime.now().isoformat())
+                            user_db.save_listening_history(
                                 user_id=user_data['id'],
                                 track_id=track['id'],
-                                played_at=datetime.now().isoformat(),
-                                source=f'top_{time_range}'
+                                played_at=played_at,
+                                source='recently_played'
                             )
 
-                # 3. Collect saved tracks (liked songs)
-                saved_tracks = spotify_api.get_saved_tracks(limit=50)
-                if saved_tracks:
-                    print(f"💚 Collecting {len(saved_tracks)} saved tracks...")
-                    for track in saved_tracks:
-                        db.save_track(track)
-                        added_at = track.get('added_at', datetime.now().isoformat())
-                        db.save_listening_history(
-                            user_id=user_data['id'],
-                            track_id=track['id'],
-                            played_at=added_at,
-                            source='saved'
-                        )
+                    # 2. Collect top tracks for different time ranges
+                    for time_range in ['short_term', 'medium_term', 'long_term']:
+                        top_tracks = spotify_api.get_top_tracks(limit=20, time_range=time_range)
+                        if top_tracks:
+                            print(f"🎵 Collecting {len(top_tracks)} top tracks ({time_range})...")
+                            for track in top_tracks:
+                                user_db.save_track(track)
+                                user_db.save_listening_history(
+                                    user_id=user_data['id'],
+                                    track_id=track['id'],
+                                    played_at=datetime.now().isoformat(),
+                                    source=f'top_{time_range}'
+                                )
 
-                # 4. Start historical data collection for the past two weeks
-                data_collector.collect_historical_data(user_data['id'])
+                    # 3. Collect saved tracks (liked songs)
+                    saved_tracks = spotify_api.get_saved_tracks(limit=50)
+                    if saved_tracks:
+                        print(f"💚 Collecting {len(saved_tracks)} saved tracks...")
+                        for track in saved_tracks:
+                            user_db.save_track(track)
+                            added_at = track.get('added_at', datetime.now().isoformat())
+                            user_db.save_listening_history(
+                                user_id=user_data['id'],
+                                track_id=track['id'],
+                                played_at=added_at,
+                                source='saved'
+                            )
 
-                print("✅ Data collection completed successfully!")
+                    # 4. Start historical data collection for the past two weeks
+                    # Create user-specific data collector
+                    from modules.data_collector import SpotifyDataCollector
+                    user_data_collector = SpotifyDataCollector(spotify_api, user_db)
+                    user_data_collector.collect_historical_data(user_data['id'])
 
-            except Exception as e:
-                print(f"⚠️ Error during data collection: {e}")
-                # Continue anyway - user can still use the app
+                    # 5. Extract genres for the collected tracks
+                    print("🎭 Starting genre extraction...")
+                    from modules.genre_extractor import GenreExtractor
+                    user_genre_extractor = GenreExtractor(spotify_api, user_db)
 
-            return user_data
+                    # Extract genres from recently played tracks
+                    genres_extracted = user_genre_extractor.extract_genres_from_recent_tracks(max_artists=50)
+                    print(f"✅ Extracted {genres_extracted} genres from recent tracks")
 
-        # Try to get user data from database if API fails
-        print("⚠️ DEBUG: API failed, trying to load from database...")
-        try:
-            with sqlite3.connect(db.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT user_id, display_name, followers FROM users ORDER BY last_updated DESC LIMIT 1')
-                row = cursor.fetchone()
+                    print("✅ Data collection and genre extraction completed successfully!")
 
-            if row:
-                user_data = {
-                    'id': row[0],
-                    'display_name': row[1],
-                    'followers': row[2],
-                    'following': 0,
-                    'image_url': '',
-                    'product': 'Unknown'
-                }
-                print(f"📁 DEBUG: Loaded user data from database: {user_data}")
+                except Exception as e:
+                    print(f"⚠️ Error during data collection: {e}")
+                    # Continue anyway - user can still use the app
+
                 return user_data
-        except Exception as e:
-            print(f"❌ DEBUG: Error loading user data from database: {e}")
+            else:
+                print("❌ Could not get user-specific database")
+                return {}
 
-        print("❌ DEBUG: No user data available from any source.")
+        # SECURITY FIX: Do NOT fall back to shared database - this exposes other users' data
+        print("⚠️ DEBUG: API failed, but NOT loading from shared database for security reasons")
+        print("❌ DEBUG: No user data available - user must re-authenticate")
         return {}
     except Exception as e:
         print(f"Error in update_user_data callback: {e}")
@@ -1020,60 +1165,66 @@ def update_current_track(n_intervals, use_sample_data_flag):
             # Save to CSV for backward compatibility
             data_processor.save_data([current_track], 'current_track.csv')
 
-            # Save to database if we have user_id
+            # Save to user-specific database if we have user_id
             if 'user_id' in current_track:
-                # Make sure we have all required fields
-                if 'id' not in current_track:
-                    current_track['id'] = f"current-{datetime.now().timestamp()}"
+                # Get user-specific database
+                user_db, user_id = get_current_user_database()
+                if user_db and user_id:
+                    # Make sure we have all required fields
+                    if 'id' not in current_track:
+                        current_track['id'] = f"current-{datetime.now().timestamp()}"
 
-                # Ensure track has all required fields
-                track_data = {
-                    'id': current_track['id'],
-                    'name': current_track.get('track', 'Unknown Track'),
-                    'artist': current_track.get('artist', 'Unknown Artist'),
-                    'album': current_track.get('album', 'Unknown Album'),
-                    'duration_ms': current_track.get('duration_ms', 0),
-                    'popularity': current_track.get('popularity', 0),
-                    'preview_url': current_track.get('preview_url', ''),
-                    'image_url': current_track.get('image_url', ''),
-                    'added_at': datetime.now().replace(microsecond=0).isoformat()
-                }
+                    # Ensure track has all required fields
+                    track_data = {
+                        'id': current_track['id'],
+                        'name': current_track.get('track', 'Unknown Track'),
+                        'artist': current_track.get('artist', 'Unknown Artist'),
+                        'album': current_track.get('album', 'Unknown Album'),
+                        'duration_ms': current_track.get('duration_ms', 0),
+                        'popularity': current_track.get('popularity', 0),
+                        'preview_url': current_track.get('preview_url', ''),
+                        'image_url': current_track.get('image_url', ''),
+                        'added_at': datetime.now().replace(microsecond=0).isoformat()
+                    }
 
-                db.save_track(track_data)
-                db.save_listening_history(
-                    user_id=current_track['user_id'],
-                    track_id=track_data['id'],
-                    played_at=datetime.now().replace(microsecond=0).isoformat(),
-                    source='current'
-                )
+                    user_db.save_track(track_data)
+                    user_db.save_listening_history(
+                        user_id=current_track['user_id'],
+                        track_id=track_data['id'],
+                        played_at=datetime.now().replace(microsecond=0).isoformat(),
+                        source='current'
+                    )
 
             return current_track
 
-        # If no current track, try to get the most recent one from the database
+        # If no current track, try to get the most recent one from the user-specific database
         user_data = spotify_api.get_user_profile()
         if user_data and user_data.get('id') != 'sample-user-id': # Don't query DB if using sample user
-            with sqlite3.connect(db.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
+            # Get user-specific database
+            user_db, user_id = get_current_user_database()
+            if user_db and user_id:
+                with sqlite3.connect(user_db.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
 
-                # Get the most recent track
-                cursor.execute('''
-                    SELECT
-                        t.track_id as id,
-                        t.name as track,
-                        t.artist,
-                        t.album,
-                        t.duration_ms,
-                        t.image_url,
-                        h.played_at
-                    FROM tracks t
-                    JOIN listening_history h ON t.track_id = h.track_id
-                    WHERE h.user_id = ?
-                    ORDER BY h.played_at DESC
-                    LIMIT 1
-                ''', (user_data['id'],))
+                    # Get the most recent track
+                    cursor.execute('''
+                        SELECT
+                            t.track_id as id,
+                            t.name as track,
+                            t.artist,
+                            t.album,
+                            t.duration_ms,
+                            t.image_url,
+                            h.played_at
+                        FROM tracks t
+                        JOIN listening_history h ON t.track_id = h.track_id
+                        WHERE h.user_id = ?
+                        ORDER BY h.played_at DESC
+                        LIMIT 1
+                    ''', (user_data['id'],))
 
-                row = cursor.fetchone()
+                    row = cursor.fetchone()
 
             if row:
                 # Create a "not currently playing" track object
@@ -1237,71 +1388,34 @@ def update_top_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
         # Convert to DataFrame for visualization
         tracks_df = pd.DataFrame(top_tracks_data)
 
-        # Save tracks to database for other analysis (but don't use for ranking)
+        # Save tracks to user-specific database for other analysis (but don't use for ranking)
         user_data = spotify_api.get_user_profile()
         if user_data and n_clicks is not None and n_clicks > 0:
-            for track in top_tracks_data:
-                db.save_track(track)
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if user_db and user_id:
+                # Save user data first
+                user_db.save_user(user_data)
+
+                for track in top_tracks_data:
+                    user_db.save_track(track)
+                    # Also save as listening history for analysis
+                    user_db.save_listening_history(
+                        user_id=user_data['id'],
+                        track_id=track['id'],
+                        played_at=datetime.now().replace(microsecond=0).isoformat(),
+                        source='top_tracks_api'
+                    )
+
+        # Return the visualization using Spotify API data (not database data)
+        return visualizations.create_top_tracks_soundwave(tracks_df)
 
     except Exception as e:
         print(f"Error getting top tracks: {e}")
         return html.Div("Error loading top tracks",
                        style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
-    with sqlite3.connect(db.db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
 
-        # Enhanced top tracks ranking with duration weighting and improved scoring
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute('''
-            SELECT
-                t.track_id as id,
-                t.name as track,
-                t.artist,
-                t.album,
-                t.popularity,
-                t.image_url,
-                t.duration_ms,
-                COUNT(DISTINCT h.history_id) as play_count,
-                SUM(CASE
-                    WHEN t.duration_ms > 0 THEN t.duration_ms
-                    ELSE 180000
-                END) as total_listening_time_ms,
-                AVG(CASE
-                    WHEN t.duration_ms > 0 THEN t.duration_ms
-                    ELSE 180000
-                END) as avg_duration_ms,
-                -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
-                (
-                    (COUNT(DISTINCT h.history_id) * 0.5) +
-                    (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                    (t.popularity / 100.0 * 0.2)
-                ) as weighted_score
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-            AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-            AND t.name IS NOT NULL AND t.name != ''
-            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url, t.duration_ms
-            HAVING play_count >= 2  -- Minimum 2 plays to be considered
-            ORDER BY weighted_score DESC
-            LIMIT 10
-        ''', (current_date,))
 
-        top_tracks_data = [dict(row) for row in cursor.fetchall()]
-
-    # Convert to DataFrame
-    if top_tracks_data:
-        top_tracks_df = pd.DataFrame(top_tracks_data)
-        # Add rank column
-        top_tracks_df['rank'] = range(1, len(top_tracks_df) + 1)
-    else:
-        # Create empty DataFrame with the right columns
-        top_tracks_df = pd.DataFrame(columns=['track', 'artist', 'album', 'popularity', 'rank'])
-
-    # Create visualization
-    return visualizations.create_top_tracks_soundwave(top_tracks_df)
 
 # Update saved tracks list
 @app.callback(
@@ -1343,28 +1457,39 @@ def update_saved_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
     if n_clicks is not None and n_clicks > 0:
         user_data = spotify_api.get_user_profile()
         if user_data:
-            # Fetch saved tracks and save to database
-            saved_tracks_data = spotify_api.get_saved_tracks(limit=10)
-            if saved_tracks_data:
-                # Save to database
-                for track in saved_tracks_data:
-                    db.save_track(track)
-                    # Use the improved timestamp normalization
-                    timestamp = track.get('added_at')
-                    played_at = normalize_timestamp(timestamp)
-                    if not played_at:
-                        # If normalization fails, use current time
-                        played_at = datetime.now().replace(microsecond=0).isoformat()
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if user_db and user_id:
+                # Save user data to their specific database
+                user_db.save_user(user_data)
 
-                    db.save_listening_history(
-                        user_id=user_data['id'],
-                        track_id=track['id'],
-                        played_at=played_at,
-                        source='saved'
-                    )
+                # Fetch saved tracks and save to user-specific database
+                saved_tracks_data = spotify_api.get_saved_tracks(limit=10)
+                if saved_tracks_data:
+                    # Save to user-specific database
+                    for track in saved_tracks_data:
+                        user_db.save_track(track)
+                        # Use the improved timestamp normalization
+                        timestamp = track.get('added_at')
+                        played_at = normalize_timestamp(timestamp)
+                        if not played_at:
+                            # If normalization fails, use current time
+                            played_at = datetime.now().replace(microsecond=0).isoformat()
 
-    # Get data from database
-    with sqlite3.connect(db.db_path) as conn:
+                        user_db.save_listening_history(
+                            user_id=user_data['id'],
+                            track_id=track['id'],
+                            played_at=played_at,
+                            source='saved'
+                        )
+
+    # Get data from user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        return html.Div("Please authenticate to see your saved tracks",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
+    with sqlite3.connect(user_db.db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -1381,13 +1506,14 @@ def update_saved_tracks_chart(n_intervals, n_clicks, use_sample_data_flag):
                 MAX(h.played_at) as added_at
             FROM tracks t
             JOIN listening_history h ON t.track_id = h.track_id
-            WHERE h.source = 'saved'
+            WHERE h.user_id = ?
+            AND h.source = 'saved'
             AND t.name IS NOT NULL
             AND t.artist IS NOT NULL
             GROUP BY t.track_id, t.name, t.artist, t.album, t.image_url, t.duration_ms, t.popularity
             ORDER BY added_at DESC
             LIMIT 20
-        ''')
+        ''', (user_id,))
 
         saved_tracks_data = [dict(row) for row in cursor.fetchall()]
 
@@ -1488,10 +1614,12 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
             # Get audio features for top tracks
             audio_features_data = spotify_api.get_audio_features_for_top_tracks(limit=5)
             if audio_features_data:
-                # Save to database
-                for track in audio_features_data:
-                    # Save track with audio features
-                    db.save_track({
+                # Get user-specific database and save to it
+                user_db, user_id = get_current_user_database(use_sample_data_flag)
+                if user_db and user_id:
+                    for track in audio_features_data:
+                        # Save track with audio features
+                        user_db.save_track({
                         'id': track['id'],
                         'name': track['track'],
                         'artist': track['artist'],
@@ -1514,51 +1642,65 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
                         'tempo': track.get('tempo', 0)
                     })
 
-                    # Save listening history entry with consistent datetime format
-                    db.save_listening_history(
-                        user_id=user_data['id'],
-                        track_id=track['id'],
-                        played_at=datetime.now().replace(microsecond=0).isoformat(),
-                        source='audio_features'
-                    )
+                        # Save listening history entry with consistent datetime format
+                        user_db.save_listening_history(
+                            user_id=user_data['id'],
+                            track_id=track['id'],
+                            played_at=datetime.now().replace(microsecond=0).isoformat(),
+                            source='audio_features'
+                        )
 
-    # Get data from database
-    with sqlite3.connect(db.db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    # Get data from user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        # Return empty chart if no user database
+        return {
+            'data': [],
+            'layout': {
+                'title': 'Please authenticate to see your audio features',
+                'paper_bgcolor': 'rgba(0,0,0,0)',
+                'plot_bgcolor': 'rgba(0,0,0,0)',
+                'font': {'color': SPOTIFY_GRAY}
+            }
+        }
 
-        # Query for top tracks using enhanced ranking system (consistent with main top tracks)
-        current_date = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute('''
-            SELECT
-                t.track_id as id,
-                t.name as track,
-                t.artist,
-                t.album,
-                COUNT(DISTINCT h.history_id) as play_count,
-                SUM(CASE
-                    WHEN t.duration_ms > 0 THEN t.duration_ms
-                    ELSE 180000
-                END) as total_listening_time_ms,
-                -- Enhanced weighted score: play frequency (50%) + listening time (30%) + popularity (20%)
-                (
-                    (COUNT(DISTINCT h.history_id) * 0.5) +
-                    (SUM(CASE WHEN t.duration_ms > 0 THEN t.duration_ms ELSE 180000 END) / 1000000.0 * 0.3) +
-                    (t.popularity / 100.0 * 0.2)
-                ) as weighted_score
-            FROM tracks t
-            JOIN listening_history h ON t.track_id = h.track_id
-            WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-            AND date(h.played_at) <= ?
-            AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-            AND t.name IS NOT NULL AND t.name != ''
-            GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.duration_ms
-            HAVING play_count >= 2  -- Minimum 2 plays to be considered
-            ORDER BY weighted_score DESC
-            LIMIT 5
-        ''', (current_date,))
+    # Get top tracks from Spotify API (same source as top tracks chart for consistency)
+    try:
+        top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='short_term')
 
-        tracks_data = [dict(row) for row in cursor.fetchall()]
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='medium_term')
+
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=5, time_range='long_term')
+
+        if not top_tracks_data:
+            # Return empty chart if no tracks available
+            return {
+                'data': [],
+                'layout': {
+                    'title': 'No tracks available for audio features analysis',
+                    'paper_bgcolor': 'rgba(0,0,0,0)',
+                    'plot_bgcolor': 'rgba(0,0,0,0)',
+                    'font': {'color': SPOTIFY_GRAY}
+                }
+            }
+
+        tracks_data = top_tracks_data  # Use Spotify API data directly
+
+    except Exception as e:
+        print(f"Error getting top tracks for audio features: {e}")
+        return {
+            'data': [],
+            'layout': {
+                'title': 'Error loading audio features',
+                'paper_bgcolor': 'rgba(0,0,0,0)',
+                'plot_bgcolor': 'rgba(0,0,0,0)',
+                'font': {'color': SPOTIFY_GRAY}
+            }
+        }
 
     # Get audio features for these tracks
     audio_features_data = []
@@ -1568,8 +1710,8 @@ def update_audio_features_chart(n_intervals, n_clicks, use_sample_data_flag):
 
         # Combine track info with audio features
         audio_features_data.append({
-            'track': track['track'],
-            'artist': track['artist'],
+            'track': track['track'],  # Spotify API uses 'track' key
+            'artist': track['artist'],  # Spotify API uses 'artist' key
             'id': track['id'],
             'danceability': features.get('danceability', 0),
             'energy': features.get('energy', 0),
@@ -1729,40 +1871,26 @@ def update_top_track_highlight(n_intervals, n_clicks, use_sample_data_flag):
             })
         ])
 
+    # Get user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        return html.Div("Please authenticate to see your top track",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
     try:
-        # Get top track from database
-        with sqlite3.connect(db.db_path) as conn:
-            cursor = conn.cursor()
+        # Get top track from Spotify API (same source as top tracks chart)
+        top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='short_term')
 
-            # Play count calculation: COUNT(DISTINCT h.history_id) counts unique listening events
-            # This uses all historical data while preventing duplicate counting from same timestamp/source
-            # Database UNIQUE constraint on (user_id, track_id, played_at) prevents exact duplicates
-            cursor.execute('''
-                SELECT t.name as track_name, t.artist as artist_name, t.album as album_name,
-                       t.popularity, t.image_url,
-                       COUNT(DISTINCT h.history_id) as play_count,
-                       COUNT(h.history_id) as total_entries
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.name IS NOT NULL AND t.name != ''
-                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-                GROUP BY t.track_id, t.name, t.artist, t.album, t.popularity, t.image_url
-                ORDER BY play_count DESC, t.popularity DESC
-                LIMIT 1
-            ''')
+        if not top_tracks_data:
+            # Try medium_term if short_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='medium_term')
 
-            result = cursor.fetchone()
+        if not top_tracks_data:
+            # Try long_term if medium_term has no data
+            top_tracks_data = spotify_api.get_top_tracks(limit=1, time_range='long_term')
 
-        if result:
-            track_data = {
-                'track': result[0],      # track_name
-                'artist': result[1],     # artist_name
-                'album': result[2] or 'Unknown Album',  # album_name
-                'popularity': result[3] or 0,           # popularity
-                'image_url': result[4] or '',           # image_url
-                'play_count': result[5]                 # play_count
-            }
+        if top_tracks_data:
+            track_data = top_tracks_data[0]  # Get the #1 track
             return visualizations.create_top_track_highlight_component(track_data)
         else:
             return html.Div([
@@ -1834,38 +1962,26 @@ def update_top_artist_highlight(n_intervals, n_clicks, use_sample_data_flag):
             })
         ])
 
+    # Get user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        return html.Div("Please authenticate to see your top artist",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
     try:
-        # Get top artist from database
-        with sqlite3.connect(db.db_path) as conn:
-            cursor = conn.cursor()
+        # Get top artist from Spotify API (same source as top artists chart)
+        top_artists_data = spotify_api.get_top_artists(limit=1, time_range='short_term')
 
-            # Play count calculation for artists: COUNT(DISTINCT h.history_id) counts unique listening events
-            # This uses all historical data while preventing duplicate counting from same timestamp/source
-            cursor.execute('''
-                SELECT t.artist as artist_name,
-                       COUNT(DISTINCT h.history_id) as play_count,
-                       AVG(t.popularity) as avg_popularity,
-                       MAX(t.image_url) as image_url,
-                       COUNT(h.history_id) as total_entries
-                FROM tracks t
-                JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.artist IS NOT NULL AND t.artist != ''
-                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
-                AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
-                GROUP BY t.artist
-                ORDER BY play_count DESC, avg_popularity DESC
-                LIMIT 1
-            ''')
+        if not top_artists_data:
+            # Try medium_term if short_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='medium_term')
 
-            result = cursor.fetchone()
+        if not top_artists_data:
+            # Try long_term if medium_term has no data
+            top_artists_data = spotify_api.get_top_artists(limit=1, time_range='long_term')
 
-        if result:
-            artist_data = {
-                'artist': result[0],
-                'play_count': result[1],
-                'popularity': int(result[2]) if result[2] else 0,
-                'image_url': result[3] or ''
-            }
+        if top_artists_data:
+            artist_data = top_artists_data[0]  # Get the #1 artist
             return visualizations.create_top_artist_highlight_component(artist_data)
         else:
             return html.Div([
@@ -1890,6 +2006,20 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
         print("=== Genre Chart Update Started ===")
 
         use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
+
+        # Get user-specific database first (needed for all operations)
+        user_db, user_id = get_current_user_database(use_sample_data_flag)
+        if not user_db or not user_id:
+            if not use_sample:
+                return {
+                    'data': [],
+                    'layout': {
+                        'title': 'Please authenticate to see your genres',
+                        'paper_bgcolor': 'rgba(0,0,0,0)',
+                        'plot_bgcolor': 'rgba(0,0,0,0)',
+                        'font': {'color': SPOTIFY_GRAY}
+                    }
+                }
 
         if use_sample:
             print("📊 DEBUG: Using sample data for genre chart.")
@@ -1918,18 +2048,19 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
             if user_data:
                 print(f"User ID: {user_data['id']}")
 
+
+
                 # IMPORTANT: Save user to database first to ensure user exists
                 try:
                     print(f"Saving user {user_data['display_name']} to database")
-                    db.save_user(user_data)
+                    user_db.save_user(user_data)
                     print(f"User saved successfully")
                 except Exception as e:
                     print(f"ERROR saving user to database: {e}")
                     import traceback
                     traceback.print_exc()
-
-                # Verify user exists in database
-                conn = sqlite3.connect(db.db_path)
+                
+                conn = sqlite3.connect(user_db.db_path)
                 cursor = conn.cursor()
                 cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_data['id'],))
                 user_exists = cursor.fetchone() is not None
@@ -1938,7 +2069,7 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
                 if not user_exists:
                     print(f"WARNING: User {user_data['id']} not found in database after save attempt")
                     print("Creating user record again")
-                    conn = sqlite3.connect(db.db_path)
+                    conn = sqlite3.connect(user_db.db_path)
                     cursor = conn.cursor()
                     cursor.execute('''
                         INSERT OR REPLACE INTO users (user_id, display_name, followers, last_updated)
@@ -1975,7 +2106,7 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
 
                         # Save tracks to database
                         for track in tracks:
-                            db.save_track(track)
+                            user_db.save_track(track)
 
                             # Normalize the timestamp
                             played_at = normalize_timestamp(track.get('played_at'))
@@ -1984,7 +2115,7 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
                                 played_at = datetime.now().replace(microsecond=0).isoformat()
 
                             # Save listening history
-                            db.save_listening_history(
+                            user_db.save_listening_history(
                                 user_id=user_data['id'],
                                 track_id=track['id'],
                                 played_at=played_at,
@@ -2042,11 +2173,11 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
 
                                     # Process tracks as before...
                                     for track in tracks:
-                                        db.save_track(track)
+                                        user_db.save_track(track)
                                         played_at = normalize_timestamp(track.get('played_at'))
                                         if not played_at:
                                             played_at = datetime.now().replace(microsecond=0).isoformat()
-                                        db.save_listening_history(
+                                        user_db.save_listening_history(
                                             user_id=user_data['id'],
                                             track_id=track['id'],
                                             played_at=played_at,
@@ -2086,14 +2217,18 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
                 # Use the optimized genre extractor for recently played tracks
                 if artists:
                     print("Using optimized genre extraction for recently played tracks...")
-                    genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=len(artists))
+                    genres_extracted = user_genre_extractor.extract_genres_from_recent_tracks(max_artists=len(artists))
                     print(f"Extracted {genres_extracted} genres from recently played tracks")
+
+        # Create user-specific genre extractor (needed for all genre operations)
+        from modules.genre_extractor import GenreExtractor
+        user_genre_extractor = GenreExtractor(spotify_api, user_db)
 
         # Process remaining artists in the database (limit to avoid long delays)
         print("Processing remaining artists in the database...")
-        
+
         # Get artists that still need genres (excluding those just processed)
-        conn = sqlite3.connect(db.db_path)
+        conn = sqlite3.connect(user_db.db_path)
         cursor = conn.cursor()
         cursor.execute('''
             SELECT DISTINCT t.artist 
@@ -2108,7 +2243,7 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
         if remaining_artists:
             print(f"Found {len(remaining_artists)} artists without genres")
             # Use the optimized genre extractor for remaining artists
-            additional_genres = genre_extractor.extract_genres_for_artists(remaining_artists)
+            additional_genres = user_genre_extractor.extract_genres_for_artists(remaining_artists)
             print(f"Extracted {additional_genres} additional genres from database artists")
         else:
             print("All artists in database already have genres")
@@ -2126,15 +2261,66 @@ def update_genre_chart(n_intervals, n_clicks, use_sample_data_flag):
             user_id = user_data['id']
             current_date = datetime.now().strftime('%Y-%m-%d')
 
+            # Debug: Check if there are genres in the database
+            with sqlite3.connect(user_db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM genres")
+                total_genres = cursor.fetchone()[0]
+                print(f"🔍 DEBUG: Total genres in database: {total_genres}")
+
+                if total_genres > 0:
+                    cursor.execute("SELECT genre_name, COUNT(*) as count FROM genres GROUP BY genre_name ORDER BY count DESC LIMIT 5")
+                    sample_genres = cursor.fetchall()
+                    print(f"🔍 DEBUG: Sample genres: {sample_genres}")
+
+                    cursor.execute("SELECT COUNT(DISTINCT h.user_id) FROM listening_history h")
+                    user_count = cursor.fetchone()[0]
+                    print(f"🔍 DEBUG: Users in listening_history: {user_count}")
+
+                    cursor.execute("SELECT COUNT(*) FROM listening_history WHERE user_id = ?", (user_id,))
+                    user_history_count = cursor.fetchone()[0]
+                    print(f"🔍 DEBUG: Listening history entries for user {user_id}: {user_history_count}")
+
             # Use standardized genre query function with fast mode for better performance
-            genre_data = db.get_user_top_genres(
-                user_id=user_id,
-                limit=10,
-                exclude_unknown=True,
-                include_sources=['played', 'recently_played', 'current'],
-                date_filter=current_date,
-                fast_mode=True  # Use fast mode for better performance
-            )
+            print(f"🔍 DEBUG: Calling get_user_top_genres for user_id: {user_id}")
+            try:
+                genre_data = user_db.get_user_top_genres(
+                    user_id=user_id,
+                    limit=10,
+                    exclude_unknown=True,
+                    include_sources=['played', 'recently_played', 'current'],
+                    date_filter=current_date,
+                    fast_mode=True  # Use fast mode for better performance
+                )
+                print(f"🔍 DEBUG: get_user_top_genres returned: {genre_data}")
+            except Exception as e:
+                print(f"❌ ERROR in get_user_top_genres: {e}")
+                import traceback
+                traceback.print_exc()
+                genre_data = []
+
+            # Fallback: If the complex query failed but we have genres, try a simple query
+            if not genre_data:
+                print("🔄 Trying fallback simple genre query...")
+                try:
+                    with sqlite3.connect(user_db.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            SELECT genre_name as genre, SUM(count) as count
+                            FROM genres
+                            WHERE genre_name IS NOT NULL AND genre_name != ''
+                            GROUP BY genre_name
+                            ORDER BY count DESC
+                            LIMIT 10
+                        ''')
+                        fallback_results = cursor.fetchall()
+                        if fallback_results:
+                            genre_data = [{'genre': row[0], 'count': row[1]} for row in fallback_results]
+                            print(f"✅ Fallback query returned {len(genre_data)} genres: {[g['genre'] for g in genre_data]}")
+                        else:
+                            print("❌ Even fallback query returned no results")
+                except Exception as fallback_e:
+                    print(f"❌ Fallback query also failed: {fallback_e}")
 
         # Convert to DataFrame
         if genre_data:
@@ -2181,8 +2367,14 @@ def cleanup_historical_data():
         print("No user data available for cleanup")
         return
 
+    # Get user-specific database
+    user_db, user_id = get_current_user_database()
+    if not user_db or not user_id:
+        print("No user database available for cleanup")
+        return
+
     print("Starting historical data cleanup...")
-    cleanup_stats = db.cleanup_listening_history(user_data['id'])
+    cleanup_stats = user_db.cleanup_listening_history(user_data['id'])
 
     if 'error' in cleanup_stats:
         print(f"Cleanup failed: {cleanup_stats['error']}")
@@ -2248,7 +2440,13 @@ def update_listening_patterns_chart(n_intervals, use_sample_data_flag):
         return visualizations.create_empty_chart("Log in to see your listening patterns")
 
     # First, clean up any problematic data in the database
-    conn = sqlite3.connect(db.db_path)
+    # Get user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        return html.Div("Please authenticate to see your data",
+                       style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+    
+    conn = sqlite3.connect(user_db.db_path)
     cursor = conn.cursor()
     current_date = datetime.now().strftime('%Y-%m-%d')
 
@@ -2288,7 +2486,7 @@ def update_listening_patterns_chart(n_intervals, use_sample_data_flag):
         conn.close()
 
     # Get data from database
-    conn = sqlite3.connect(db.db_path)
+    conn = sqlite3.connect(user_db.db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -2336,14 +2534,14 @@ def update_listening_patterns_chart(n_intervals, use_sample_data_flag):
     if recently_played and user_data:
         # Save to database
         for track in recently_played:
-            db.save_track(track)
+            user_db.save_track(track)
             # Normalize the timestamp using our utility function
             played_at = normalize_timestamp(track.get('played_at'))
             if not played_at:
                 # If normalization fails, use current time
                 played_at = datetime.now().replace(microsecond=0).isoformat()
 
-            db.save_listening_history(
+            user_db.save_listening_history(
                 user_id=user_data['id'],
                 track_id=track['id'],
                 played_at=played_at,
@@ -2351,7 +2549,7 @@ def update_listening_patterns_chart(n_intervals, use_sample_data_flag):
             )
 
         # Try database query again
-        conn = sqlite3.connect(db.db_path)
+        conn = sqlite3.connect(user_db.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
@@ -2432,9 +2630,15 @@ def update_top_albums(n_intervals, n_clicks, use_sample_data_flag):
                 return html.Div("Log in to see your top albums",
                                style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
 
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see your top albums",
+                               style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
+
             # Get top albums directly from database
             try:
-                top_albums_data = get_top_albums(spotify_api, limit=10)
+                top_albums_data = get_top_albums(spotify_api, limit=10, user_db=user_db)
                 if top_albums_data.empty:
                     return html.Div("No album data available. Please refresh your data to see your top albums.",
                                    style={'color': SPOTIFY_GRAY, 'textAlign': 'center', 'padding': '20px'})
@@ -2648,8 +2852,13 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
     if not user_data:
         return create_empty_stats()
 
+    # Get user-specific database
+    user_db, user_id = get_current_user_database(use_sample_data_flag)
+    if not user_db or not user_id:
+        return create_empty_stats()
+
     # Get stats from database first
-    conn = sqlite3.connect(db.db_path)
+    conn = sqlite3.connect(user_db.db_path)
     cursor = conn.cursor()
 
     # Calculate total minutes and music variety from database - FIXED to avoid duplication
@@ -2659,10 +2868,10 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
     cursor.execute('''
         SELECT source, COUNT(*) as count
         FROM listening_history h
-        WHERE date(h.played_at) <= ?
+        WHERE h.user_id = ? AND date(h.played_at) <= ?
         GROUP BY source
         ORDER BY count DESC
-    ''', (current_date,))
+    ''', (user_id, current_date))
     source_counts = cursor.fetchall()
     print(f"DEBUG: Listening history sources: {dict(source_counts)}")
 
@@ -2677,11 +2886,11 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
             AVG(t.duration_ms) as avg_track_duration_ms
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
-        WHERE h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
+        WHERE h.user_id = ? AND h.source IN ('played', 'recently_played', 'current')  -- Only actual listening events
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
         AND t.duration_ms IS NOT NULL
         AND t.duration_ms > 0
-    ''', (current_date,))
+    ''', (user_id, current_date))
 
     db_stats = cursor.fetchone()
     conn.close()
@@ -2709,12 +2918,12 @@ def update_stat_cards(n_intervals, use_sample_data_flag):
 
     # Calculate Total Listening Sessions (more meaningful than variety score)
     # Count unique listening sessions based on distinct dates
-    cursor = sqlite3.connect(db.db_path).cursor()
+    cursor = sqlite3.connect(user_db.db_path).cursor()
     cursor.execute('''
         SELECT COUNT(DISTINCT DATE(played_at)) as session_count
         FROM listening_history
-        WHERE source IN ('played', 'recently_played', 'current')
-    ''')
+        WHERE user_id = ? AND source IN ('played', 'recently_played', 'current')
+    ''', (user_id,))
     session_result = cursor.fetchone()
     listening_sessions = session_result[0] if session_result and session_result[0] else 0
     cursor.close()
@@ -2810,9 +3019,9 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
         'genre_highlight': None
     }
 
-    # Use appropriate database
+    # Use appropriate database with user-specific isolation
     if database is None:
-        database = get_database_for_mode(use_sample)
+        database = get_database_for_mode(use_sample, user_data.get('id') if user_data else None)
 
     conn = sqlite3.connect(database.db_path)
     conn.row_factory = sqlite3.Row
@@ -2854,13 +3063,14 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
                     COUNT(h.history_id) as play_count
                 FROM tracks t
                 JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
+                WHERE h.user_id = ?
+                AND t.track_id NOT LIKE 'artist-%' AND t.track_id NOT LIKE 'genre-%'
                 AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
                 AND date(h.played_at) <= ?     -- Ensure dates are not in the future
                 GROUP BY t.track_id
                 ORDER BY play_count DESC
                 LIMIT 1
-            ''', (current_date,))
+            ''', (user_id, current_date))
 
             top_track_row = cursor.fetchone()
             if top_track_row:
@@ -2909,13 +3119,14 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
                     COUNT(h.history_id) as play_count
                 FROM tracks t
                 JOIN listening_history h ON t.track_id = h.track_id
-                WHERE t.artist IS NOT NULL AND t.artist != ''
+                WHERE h.user_id = ?
+                AND t.artist IS NOT NULL AND t.artist != ''
                 AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
                 AND date(h.played_at) <= ?     -- Ensure dates are not in the future
                 GROUP BY t.artist
                 ORDER BY play_count DESC
                 LIMIT 1
-            ''', (current_date,))
+            ''', (user_id, current_date))
 
             top_artist_row = cursor.fetchone()
             if top_artist_row:
@@ -2965,9 +3176,10 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
             COUNT(*) as track_count
         FROM tracks t
         JOIN listening_history h ON t.track_id = h.track_id
-        WHERE h.source NOT LIKE 'top_%'  -- Exclude top tracks data
+        WHERE h.user_id = ?
+        AND h.source NOT LIKE 'top_%'  -- Exclude top tracks data
         AND date(h.played_at) <= ?     -- Ensure dates are not in the future
-    ''', (current_date,))
+    ''', (user_id, current_date))
 
     audio_features_row = cursor.fetchone()
     if audio_features_row and audio_features_row['track_count'] > 0:
@@ -3002,9 +3214,15 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
             'energy': 0.5
         }
 
+    # Get user_id for all subsequent operations
+    if user_data and user_data.get('id'):
+        user_id = user_data['id']
+    else:
+        print("❌ No user data available - cannot generate summary")
+        return summary  # Return early with empty summary
+
     # Get top genre using standardized function (consistent with genre chart)
-    user_id = user_data['id']
-    top_genres = db.get_user_top_genres(
+    top_genres = database.get_user_top_genres(
         user_id=user_id,
         limit=1,
         exclude_unknown=True,
@@ -3032,11 +3250,11 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
             AVG(t.duration_ms) as avg_track_duration_ms
         FROM listening_history h
         JOIN tracks t ON h.track_id = t.track_id
-        WHERE h.source IN ('played', 'recently_played', 'current')
+        WHERE h.user_id = ? AND h.source IN ('played', 'recently_played', 'current')
         AND date(h.played_at) <= ?
         AND t.duration_ms IS NOT NULL
         AND t.duration_ms > 0
-    ''', (current_date,))
+    ''', (user_id, current_date))
 
     minutes_row = cursor.fetchone()
     if minutes_row and minutes_row[0]:  # Check first column (unique_listening_events)
@@ -3117,16 +3335,22 @@ def generate_wrapped_summary_from_db(database=None, use_sample=False):
     try:
         user_data = spotify_api.get_user_profile()
         if user_data and user_data.get('id'):
-            from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
-            ai_analyzer = EnhancedPersonalityAnalyzer()
-            ai_personality = ai_analyzer.generate_enhanced_personality(user_data['id'])
+            # Get user-specific database for AI analysis
+            user_db, user_id = get_current_user_database()
+            if user_db and user_id:
+                from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
+                user_ai_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
+                ai_personality = user_ai_analyzer.generate_enhanced_personality(user_id)
 
-            if ai_personality and ai_personality.get('personality_type'):
-                summary['personality_type'] = ai_personality.get('personality_type', 'Music Explorer')
-                print(f"✅ Added personality type: {summary['personality_type']}")
+                if ai_personality and ai_personality.get('personality_type'):
+                    summary['personality_type'] = ai_personality.get('personality_type', 'Music Explorer')
+                    print(f"✅ Added personality type: {summary['personality_type']}")
+                else:
+                    summary['personality_type'] = 'Music Explorer'
+                    print("📁 Using default personality type: Music Explorer")
             else:
                 summary['personality_type'] = 'Music Explorer'
-                print("📁 Using default personality type: Music Explorer")
+                print("❌ No user database available for personality type")
         else:
             summary['personality_type'] = 'Music Explorer'
             print("❌ No user data for personality type")
@@ -3184,22 +3408,21 @@ def update_ai_personality_card(pathname, use_sample_data_flag):
     if pathname != '/ai-insights':
         return html.Div()
 
-    use_sample = use_sample_data_flag and use_sample_data_flag.get('use_sample', False)
-
     try:
-        if use_sample:
+        if use_sample_data_flag and use_sample_data_flag.get('use_sample', False):
             print("📊 DEBUG: Using sample data for AI personality.")
             from modules.sample_data_generator import sample_data_generator
             ai_personality = sample_data_generator.generate_ai_personality_data()
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see AI insights",
+                               className="alert alert-warning")
 
-            user_id = user_data['id']
-
-            # Get AI-enhanced personality analysis
-            ai_personality = enhanced_personality_analyzer.generate_enhanced_personality(user_id)
+            # Create user-specific AI analyzer
+            user_personality_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
+            ai_personality = user_personality_analyzer.generate_enhanced_personality(user_id)
 
         return create_spotify_card(
             title="🧠 AI-Enhanced Personality",
@@ -3281,17 +3504,19 @@ def update_genre_evolution_chart(pathname, use_sample_data_flag):
 
             return fig
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
                 return {}
 
-            user_id = user_data['id']
+            # Create user-specific genre evolution tracker
+            user_genre_tracker = GenreEvolutionTracker(db_path=user_db.db_path)
 
             # Get genre evolution data
-            evolution_data = genre_evolution_tracker.get_genre_evolution_data(user_id)
+            evolution_data = user_genre_tracker.get_genre_evolution_data(user_id)
 
             # Create visualization
-            return genre_evolution_tracker.create_evolution_visualization(evolution_data)
+            return user_genre_tracker.create_evolution_visualization(evolution_data)
 
     except Exception as e:
         print(f"Error updating genre evolution chart: {e}")
@@ -3323,18 +3548,20 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
             # Use the same enhanced stress analysis card as real data
             return create_enhanced_stress_analysis_card(stress_data)
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
-
-            user_id = user_data['id']
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see wellness analysis",
+                               className="alert alert-warning")
 
             # Try enhanced stress analysis first, fallback to basic if needed
             try:
                 print(f"DEBUG: Attempting enhanced stress analysis for user {user_id}")
-                print(f"DEBUG: Enhanced stress detector instance: {enhanced_stress_detector}")
-                print(f"DEBUG: Database path: {enhanced_stress_detector.db_path}")
-                stress_data = enhanced_stress_detector.analyze_stress_patterns(user_id)
+                # Create user-specific stress detector
+                user_stress_detector = EnhancedStressDetector(db_path=user_db.db_path)
+                print(f"DEBUG: Enhanced stress detector instance: {user_stress_detector}")
+                print(f"DEBUG: Database path: {user_stress_detector.db_path}")
+                stress_data = user_stress_detector.analyze_stress_patterns(user_id)
 
                 # Enhanced stress detector always returns a valid response structure
                 # Use the enhanced visualization for any response from enhanced stress detector
@@ -3353,10 +3580,10 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
                 
                 # Fallback to basic wellness analysis but convert to enhanced format for consistency
                 print(f"DEBUG: Falling back to wellness analyzer")
-                if wellness_analyzer is None:
-                    raise Exception("Wellness analyzer is not initialized")
                 try:
-                    wellness_data = wellness_analyzer.analyze_wellness_patterns(user_id)
+                    # Create user-specific wellness analyzer
+                    user_wellness_analyzer = WellnessAnalyzer(db_path=user_db.db_path)
+                    wellness_data = user_wellness_analyzer.analyze_wellness_patterns(user_id)
                     print(f"DEBUG: Wellness analysis result: wellness_score={wellness_data.get('wellness_score', 'NOT_FOUND')}")
 
                     # Convert wellness data to enhanced stress data format for consistent visualization
@@ -3382,14 +3609,16 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
                     else:
                         # If wellness analysis also fails, return default enhanced response
                         print(f"DEBUG: Wellness analysis incomplete, using default enhanced response")
-                        default_response = enhanced_stress_detector._default_stress_response()
+                        user_stress_detector_fallback = EnhancedStressDetector(db_path=user_db.db_path)
+                        default_response = user_stress_detector_fallback._default_stress_response()
                         return create_enhanced_stress_analysis_card(default_response)
                         
                 except Exception as wellness_error:
                     print(f"❌ Wellness analyzer also failed: {wellness_error}")
                     # Final fallback - use default enhanced response
                     print(f"DEBUG: Using default enhanced stress response")
-                    default_response = enhanced_stress_detector._default_stress_response()
+                    user_stress_detector_final = EnhancedStressDetector(db_path=user_db.db_path)
+                    default_response = user_stress_detector_final._default_stress_response()
                     return create_enhanced_stress_analysis_card(default_response)
 
     except Exception as e:
@@ -3397,7 +3626,18 @@ def update_wellness_analysis_card(pathname, use_sample_data_flag):
         # Final fallback - always use enhanced visualization for consistency
         print(f"DEBUG: Using final fallback - default enhanced stress response")
         try:
-            default_response = enhanced_stress_detector._default_stress_response()
+            # Try to create a user-specific stress detector for default response
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if user_db:
+                user_stress_detector_ultimate = EnhancedStressDetector(db_path=user_db.db_path)
+                default_response = user_stress_detector_ultimate._default_stress_response()
+            else:
+                # If even that fails, create a minimal response
+                default_response = {
+                    'stress_score': 50,
+                    'stress_level': 'Unable to analyze',
+                    'recommendations': ['Please authenticate to see personalized wellness insights']
+                }
             return create_enhanced_stress_analysis_card(default_response)
         except Exception as final_error:
             print(f"❌ Even default response failed: {final_error}")
@@ -3425,14 +3665,17 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
 
             print(f"DEBUG: Got {len(recommendations)} sample recommendations")
         else:
-            user_data = spotify_api.get_user_profile()
-            if not user_data:
-                return html.Div("Please authenticate with Spotify first.", className="alert alert-warning")
+            # Get user-specific database
+            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            if not user_db or not user_id:
+                return html.Div("Please authenticate to see recommendations",
+                               className="alert alert-warning")
 
-            user_id = user_data['id']
+            # Create user-specific personality analyzer
+            user_personality_analyzer = EnhancedPersonalityAnalyzer(db_path=user_db.db_path)
 
             # Get content-based recommendations
-            recommendations = enhanced_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
+            recommendations = user_personality_analyzer._get_content_based_recommendations(user_id, limit=8)
             print(f"DEBUG: Got {len(recommendations)} recommendations for user {user_id}")
             music_dna = None  # Will be handled by existing logic
 
@@ -3493,7 +3736,7 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
         else:
             # Get user's music DNA for display
             try:
-                user_data = enhanced_personality_analyzer._get_user_listening_data(user_id)
+                user_listening_data = user_personality_analyzer._get_user_listening_data(user_id)
                 content = html.Div([
                     html.H4("🧬 Your Music DNA Profile", style={'color': '#1DB954', 'textAlign': 'center', 'marginBottom': '20px'}),
 
@@ -3501,19 +3744,19 @@ def update_advanced_recommendations_card(pathname, use_sample_data_flag):
                     html.Div([
                         html.Div([
                             html.Strong("🕺 Danceability: "),
-                            html.Span(f"{user_data.get('avg_danceability', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_danceability', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("⚡ Energy: "),
-                            html.Span(f"{user_data.get('avg_energy', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_energy', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("😊 Mood: "),
-                            html.Span(f"{user_data.get('avg_valence', 0.5):.1%}", style={'color': '#00D4FF'})
+                            html.Span(f"{user_listening_data.get('avg_valence', 0.5):.1%}", style={'color': '#00D4FF'})
                         ], style={'marginBottom': '8px'}),
                         html.Div([
                             html.Strong("🎭 Top Genre: "),
-                            html.Span(user_data.get('top_genre', 'Mixed'), style={'color': '#1DB954'})
+                            html.Span(user_listening_data.get('top_genre', 'Mixed'), style={'color': '#1DB954'})
                         ], style={'marginBottom': '15px'})
                     ], style={'backgroundColor': 'rgba(29, 185, 84, 0.1)', 'padding': '15px', 'borderRadius': '8px', 'marginBottom': '20px'}),
 
@@ -3635,11 +3878,16 @@ if __name__ == '__main__':
                     # Get current user
                     user_data = spotify_api.get_user_profile()
                     if user_data:
-                        # Update database with latest data
-                        data_collector.collect_historical_data(
-                            user_data['id'],
-                            datetime.now() - timedelta(hours=24)  # Last 24 hours
-                        )
+                        # Get user-specific database and create data collector
+                        user_db, user_id = get_current_user_database()
+                        if user_db and user_id:
+                            from modules.data_collector import SpotifyDataCollector
+                            user_data_collector = SpotifyDataCollector(spotify_api, user_db)
+                            # Update database with latest data
+                            user_data_collector.collect_historical_data(
+                                user_data['id'],
+                                datetime.now() - timedelta(hours=24)  # Last 24 hours
+                            )
 
                     # Wait for 30 minutes before next collection
                     time.sleep(1800)

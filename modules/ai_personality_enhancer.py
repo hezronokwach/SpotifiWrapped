@@ -13,8 +13,10 @@ load_dotenv()
 class EnhancedPersonalityAnalyzer:
     """AI-enhanced personality analyzer with LLM-powered descriptions and content-based recommendations."""
     
-    def __init__(self, db_path: str = 'data/spotify_data.db'):
+    def __init__(self, db_path: str = None):
         """Initialize the analyzer with database path and Gemini client."""
+        if db_path is None:
+            raise ValueError("db_path must be provided for user-specific analysis")
         self.db_path = db_path
 
         # Initialize Gemini client
@@ -88,9 +90,10 @@ class EnhancedPersonalityAnalyzer:
             # Get top genre using standardized database method (consistent with dashboard)
             from modules.database import SpotifyDatabase
             from datetime import datetime
-            db = SpotifyDatabase()
+            # Get user-specific database
+            user_db = SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db')
             current_date = datetime.now().strftime('%Y-%m-%d')
-            top_genres = db.get_user_top_genres(
+            top_genres = user_db.get_user_top_genres(
                 user_id=user_id,
                 limit=1,
                 exclude_unknown=True,
@@ -299,9 +302,10 @@ class EnhancedPersonalityAnalyzer:
             # Get user's top genres using standardized database method (consistent with dashboard)
             from modules.database import SpotifyDatabase
             from datetime import datetime
-            db = SpotifyDatabase()
+            # Get user-specific database
+            user_db = SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db')
             current_date = datetime.now().strftime('%Y-%m-%d')
-            top_genre_data = db.get_user_top_genres(
+            top_genre_data = user_db.get_user_top_genres(
                 user_id=user_id,
                 limit=3,
                 exclude_unknown=True,

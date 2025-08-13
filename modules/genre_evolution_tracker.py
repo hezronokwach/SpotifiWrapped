@@ -9,8 +9,10 @@ from typing import Dict, List
 class GenreEvolutionTracker:
     """Track and visualize genre preference evolution over time."""
     
-    def __init__(self, db_path: str = 'data/spotify_data.db'):
+    def __init__(self, db_path: str = None):
         """Initialize the tracker with database path."""
+        if db_path is None:
+            raise ValueError("db_path must be provided for user-specific analysis")
         self.db_path = db_path
     
     def get_genre_evolution_data(self, user_id: str, months_back: int = 12) -> Dict:

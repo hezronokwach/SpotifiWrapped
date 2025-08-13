@@ -1,5 +1,35 @@
 # SpotifiWrapped
 
+## **🔒 CRITICAL SECURITY NOTICE**
+
+**⚠️ DATA PRIVACY VULNERABILITY FIXED**
+
+If you're hosting this application with existing data, **IMMEDIATELY** implement the following security measures:
+
+### **The Problem**
+- The application previously used a **shared database** for all users
+- When API authentication failed, it would fall back to showing **any user's data** from the shared database
+- This meant users could see other people's private Spotify data (top tracks, artists, listening history)
+
+### **The Fix**
+- Each user now gets their own isolated database: `data/user_{spotify_user_id}_spotify_data.db`
+- No more fallback to shared database
+- Complete data isolation between users
+
+### **If You're Already Hosting**
+1. **Stop the application immediately**
+2. **Backup your existing data**: `cp data/spotify_data.db data/backup_spotify_data.db`
+3. **Clear the shared database**: `rm data/spotify_data.db` (or move it to backup)
+4. **Update to the latest code** with the security fixes
+5. **Restart the application**
+6. **All users must re-authenticate** to create their individual databases
+
+### **For New Installations**
+- This issue is automatically fixed in the latest version
+- Each user gets their own private database from the start
+
+---
+
 SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrapped that transforms your music data into stunning, dynamic dashboards. Built with Dash, Plotly, and advanced AI analytics, it provides deep insights into your listening habits, personality analysis, and music trends with beautiful visualizations and real-time interactions. 🎶📊✨
 
 ![SpotifiWrapped Dashboard](https://via.placeholder.com/800x400?text=SpotifiWrapped+Dashboard)
