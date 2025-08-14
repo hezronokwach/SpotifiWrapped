@@ -42,11 +42,91 @@ from modules.stress_visualizations import create_enhanced_stress_analysis_card
 load_dotenv()
 
 # Initialize components
-spotify_api = SpotifyAPI()
+# SECURITY FIX: Create a session-aware Spotify API manager instead of global instance
+class SpotifyAPIManager:
+    """Manages user-specific Spotify API instances for security."""
+
+    def __init__(self):
+        self.user_apis = {}
+        self.current_user_key = None
+
+    def get_api_for_credentials(self, client_id, client_secret, redirect_uri):
+        """Get or create Spotify API instance for specific credentials."""
+        user_key = f"{client_id}:{client_secret}:{redirect_uri}"
+
+        if user_key not in self.user_apis:
+            print(f"🔐 Creating new Spotify API instance for user: {client_id[:8]}...")
+            self.user_apis[user_key] = SpotifyAPI(client_id, client_secret, redirect_uri)
+        else:
+            print(f"🔄 Reusing existing Spotify API instance for user: {client_id[:8]}...")
+
+        self.current_user_key = user_key
+        return self.user_apis[user_key]
+
+    def get_current_api(self):
+        """Get the currently active Spotify API instance."""
+        if self.current_user_key and self.current_user_key in self.user_apis:
+            return self.user_apis[self.current_user_key]
+        return None
+
+    def clear_user_api(self, client_id, client_secret, redirect_uri):
+        """Clear a specific user's API instance."""
+        user_key = f"{client_id}:{client_secret}:{redirect_uri}"
+        if user_key in self.user_apis:
+            del self.user_apis[user_key]
+            if self.current_user_key == user_key:
+                self.current_user_key = None
+
+# Initialize the API manager and other components
+spotify_api_manager = SpotifyAPIManager()
 data_processor = DataProcessor()
 dashboard_layout = DashboardLayout()
 visualizations = SpotifyVisualizations()
 animations = SpotifyAnimations()
+
+# Backward compatibility: Create a proxy object that behaves like the old spotify_api
+class SpotifyAPIProxy:
+    """Proxy object that delegates to the current user's Spotify API instance."""
+
+    def __getattr__(self, name):
+        current_api = spotify_api_manager.get_current_api()
+        if current_api and hasattr(current_api, name):
+            attr = getattr(current_api, name)
+            return attr
+        else:
+            # Return appropriate defaults for common properties
+            if name in ['client_id', 'client_secret', 'redirect_uri']:
+                return None
+            elif name == 'sp':
+                return None
+            elif name == 'use_sample_data':
+                return False
+            else:
+                # Return a dummy method that logs the issue
+                def dummy_method(*args, **kwargs):
+                    print(f"❌ No active Spotify API instance for method: {name}")
+                    return None
+                return dummy_method
+
+    def __getitem__(self, key):
+        """Handle subscript access like spotify_api['key']"""
+        current_api = spotify_api_manager.get_current_api()
+        if current_api and hasattr(current_api, '__getitem__'):
+            return current_api[key]
+        else:
+            print(f"❌ No active Spotify API instance for subscript access: {key}")
+            return None
+
+    def __setitem__(self, key, value):
+        """Handle subscript assignment like spotify_api['key'] = value"""
+        current_api = spotify_api_manager.get_current_api()
+        if current_api and hasattr(current_api, '__setitem__'):
+            current_api[key] = value
+        else:
+            print(f"❌ No active Spotify API instance for subscript assignment: {key}")
+
+# Create the proxy instance for backward compatibility
+spotify_api = SpotifyAPIProxy()
 
 # Note: No global database - each user gets their own database
 # Global data collector removed - created per-user as needed
@@ -66,7 +146,7 @@ def get_database_for_mode(use_sample=False, user_id=None):
         print("❌ ERROR: No user database available - user must authenticate!")
         return None
 
-def get_current_user_database(use_sample_data_flag=None):
+def get_current_user_database(use_sample_data_flag=None, client_id=None, client_secret=None):
     """Get the database for the currently authenticated user."""
     try:
         # Check if we're in sample mode first
@@ -74,8 +154,21 @@ def get_current_user_database(use_sample_data_flag=None):
             print("🎭 Using sample database")
             return SpotifyDatabase(db_path='data/sample_spotify_data.db'), 'demo-user-spotify-wrapped'
 
-        # Get current user from Spotify API
-        user_data = spotify_api.get_user_profile()
+        # Get user-specific Spotify API instance if credentials provided
+        if client_id and client_secret:
+            user_spotify_api = spotify_api_manager.get_api_for_credentials(
+                client_id, client_secret, os.getenv('REDIRECT_URI')
+            )
+            user_data = user_spotify_api.get_user_profile()
+        else:
+            # Fallback to current API (for backward compatibility)
+            current_api = spotify_api_manager.get_current_api()
+            if current_api:
+                user_data = current_api.get_user_profile()
+            else:
+                print("❌ No Spotify API instance available - cannot access user-specific database")
+                return None, None
+
         if user_data and user_data.get('id'):
             user_id = user_data['id']
             print(f"🔒 Using user-specific database for user: {user_id}")
@@ -462,20 +555,18 @@ def handle_onboarding(connect_clicks, sample_clicks, client_id, client_secret):
         print(f"🔐 DEBUG: Client Secret provided: {len(client_secret)} characters")
         print(f"🔐 DEBUG: Redirect URI: {os.getenv('REDIRECT_URI')}")
 
-        # Clear all cached data first
-        print("🧹 DEBUG: Clearing all cached data for new credentials...")
-        spotify_api.clear_all_cached_data()
+        # Get user-specific Spotify API instance
+        print("🔗 DEBUG: Getting user-specific Spotify API instance...")
+        user_spotify_api = spotify_api_manager.get_api_for_credentials(
+            client_id, client_secret, os.getenv('REDIRECT_URI')
+        )
 
-        # Set new credentials
-        print("🔗 DEBUG: Setting new credentials...")
-        spotify_api.set_credentials(client_id, client_secret, os.getenv('REDIRECT_URI'))
+        print(f"🔍 DEBUG: Spotify API object created: {user_spotify_api.sp is not None}")
+        print(f"🔍 DEBUG: Use sample data flag: {user_spotify_api.use_sample_data}")
 
-        print(f"🔍 DEBUG: Spotify API object created: {spotify_api.sp is not None}")
-        print(f"🔍 DEBUG: Use sample data flag: {spotify_api.use_sample_data}")
-
-        if spotify_api.sp:
+        if user_spotify_api.sp:
             # Check if we need authorization using our safe method
-            auth_result = spotify_api.is_authenticated()
+            auth_result = user_spotify_api.is_authenticated()
             print(f"🔍 DEBUG: Authentication check result: {auth_result}")
 
             if auth_result:
@@ -484,7 +575,7 @@ def handle_onboarding(connect_clicks, sample_clicks, client_id, client_secret):
             else:
                 print("⚠️ DEBUG: Need authorization")
                 # Get auth URL using our safe method
-                auth_url = spotify_api.get_auth_url()
+                auth_url = user_spotify_api.get_auth_url()
                 if auth_url:
                     # Store credentials in session even when authorization is needed
                     return dash.no_update, client_id, client_secret, dash.no_update, dash.no_update
@@ -594,32 +685,35 @@ def check_auth_status(n_intervals, current_auth_status, stored_client_id, stored
     # Only check if we have stored credentials but aren't authenticated yet
     if stored_client_id and stored_client_secret and (not current_auth_status or not current_auth_status.get('authenticated')):
         print("🔄 Conditions met for auth check - proceeding...")
-        
-        # Set credentials if not already set
-        if spotify_api.client_id != stored_client_id or spotify_api.client_secret != stored_client_secret:
-            print("🔄 Setting credentials in spotify_api...")
-            spotify_api.set_credentials(stored_client_id, stored_client_secret, os.getenv('REDIRECT_URI'))
-            print(f"✅ Credentials set - spotify_api.sp: {spotify_api.sp is not None}")
 
-        # Check authentication status
-        print("🔄 Checking authentication status...")
-        auth_result = spotify_api.is_authenticated()
-        print(f"🔍 Authentication result: {auth_result}")
-        
-        if spotify_api.sp and auth_result:
-            print("✅ DEBUG: Auto-detected successful authentication!")
-            
-            # Try to get user info to confirm
+        # SECURITY FIX: Get user-specific API instance instead of using global proxy
+        print("🔐 Getting user-specific API instance for auth check...")
+        user_spotify_api = spotify_api_manager.get_api_for_credentials(
+            stored_client_id, stored_client_secret, os.getenv('REDIRECT_URI')
+        )
+
+        print(f"✅ User-specific API created - sp: {user_spotify_api.sp is not None}")
+
+        # Check authentication status for THIS specific user
+        print("🔄 Checking authentication status for this user...")
+        auth_result = user_spotify_api.is_authenticated()
+        print(f"🔍 Authentication result for user {stored_client_id[:8]}: {auth_result}")
+
+        if user_spotify_api.sp and auth_result:
+            print("✅ DEBUG: Auto-detected successful authentication for this user!")
+
+            # Try to get user info to confirm this is the right user
             try:
-                user = spotify_api.sp.current_user()
+                user = user_spotify_api.sp.current_user()
                 print(f"✅ User info retrieved: {user.get('display_name', 'Unknown') if user else 'None'}")
+                print(f"✅ User ID: {user.get('id', 'Unknown') if user else 'None'}")
             except Exception as e:
                 print(f"⚠️ Could not get user info: {e}")
-            
+
             return {'authenticated': True}, stored_client_id, stored_client_secret, {'use_sample': False}
         else:
-            print("❌ Authentication check failed")
-            print(f"🔍 spotify_api.sp: {spotify_api.sp is not None}")
+            print("❌ Authentication check failed for this user")
+            print(f"🔍 user_spotify_api.sp: {user_spotify_api.sp is not None}")
             print(f"🔍 auth_result: {auth_result}")
     else:
         print("⏭️ Skipping auth check - conditions not met")
@@ -661,12 +755,20 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
                 html.P("❌ Please provide both Client ID and Client Secret.", style={'color': '#FF5555', 'marginBottom': '10px'}),
             ])
 
-        # Check if we need authorization
-        if spotify_api.sp:
-            auth_result = spotify_api.is_authenticated()
+        # SECURITY FIX: Get user-specific Spotify API instance for this user's credentials
+        print(f"🔐 Getting user-specific API for connect status check: {client_id[:8]}...")
+        user_spotify_api = spotify_api_manager.get_api_for_credentials(
+            client_id, client_secret, os.getenv('REDIRECT_URI')
+        )
+
+        # Check if THIS USER needs authorization (not any other user)
+        if user_spotify_api.sp:
+            auth_result = user_spotify_api.is_authenticated()
+            print(f"🔍 Auth result for user {client_id[:8]}: {auth_result}")
             if not auth_result:
-                # Get auth URL
-                auth_url = spotify_api.get_auth_url()
+                # Get auth URL for THIS specific user
+                auth_url = user_spotify_api.get_auth_url()
+                print(f"🔗 Generated auth URL for user {client_id[:8]}: {auth_url[:50]}..." if auth_url else "❌ No auth URL")
                 if auth_url:
                     return html.Div([
                         # Prominent header with animation
@@ -919,18 +1021,19 @@ def display_page(pathname, auth_data, client_id_data, client_secret_data, use_sa
         
         # Re-initialize API with stored credentials if needed for dashboard functionality
         if client_id_data and client_secret_data:
-            if spotify_api.client_id != client_id_data or spotify_api.client_secret != client_secret_data:
-                print("🔄 DEBUG: Re-initializing API with stored credentials for dashboard access")
-                spotify_api.set_credentials(client_id_data, client_secret_data, os.getenv('REDIRECT_URI'))
+            print("🔄 DEBUG: Setting up user-specific API for dashboard access")
+            user_spotify_api = spotify_api_manager.get_api_for_credentials(
+                client_id_data, client_secret_data, os.getenv('REDIRECT_URI')
+            )
         
         print("✅ DEBUG: Authentication verified, showing dashboard")
         return dashboard_layout.create_layout()
     else:
         # Default root path - redirect based on authentication
-        # Check if spotify_api is working first
-        if spotify_api.sp and spotify_api.is_authenticated():
-            print("✅ DEBUG: Spotify API is working, redirecting to dashboard")
-            return dcc.Location(pathname='/dashboard', id='redirect-to-dashboard')
+        # SECURITY FIX: Don't use global proxy for authentication check
+        print("🔍 DEBUG: Checking authentication from session data only")
+        # Only rely on session storage for authentication status
+        # Don't check global spotify_api as it might belong to another user
         
         # Fallback to session storage check
         is_authenticated = bool(auth_data and auth_data.get('authenticated'))
@@ -970,23 +1073,29 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
         from modules.sample_data_generator import sample_data_generator
         return sample_data_generator.generate_user_profile()
 
-    if not spotify_api.sp:
-        if client_id_data and client_secret_data:
-            print("🔄 DEBUG: Re-initializing Spotify API with stored credentials...")
-            spotify_api.set_credentials(client_id_data, client_secret_data, os.getenv('REDIRECT_URI'))
-        else:
-            print("❌ DEBUG: Spotify API not initialized. Cannot fetch user data.")
-            return {}
+    # Get user-specific Spotify API instance
+    if client_id_data and client_secret_data:
+        print("🔄 DEBUG: Getting user-specific Spotify API instance...")
+        user_spotify_api = spotify_api_manager.get_api_for_credentials(
+            client_id_data, client_secret_data, os.getenv('REDIRECT_URI')
+        )
+    else:
+        print("❌ DEBUG: No credentials available. Cannot fetch user data.")
+        return {}
+
+    if not user_spotify_api.sp:
+        print("❌ DEBUG: Spotify API not initialized. Cannot fetch user data.")
+        return {}
 
     try:
         # Always try to fetch from API first when we have a connection
         print("🌐 DEBUG: Attempting to fetch user data from Spotify API...")
-        user_data = spotify_api.get_user_profile()
+        user_data = user_spotify_api.get_user_profile()
         if user_data:
             print(f"✅ DEBUG: Got user data from API: {user_data}")
 
             # Get user-specific database
-            user_db, user_id = get_current_user_database(use_sample_data_flag)
+            user_db, user_id = get_current_user_database(use_sample_data_flag, client_id_data, client_secret_data)
             if user_db and user_id:
                 # Save user data to user-specific database
                 user_db.save_user(user_data)
@@ -995,7 +1104,7 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
                 print("🔄 Starting comprehensive data collection...")
                 try:
                     # 1. Collect recently played tracks (last 50)
-                    recently_played = spotify_api.get_recently_played(limit=50)
+                    recently_played = user_spotify_api.get_recently_played(limit=50)
                     if recently_played:
                         print(f"📀 Collecting {len(recently_played)} recently played tracks...")
                         for track in recently_played:
@@ -1010,7 +1119,7 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
 
                     # 2. Collect top tracks for different time ranges
                     for time_range in ['short_term', 'medium_term', 'long_term']:
-                        top_tracks = spotify_api.get_top_tracks(limit=20, time_range=time_range)
+                        top_tracks = user_spotify_api.get_top_tracks(limit=20, time_range=time_range)
                         if top_tracks:
                             print(f"🎵 Collecting {len(top_tracks)} top tracks ({time_range})...")
                             for track in top_tracks:
@@ -1023,7 +1132,7 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
                                 )
 
                     # 3. Collect saved tracks (liked songs)
-                    saved_tracks = spotify_api.get_saved_tracks(limit=50)
+                    saved_tracks = user_spotify_api.get_saved_tracks(limit=50)
                     if saved_tracks:
                         print(f"💚 Collecting {len(saved_tracks)} saved tracks...")
                         for track in saved_tracks:
@@ -1039,13 +1148,13 @@ def update_user_data(n_intervals, n_clicks, client_id_data, client_secret_data, 
                     # 4. Start historical data collection for the past two weeks
                     # Create user-specific data collector
                     from modules.data_collector import SpotifyDataCollector
-                    user_data_collector = SpotifyDataCollector(spotify_api, user_db)
+                    user_data_collector = SpotifyDataCollector(user_spotify_api, user_db)
                     user_data_collector.collect_historical_data(user_data['id'])
 
                     # 5. Extract genres for the collected tracks
                     print("🎭 Starting genre extraction...")
                     from modules.genre_extractor import GenreExtractor
-                    user_genre_extractor = GenreExtractor(spotify_api, user_db)
+                    user_genre_extractor = GenreExtractor(user_spotify_api, user_db)
 
                     # Extract genres from recently played tracks
                     genres_extracted = user_genre_extractor.extract_genres_from_recent_tracks(max_artists=50)

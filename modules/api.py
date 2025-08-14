@@ -171,6 +171,9 @@ class SpotifyAPI:
 
         try:
             print(f"🔐 DEBUG: Creating SpotifyOAuth manager...")
+            # SECURITY FIX: Use user-specific cache to prevent token sharing
+            user_cache_path = f'.spotify_cache_{self.client_id[:8]}'
+            print(f"🔐 DEBUG: Using user-specific cache: {user_cache_path}")
             auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
@@ -178,7 +181,7 @@ class SpotifyAPI:
                 scope=self.scopes,
                 open_browser=False,  # Don't auto-open browser to avoid conflicts
                 show_dialog=True,  # Always show auth dialog
-                cache_path='.spotify_cache'  # Cache tokens
+                cache_path=user_cache_path  # User-specific cache to prevent token sharing
             )
             print(f"✅ DEBUG: SpotifyOAuth manager created successfully")
 
@@ -190,15 +193,16 @@ class SpotifyAPI:
                 if token_info:
                     print(f"✅ DEBUG: Using cached token")
                 else:
-                    # Check for authorization code from callback
+                    # Check for authorization code from callback (user-specific)
                     import tempfile
                     import os
                     temp_dir = tempfile.gettempdir()
-                    code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+                    # SECURITY FIX: Use user-specific auth code file
+                    code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.client_id[:8]}.txt')
                     if os.path.exists(code_file):
                         with open(code_file, 'r') as f:
                             auth_code = f.read().strip()
-                        print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                        print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
                         token_info = auth_manager.get_access_token(auth_code, as_dict=True)
                         # Clean up the temporary file
                         os.remove(code_file)
@@ -253,14 +257,15 @@ class SpotifyAPI:
         if not self.sp:
             return False
         try:
-            # First check for authorization code from callback
+            # First check for authorization code from callback (user-specific)
             import tempfile
             temp_dir = tempfile.gettempdir()
-            code_file = os.path.join(temp_dir, 'spotify_auth_code.txt')
+            # SECURITY FIX: Use user-specific auth code file
+            code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.client_id[:8]}.txt')
             if os.path.exists(code_file):
                 with open(code_file, 'r') as f:
                     auth_code = f.read().strip()
-                print(f"✅ DEBUG: Found authorization code, exchanging for token...")
+                print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
                 try:
                     token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
                     if token_info:
