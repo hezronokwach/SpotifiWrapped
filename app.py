@@ -228,13 +228,13 @@ app.title = "Spotifi Wrapped"
 
 # Clean database on deployment startup (optional - uncomment if needed)
 def clean_database_on_startup():
-    """Clean the main database on startup to ensure fresh deployment."""
+    """Clean databases and cache files on startup to ensure fresh deployment."""
     import os
     import glob
 
     # Only run in production/deployed environment
     if os.getenv('RENDER') or os.getenv('NODE_ENV') == 'production':
-        print("🧹 DEPLOYMENT CLEANUP: Cleaning databases for fresh start...")
+        print("🧹 DEPLOYMENT CLEANUP: Cleaning databases and cache files for fresh start...")
 
         # Remove main database
         main_db_path = 'data/spotify_data.db'
@@ -249,7 +249,18 @@ def clean_database_on_startup():
             os.remove(db_path)
             print(f"✅ Removed user database: {db_path}")
 
-        print("🎯 Database cleanup complete - fresh deployment ready!")
+        # CRITICAL: Remove all Spotify cache files (shared and user-specific)
+        cache_patterns = ['.spotify_cache*', '/tmp/spotify_auth_code*']
+        for pattern in cache_patterns:
+            cache_files = glob.glob(pattern)
+            for cache_file in cache_files:
+                try:
+                    os.remove(cache_file)
+                    print(f"✅ Removed cache file: {os.path.basename(cache_file)}")
+                except Exception as e:
+                    print(f"⚠️ Could not remove {cache_file}: {e}")
+
+        print("🎯 Database and cache cleanup complete - fresh deployment ready!")
     else:
         print("🏠 Local development - skipping database cleanup")
 
@@ -870,19 +881,47 @@ def update_connect_status(auth_data, connect_clicks, pathname, client_id, client
      Output('update-credentials-status', 'children')],
     [Input('update-credentials-button', 'n_clicks'),
      Input('clear-data-button', 'n_clicks'),
-     Input('clean-database-button', 'n_clicks')],
+     Input('clean-database-button', 'n_clicks'),
+     Input('clear-cache-button', 'n_clicks')],
     [State('settings-client-id-input', 'value'),
      State('settings-client-secret-input', 'value')],
     prevent_initial_call=True
 )
-def handle_settings_actions(update_clicks, clear_clicks, clean_clicks, client_id, client_secret):
+def handle_settings_actions(update_clicks, clear_clicks, clean_clicks, cache_clicks, client_id, client_secret):
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if button_id == 'clean-database-button':
+    if button_id == 'clear-cache-button':
+        # CRITICAL: Clear all cache files to fix user data mixing
+        import os
+        import glob
+
+        try:
+            cleaned_files = []
+
+            # Remove all Spotify cache files
+            cache_patterns = ['.spotify_cache*', '/tmp/spotify_auth_code*']
+            for pattern in cache_patterns:
+                cache_files = glob.glob(pattern)
+                for cache_file in cache_files:
+                    try:
+                        os.remove(cache_file)
+                        cleaned_files.append(f'cache ({os.path.basename(cache_file)})')
+                    except Exception as e:
+                        print(f"⚠️ Could not remove {cache_file}: {e}")
+
+            if cleaned_files:
+                return dash.no_update, dash.no_update, dash.no_update, f"🧹 CRITICAL: Cache cleanup complete! Removed: {', '.join(cleaned_files)}. Users must re-authenticate."
+            else:
+                return dash.no_update, dash.no_update, dash.no_update, "ℹ️ No cache files found to clean."
+
+        except Exception as e:
+            return dash.no_update, dash.no_update, dash.no_update, f"❌ Cache cleanup failed: {str(e)}"
+
+    elif button_id == 'clean-database-button':
         # Clean all databases
         import os
         import glob
