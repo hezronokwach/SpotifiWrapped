@@ -175,7 +175,23 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Spotify Wrapped Remix Specific
+# Spotify Analytics Application Specific
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+
+# Data and logs
+data/
+logs/
+backups/
+*.db
+*.sqlite
+*.sqlite3
+
 # Spotify cache and session files
 .spotify_cache*
 /tmp/spotify_auth_code.txt
@@ -184,19 +200,58 @@ flask_session/
 # Authentication and debug files (contain sensitive data)
 debug_oauth_success.json
 *.oauth_debug.json
+*.pid
 
 # Temporary and backup files
 backup_development/
 callback_server.py
 app_production_working.py
 
-# IDE files
+# Frontend build and dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.next/
+frontend/out/
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# IDE and editor files
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
 
 # OS files
 .DS_Store
 Thumbs.db
-data/
+*.tmp
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+ssl/
+
+# Deployment
+.vercel
+.netlify
+.railway
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Monitoring and analytics
+.sentry-*
 

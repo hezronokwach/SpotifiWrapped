@@ -253,6 +253,24 @@ class SpotifyAPI:
             return self.sp.auth_manager.get_authorize_url()
         return None
 
+    def get_access_token(self, code):
+        """Exchange authorization code for access token."""
+        print(f"🔍 DEBUG: SpotifyAPI.get_access_token called with code: {code[:20] if code else 'None'}...")
+
+        if not self.sp or not hasattr(self.sp, 'auth_manager'):
+            print("❌ DEBUG: No Spotify auth manager available")
+            return None
+
+        try:
+            print("🔍 DEBUG: Getting access token from auth manager...")
+            # Use the auth manager to get the token
+            token_info = self.sp.auth_manager.get_access_token(code)
+            print(f"✅ DEBUG: Token info received: {token_info is not None}")
+            return token_info
+        except Exception as e:
+            print(f"❌ DEBUG: Error getting access token: {e}")
+            return None
+
     def is_authenticated(self):
         """Check if the user is authenticated without triggering prompts."""
         if not self.sp:
