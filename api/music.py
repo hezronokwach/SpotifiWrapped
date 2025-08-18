@@ -169,18 +169,45 @@ def get_top_artists():
 
 @music_bp.route('/albums/top')
 @jwt_required()
-def get_top_albums():
+def get_top_albums_endpoint():
     """Get user's top albums from database analysis"""
     try:
         user_id = get_jwt_identity()
+        limit = int(request.args.get('limit', 10))
+
+        # Get user-specific database path
         db_path = f'data/user_{user_id}_spotify_data.db'
-        
-        # Use existing top albums function
-        top_albums_data = get_top_albums(db_path, limit=20)
-        
-        return jsonify({'albums': top_albums_data})
-        
+
+        # Initialize user-specific database
+        from modules.database import SpotifyDatabase
+        user_db = SpotifyDatabase(db_path)
+
+        # Get Spotify API for user
+        spotify_api = get_spotify_api_for_user()
+
+        # Get top albums using the same function as the original Dash app
+        top_albums_data = get_top_albums(spotify_api, limit=limit, user_db=user_db)
+
+        if top_albums_data.empty:
+            return jsonify({'albums': []})
+
+        # Convert DataFrame to list of dictionaries
+        albums_list = []
+        for _, album in top_albums_data.iterrows():
+            albums_list.append({
+                'album': album.get('album', 'Unknown Album'),
+                'artist': album.get('artist', 'Unknown Artist'),
+                'total_count': album.get('total_count', 0),
+                'image_url': album.get('image_url', ''),
+                'rank': len(albums_list) + 1
+            })
+
+        return jsonify({'albums': albums_list})
+
     except Exception as e:
+        print(f"❌ DEBUG: Top albums error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @music_bp.route('/tracks/saved')
@@ -192,34 +219,30 @@ def get_saved_tracks():
         limit = min(int(request.args.get('limit', 20)), 50)
         offset = int(request.args.get('offset', 0))
         
-        spotify_api = SpotifyAPI()
-        saved_tracks = spotify_api.get_saved_tracks(limit=limit, offset=offset)
-        
-        if not saved_tracks:
-            return jsonify({'tracks': []})
-        
+        spotify_api = get_spotify_api_for_user()
+        saved_tracks_data = spotify_api.get_saved_tracks(limit=limit)
+
+        if not saved_tracks_data:
+            return jsonify({'saved_tracks': [], 'total': 0})
+
         # Format saved tracks
+        # Note: SpotifyAPI.get_saved_tracks() returns a list of track dictionaries
         formatted_tracks = []
-        for item in saved_tracks['items']:
-            track = item['track']
+        for track in saved_tracks_data:
             formatted_tracks.append({
-                'id': track['id'],
-                'name': track['name'],
-                'artist': ', '.join([artist['name'] for artist in track['artists']]),
-                'album': track['album']['name'],
-                'added_at': item['added_at'],
-                'duration_ms': track['duration_ms'],
-                'popularity': track['popularity'],
-                'preview_url': track.get('preview_url'),
-                'external_urls': track['external_urls'],
-                'images': track['album']['images']
+                'id': track.get('id', ''),
+                'name': track.get('name', 'Unknown Track'),
+                'artist': track.get('artist', 'Unknown Artist'),
+                'album': track.get('album', 'Unknown Album'),
+                'duration_ms': track.get('duration_ms', 0),
+                'added_at': track.get('added_at', ''),
+                'images': [{'url': track.get('image_url', '')}] if track.get('image_url') else [],
+                'external_urls': {'spotify': f"https://open.spotify.com/track/{track.get('id', '')}"}
             })
-        
+
         return jsonify({
-            'tracks': formatted_tracks,
-            'total': saved_tracks['total'],
-            'limit': saved_tracks['limit'],
-            'offset': saved_tracks['offset']
+            'saved_tracks': formatted_tracks,
+            'total': len(formatted_tracks)
         })
         
     except Exception as e:
@@ -234,32 +257,30 @@ def get_playlists():
         limit = min(int(request.args.get('limit', 20)), 50)
         offset = int(request.args.get('offset', 0))
         
-        spotify_api = SpotifyAPI()
-        playlists = spotify_api.get_user_playlists(limit=limit, offset=offset)
-        
-        if not playlists:
-            return jsonify({'playlists': []})
-        
+        spotify_api = get_spotify_api_for_user()
+        playlists_data = spotify_api.get_playlists(limit=limit)
+
+        if not playlists_data:
+            return jsonify({'playlists': [], 'total': 0})
+
         # Format playlists
+        # Note: SpotifyAPI.get_playlists() returns a list of playlist dictionaries
         formatted_playlists = []
-        for playlist in playlists['items']:
+        for playlist in playlists_data:
             formatted_playlists.append({
-                'id': playlist['id'],
-                'name': playlist['name'],
-                'description': playlist.get('description'),
-                'tracks_total': playlist['tracks']['total'],
-                'public': playlist['public'],
-                'collaborative': playlist['collaborative'],
-                'owner': playlist['owner']['display_name'],
-                'external_urls': playlist['external_urls'],
-                'images': playlist['images']
+                'id': playlist.get('id', ''),
+                'name': playlist.get('name', 'Unknown Playlist'),
+                'description': playlist.get('description', ''),
+                'tracks_total': playlist.get('tracks_total', 0),
+                'public': playlist.get('public', True),
+                'owner': playlist.get('owner', 'Unknown'),
+                'external_urls': {'spotify': f"https://open.spotify.com/playlist/{playlist.get('id', '')}"},
+                'images': [{'url': playlist.get('image_url', '')}] if playlist.get('image_url') else []
             })
-        
+
         return jsonify({
             'playlists': formatted_playlists,
-            'total': playlists['total'],
-            'limit': playlists['limit'],
-            'offset': playlists['offset']
+            'total': len(formatted_playlists)
         })
         
     except Exception as e:

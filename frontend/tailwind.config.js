@@ -54,6 +54,15 @@ module.exports = {
           error: "var(--color-status-error)",
           info: "var(--color-status-info)",
         },
+        // Spotify brand colors for direct usage
+        'spotify-green': '#1DB954',
+        'spotify-green-hover': '#1ed760',
+        'spotify-green-dark': '#169c46',
+        'spotify-black': '#191414',
+        'spotify-dark-gray': '#212121',
+        'spotify-gray': '#535353',
+        'spotify-light-gray': '#B3B3B3',
+        'spotify-white': '#FFFFFF',
         // shadcn/ui compatibility colors
         foreground: "hsl(var(--foreground))",
         input: "hsl(var(--input))",
@@ -104,6 +113,10 @@ module.exports = {
         xl: "var(--font-size-xl)",
         "2xl": "var(--font-size-2xl)",
         "3xl": "var(--font-size-3xl)",
+      },
+      fontFamily: {
+        'orbitron': ['Orbitron', 'monospace'],
+        'mono': ['Orbitron', 'monospace'],
       },
       boxShadow: {
         sm: "var(--shadow-sm)",

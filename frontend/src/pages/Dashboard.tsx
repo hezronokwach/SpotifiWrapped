@@ -3,6 +3,16 @@ import axios from 'axios'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { formatNumber, formatDuration } from '../lib/utils'
+import AudioFeatures from '../components/AudioFeatures'
+import GenreChart from '../components/GenreChart'
+import SavedTracks from '../components/SavedTracks'
+import Playlists from '../components/Playlists'
+import TopAlbums from '../components/TopAlbums'
+import WrappedSummary from '../components/WrappedSummary'
+import ListeningPatterns from '../components/ListeningPatterns'
+import UserProfile from '../components/UserProfile'
+import TopTrackHighlight from '../components/TopTrackHighlight'
+import TopArtistHighlight from '../components/TopArtistHighlight'
 
 interface UserStats {
   total_tracks: number
@@ -83,15 +93,8 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-spotify-white mb-2">
-          Your Music Dashboard
-        </h1>
-        <p className="text-spotify-light-gray">
-          Discover insights about your listening habits
-        </p>
-      </div>
+      {/* User Profile Header - matches original Dash layout */}
+      <UserProfile />
 
       {/* Stats Cards */}
       {stats && (
@@ -175,6 +178,13 @@ const Dashboard: React.FC = () => {
         </Card>
       )}
 
+      {/* Top Highlights Row - matches original Dash layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TopTrackHighlight />
+        <TopArtistHighlight />
+      </div>
+
+      {/* Top Content Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Tracks */}
         <Card className="bg-spotify-dark-gray border-spotify-gray">
@@ -253,6 +263,27 @@ const Dashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Top Albums Section */}
+      <TopAlbums />
+
+      {/* Wrapped Summary Section */}
+      <WrappedSummary />
+
+      {/* Audio Analysis Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AudioFeatures />
+        <GenreChart />
+      </div>
+
+      {/* Listening Patterns Row */}
+      <ListeningPatterns />
+
+      {/* Library Content Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SavedTracks />
+        <Playlists />
       </div>
 
       {/* Refresh Button */}

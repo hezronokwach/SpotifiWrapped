@@ -1,0 +1,209 @@
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+
+interface PatternData {
+  day: string
+  day_num: number
+  hour: number
+  count: number
+}
+
+interface PatternsSummary {
+  total_plays: number
+  most_active_hour: number | null
+  most_active_day: string | null
+}
+
+interface PatternsResponse {
+  listening_patterns: PatternData[]
+  summary: PatternsSummary
+}
+
+const ListeningPatterns: React.FC = () => {
+  const [patternsData, setPatternsData] = useState<PatternsResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchPatternsData()
+  }, [])
+
+  const fetchPatternsData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await axios.get('/api/analytics/patterns')
+      setPatternsData(response.data)
+    } catch (err) {
+      console.error('Failed to fetch listening patterns:', err)
+      setError('Failed to load listening patterns')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const getHeatmapColor = (count: number, maxCount: number) => {
+    if (count === 0) return 'bg-gray-900/80'  // Dark background like original
+    const intensity = count / maxCount
+    if (intensity < 0.1) return 'bg-spotify-green/20'      // Light green
+    if (intensity < 0.3) return 'bg-spotify-green/40'      // Medium green
+    if (intensity < 0.5) return 'bg-spotify-green/60'      // Bright green
+    if (intensity < 0.7) return 'bg-cyan-400/60'           // Cyan like original
+    if (intensity < 0.9) return 'bg-purple-500/80'         // Purple like original
+    return 'bg-pink-400'                                    // Pink like original
+  }
+
+  const formatHour = (hour: number) => {
+    if (hour === 0) return '12 AM'
+    if (hour < 12) return `${hour} AM`
+    if (hour === 12) return '12 PM'
+    return `${hour - 12} PM`
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="bg-spotify-dark-gray border-spotify-gray">
+        <CardHeader>
+          <CardTitle className="text-spotify-white">🕒 Listening Patterns</CardTitle>
+          <CardDescription className="text-spotify-light-gray">
+            When you listen to music most
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-spotify-green"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error || !patternsData) {
+    return (
+      <Card className="bg-spotify-dark-gray border-spotify-gray">
+        <CardHeader>
+          <CardTitle className="text-spotify-white">🕒 Listening Patterns</CardTitle>
+          <CardDescription className="text-spotify-light-gray">
+            When you listen to music most
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-spotify-light-gray py-8">
+            {error || 'No listening patterns data available'}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const { listening_patterns, summary } = patternsData
+  const maxCount = Math.max(...listening_patterns.map(p => p.count))
+  // Use same day order as original Dash app (Monday first)
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const hours = Array.from({ length: 24 }, (_, i) => i)
+
+  // Create a lookup for pattern data - convert Sunday=0 to Monday=0 ordering
+  const patternLookup = new Map<string, number>()
+  listening_patterns.forEach(pattern => {
+    // Convert from Sunday=0 to Monday=0 ordering
+    const adjustedDayNum = pattern.day_num === 0 ? 6 : pattern.day_num - 1
+    patternLookup.set(`${adjustedDayNum}-${pattern.hour}`, pattern.count)
+  })
+
+  return (
+    <Card className="bg-spotify-dark-gray border-spotify-gray">
+      <CardHeader>
+        <CardTitle className="text-spotify-white flex items-center space-x-2">
+          <span>🕒</span>
+          <span>Your Listening Patterns (Last 7 Days)</span>
+        </CardTitle>
+        <CardDescription className="text-spotify-light-gray">
+          When you listen to music most frequently
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="text-center p-3 bg-black/20 rounded-lg">
+            <div className="text-xl font-bold text-spotify-green">
+              {summary.total_plays.toLocaleString()}
+            </div>
+            <div className="text-xs text-spotify-light-gray">Total Plays</div>
+          </div>
+          
+          <div className="text-center p-3 bg-black/20 rounded-lg">
+            <div className="text-xl font-bold text-purple-400">
+              {summary.most_active_hour !== null ? formatHour(summary.most_active_hour) : 'N/A'}
+            </div>
+            <div className="text-xs text-spotify-light-gray">Peak Hour</div>
+          </div>
+          
+          <div className="text-center p-3 bg-black/20 rounded-lg">
+            <div className="text-xl font-bold text-blue-400">
+              {summary.most_active_day || 'N/A'}
+            </div>
+            <div className="text-xs text-spotify-light-gray">Peak Day</div>
+          </div>
+        </div>
+
+        {/* Heatmap */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-spotify-white mb-3">Activity Heatmap</h3>
+          
+          {/* Hour labels */}
+          <div className="flex gap-1 text-xs text-spotify-light-gray mb-2">
+            <div className="w-16"></div> {/* Empty space for day labels */}
+            <div className="flex-1 flex justify-between">
+              {[0, 6, 12, 18].map(hour => (
+                <div key={hour} className="text-center">
+                  {formatHour(hour)}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Heatmap grid */}
+          <div className="space-y-1">
+            {days.map((day, dayIndex) => (
+              <div key={day} className="flex gap-1 items-center">
+                <div className="text-xs text-spotify-light-gray font-medium w-16">
+                  {day.slice(0, 3)}
+                </div>
+                <div className="flex gap-1 flex-1">
+                  {hours.map(hour => {
+                    const count = patternLookup.get(`${dayIndex}-${hour}`) || 0
+                    return (
+                      <div
+                        key={`${dayIndex}-${hour}`}
+                        className={`h-3 flex-1 rounded-sm ${getHeatmapColor(count, maxCount)} transition-colors min-w-[8px]`}
+                        title={`${day} ${formatHour(hour)}: ${count} plays`}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* Legend - matching original's sophisticated colorscale */}
+          <div className="flex items-center justify-center space-x-2 mt-4">
+            <span className="text-xs text-spotify-light-gray">Less</span>
+            <div className="flex space-x-1">
+              <div className="h-3 w-3 bg-gray-900/80 rounded-sm"></div>
+              <div className="h-3 w-3 bg-spotify-green/20 rounded-sm"></div>
+              <div className="h-3 w-3 bg-spotify-green/40 rounded-sm"></div>
+              <div className="h-3 w-3 bg-spotify-green/60 rounded-sm"></div>
+              <div className="h-3 w-3 bg-cyan-400/60 rounded-sm"></div>
+              <div className="h-3 w-3 bg-purple-500/80 rounded-sm"></div>
+              <div className="h-3 w-3 bg-pink-400 rounded-sm"></div>
+            </div>
+            <span className="text-xs text-spotify-light-gray">More</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export default ListeningPatterns

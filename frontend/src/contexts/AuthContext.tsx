@@ -111,57 +111,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     axios.post('/api/auth/logout').catch(console.error)
   }
 
-  // Handle OAuth callback - check on every render and when token changes
-  useEffect(() => {
-    const checkForOAuthCallback = () => {
-      const urlParams = new URLSearchParams(window.location.search)
-      const code = urlParams.get('code')
-      const error = urlParams.get('error')
-
-      console.log('🔍 AuthContext: Checking URL for OAuth callback')
-      console.log('🔍 AuthContext: Current URL:', window.location.href)
-      console.log('🔍 AuthContext: Code:', code ? 'Present' : 'None')
-      console.log('🔍 AuthContext: Error:', error)
-      console.log('🔍 AuthContext: Current token:', token ? 'Present' : 'None')
-
-      if (error) {
-        console.error('OAuth error:', error)
-        setIsLoading(false)
-        return
-      }
-
-      if (code && !token) {
-        console.log('🔍 AuthContext: Processing OAuth callback...')
-        handleOAuthCallback(code)
-      }
-    }
-
-    checkForOAuthCallback()
-
-    // Listen for manual OAuth trigger
-    const handleForceOAuthCheck = () => {
-      console.log('🔍 AuthContext: Manual OAuth check triggered')
-      checkForOAuthCallback()
-    }
-
-    window.addEventListener('forceOAuthCheck', handleForceOAuthCheck)
-
-    return () => {
-      window.removeEventListener('forceOAuthCheck', handleForceOAuthCheck)
-    }
-  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
-
-  // Also check for OAuth callback when component mounts or URL changes
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const code = urlParams.get('code')
-
-    if (code && !token) {
-      console.log('🔍 AuthContext: URL change detected with OAuth code, processing...')
-      handleOAuthCallback(code)
-    }
-  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
-
   const handleOAuthCallback = useCallback(async (code: string) => {
     try {
       console.log('🔍 AuthContext: Starting OAuth callback processing...')
@@ -216,6 +165,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(false)
     }
   }, []) // No dependencies needed as it only uses stable state setters
+
+  // Handle OAuth callback - check on every render and when token changes
+  useEffect(() => {
+    const checkForOAuthCallback = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
+      const error = urlParams.get('error')
+
+      console.log('🔍 AuthContext: Checking URL for OAuth callback')
+      console.log('🔍 AuthContext: Current URL:', window.location.href)
+      console.log('🔍 AuthContext: Code:', code ? 'Present' : 'None')
+      console.log('🔍 AuthContext: Error:', error)
+      console.log('🔍 AuthContext: Current token:', token ? 'Present' : 'None')
+
+      if (error) {
+        console.error('OAuth error:', error)
+        setIsLoading(false)
+        return
+      }
+
+      if (code && !token) {
+        console.log('🔍 AuthContext: Processing OAuth callback...')
+        handleOAuthCallback(code)
+      }
+    }
+
+    checkForOAuthCallback()
+
+    // Listen for manual OAuth trigger
+    const handleForceOAuthCheck = () => {
+      console.log('🔍 AuthContext: Manual OAuth check triggered')
+      checkForOAuthCallback()
+    }
+
+    window.addEventListener('forceOAuthCheck', handleForceOAuthCheck)
+
+    return () => {
+      window.removeEventListener('forceOAuthCheck', handleForceOAuthCheck)
+    }
+  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
+
+  // Also check for OAuth callback when component mounts or URL changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const code = urlParams.get('code')
+
+    if (code && !token) {
+      console.log('🔍 AuthContext: URL change detected with OAuth code, processing...')
+      handleOAuthCallback(code)
+    }
+  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
+
 
   const value: AuthContextType = {
     user,
