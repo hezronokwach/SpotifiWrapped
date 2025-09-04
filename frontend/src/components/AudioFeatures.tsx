@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -56,7 +56,7 @@ const AudioFeatures: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/analytics/audio-features')
+      const response = await api.get('/analytics/audio-features')
       setAudioFeatures(response.data)
     } catch (err) {
       console.error('Failed to fetch audio features:', err)

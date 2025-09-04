@@ -106,14 +106,16 @@ def get_top_tracks():
         for track in top_tracks:  # top_tracks is already a list, not a dict with 'items'
             formatted_tracks.append({
                 'id': track['id'],
-                'name': track['name'],
+                'track': track.get('track', track.get('name', 'Unknown Track')),  # PRIMARY field for React
+                'name': track.get('name', track.get('track', 'Unknown Track')),   # Compatibility field
                 'artist': track['artist'],  # SpotifyAPI already processes this as a string
                 'album': track['album'],
                 'popularity': track['popularity'],
                 'duration_ms': track['duration_ms'],
                 'preview_url': track.get('preview_url'),
                 'external_urls': {'spotify': f"https://open.spotify.com/track/{track['id']}"},  # Construct URL
-                'images': [{'url': track['image_url']}] if track.get('image_url') else []
+                'images': [{'url': track['image_url']}] if track.get('image_url') else [],
+                'image_url': track.get('image_url', '')  # Add direct image_url field
             })
         
         return jsonify({'tracks': formatted_tracks})
@@ -151,12 +153,14 @@ def get_top_artists():
         for artist in top_artists:  # top_artists is already a list, not a dict with 'items'
             formatted_artists.append({
                 'id': artist['id'],
-                'name': artist['artist'],  # SpotifyAPI uses 'artist' key for name
+                'artist': artist['artist'],  # Keep consistent with React types - PRIMARY field
+                'name': artist['artist'],    # Also provide 'name' for compatibility
                 'genres': artist['genres'].split(', ') if artist['genres'] != 'Unknown' else [],  # Convert back to list
                 'popularity': artist['popularity'],
                 'followers': artist['followers'],  # SpotifyAPI already extracts the total
                 'external_urls': {'spotify': f"https://open.spotify.com/artist/{artist['id']}"},  # Construct URL
-                'images': [{'url': artist['image_url']}] if artist.get('image_url') else []
+                'images': [{'url': artist['image_url']}] if artist.get('image_url') else [],
+                'image_url': artist.get('image_url', '')  # Add direct image_url field
             })
         
         return jsonify({'artists': formatted_artists})
@@ -231,12 +235,14 @@ def get_saved_tracks():
         for track in saved_tracks_data:
             formatted_tracks.append({
                 'id': track.get('id', ''),
-                'name': track.get('name', 'Unknown Track'),
+                'track': track.get('track', track.get('name', 'Unknown Track')),  # PRIMARY field
+                'name': track.get('name', track.get('track', 'Unknown Track')),   # Compatibility
                 'artist': track.get('artist', 'Unknown Artist'),
                 'album': track.get('album', 'Unknown Album'),
                 'duration_ms': track.get('duration_ms', 0),
                 'added_at': track.get('added_at', ''),
                 'images': [{'url': track.get('image_url', '')}] if track.get('image_url') else [],
+                'image_url': track.get('image_url', ''),  # Add direct field
                 'external_urls': {'spotify': f"https://open.spotify.com/track/{track.get('id', '')}"}
             })
 
@@ -275,7 +281,8 @@ def get_playlists():
                 'public': playlist.get('public', True),
                 'owner': playlist.get('owner', 'Unknown'),
                 'external_urls': {'spotify': f"https://open.spotify.com/playlist/{playlist.get('id', '')}"},
-                'images': [{'url': playlist.get('image_url', '')}] if playlist.get('image_url') else []
+                'images': [{'url': playlist.get('image_url', '')}] if playlist.get('image_url') else [],
+                'image_url': playlist.get('image_url', '')  # Add direct field
             })
 
         return jsonify({
@@ -300,21 +307,23 @@ def get_current_track():
         current_track = spotify_api.get_currently_playing()
         print(f"🔍 DEBUG: Current track response: {current_track is not None}")
         
-        if not current_track or not current_track.get('item'):
+        if not current_track or not current_track.get('track'):
             return jsonify({'currently_playing': None})
         
-        track = current_track['item']
+        # SpotifyAPI.get_currently_playing() returns processed format, not raw Spotify API
         formatted_track = {
-            'id': track['id'],
-            'name': track['name'],
-            'artist': ', '.join([artist['name'] for artist in track['artists']]),
-            'album': track['album']['name'],
-            'duration_ms': track['duration_ms'],
+            'id': current_track.get('id', ''),
+            'track': current_track.get('track', 'Unknown Track'),  # PRIMARY field
+            'name': current_track.get('track', 'Unknown Track'),   # Compatibility
+            'artist': current_track.get('artist', 'Unknown Artist'),
+            'album': current_track.get('album', 'Unknown Album'),
+            'duration_ms': current_track.get('duration_ms', 0),
             'progress_ms': current_track.get('progress_ms', 0),
             'is_playing': current_track.get('is_playing', False),
-            'preview_url': track.get('preview_url'),
-            'external_urls': track['external_urls'],
-            'images': track['album']['images']
+            'preview_url': current_track.get('preview_url'),
+            'external_urls': {'spotify': f"https://open.spotify.com/track/{current_track.get('id', '')}"},
+            'images': [{'url': current_track.get('image_url', '')}] if current_track.get('image_url') else [],
+            'image_url': current_track.get('image_url', '')
         }
         
         return jsonify({'currently_playing': formatted_track})

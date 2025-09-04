@@ -5,8 +5,8 @@
 
 export interface Track {
   id: string
-  track?: string  // API uses this field for track name
-  name?: string   // Alternative field name for compatibility
+  track?: string  // PRIMARY field from API
+  name?: string   // Alternative field for compatibility
   artist: string
   album: string
   duration_ms: number
@@ -23,12 +23,15 @@ export interface Track {
   valence?: number
   tempo?: number
   acousticness?: number
+  // Current playing state
+  progress_ms?: number
+  is_playing?: boolean
 }
 
 export interface Artist {
   id: string
-  artist?: string  // API uses this field for artist name
-  name?: string    // Alternative field name for compatibility
+  artist?: string  // PRIMARY field from API
+  name?: string    // Alternative field for compatibility
   genres: string | string[]
   followers: number
   popularity: number

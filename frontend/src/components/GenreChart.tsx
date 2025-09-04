@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import {
   Chart as ChartJS,
   ArcElement,
@@ -32,7 +32,7 @@ const GenreChart: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/analytics/genres')
+      const response = await api.get('/analytics/genres')
       setGenreData(response.data)
     } catch (err) {
       console.error('Failed to fetch genre data:', err)

@@ -107,6 +107,33 @@ def get_profile():
         print(f"❌ Profile error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@user_bp.route('/collect-data', methods=['POST'])
+@jwt_required()
+def collect_initial_data():
+    """Collect initial user data from Spotify API"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        
+        # Initialize components
+        from modules.data_collector import SpotifyDataCollector
+        spotify_api = get_spotify_api_for_user()
+        
+        if not spotify_api:
+            return jsonify({'error': 'Failed to initialize Spotify API'}), 500
+            
+        # Initialize data collector
+        collector = SpotifyDataCollector(spotify_api, db_path)
+        
+        # Collect basic data using the correct method
+        collector.collect_historical_data(user_id)
+        
+        return jsonify({'message': 'Data collection completed successfully'})
+        
+    except Exception as e:
+        print(f"❌ Data collection error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @user_bp.route('/stats')
 @jwt_required()
 def get_stats():

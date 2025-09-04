@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { formatDuration } from '../lib/utils'
 
@@ -32,7 +32,7 @@ const SavedTracks: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/music/tracks/saved?limit=10')
+      const response = await api.get('/music/tracks/saved?limit=10')
       setSavedTracks(response.data)
     } catch (err) {
       console.error('Failed to fetch saved tracks:', err)

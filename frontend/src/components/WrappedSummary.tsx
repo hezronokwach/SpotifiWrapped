@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 
 interface WrappedTrack {
@@ -44,7 +44,7 @@ const WrappedSummary: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/analytics/wrapped')
+      const response = await api.get('/analytics/wrapped')
       setWrappedData(response.data)
     } catch (err) {
       console.error('Failed to fetch wrapped data:', err)

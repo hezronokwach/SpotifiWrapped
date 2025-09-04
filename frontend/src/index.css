@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Spotify component styles */
+@import './spotify-components.css';
+
+/* Add Orbitron font for stats */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
 @layer base {
   :root {
     /* Spotify Brand Colors */

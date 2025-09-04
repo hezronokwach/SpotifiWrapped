@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import api from '../api'
 
 interface UserData {
   display_name: string
@@ -15,7 +15,7 @@ const UserProfile: React.FC = () => {
 
   const fetchUserData = useCallback(async () => {
     try {
-      const response = await axios.get('/api/user/profile')
+      const response = await api.get('/user/profile')
       setUserData(response.data)
     } catch (err) {
       console.error('Failed to fetch user profile:', err)

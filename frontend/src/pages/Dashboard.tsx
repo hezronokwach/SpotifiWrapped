@@ -56,23 +56,29 @@ const Dashboard: React.FC = () => {
     try {
       setIsLoading(true)
 
+      // Import the configured API client
+      const { default: api } = await import('../api')
+      
       // First test the JWT token
       console.log('🔍 Dashboard: Testing JWT token...')
-      const testRes = await axios.get('/api/music/test')
+      const testRes = await api.get('/music/test')
       console.log('🔍 Dashboard: JWT test result:', testRes.data)
 
-      // Fetch all dashboard data in parallel
-      const [statsRes, tracksRes, artistsRes, currentRes] = await Promise.all([
-        axios.get('/api/user/stats'),
-        axios.get('/api/music/tracks/top?limit=10'),
-        axios.get('/api/music/artists/top?limit=10'),
-        axios.get('/api/music/tracks/current')
-      ])
+      // Fetch dashboard data sequentially to avoid overwhelming the backend
+      console.log('🔍 Dashboard: Fetching user stats...')
+      const statsRes = await api.get('/user/stats')
+      console.log('🔍 Dashboard: Fetching top tracks...')
+      const tracksRes = await api.get('/music/tracks/top?limit=10')
+      console.log('🔍 Dashboard: Fetching top artists...')
+      const artistsRes = await api.get('/music/artists/top?limit=10')
+      console.log('🔍 Dashboard: Fetching current track...')
+      const currentRes = await api.get('/music/tracks/current')
+      console.log('🔍 Dashboard: All data fetched successfully')
 
       setStats(statsRes.data)
-      setTopTracks(tracksRes.data.tracks)
-      setTopArtists(artistsRes.data.artists)
-      setCurrentTrack(currentRes.data.currently_playing)
+      setTopTracks(tracksRes.data.tracks || [])
+      setTopArtists(artistsRes.data.artists || [])
+      setCurrentTrack(currentRes.data.currently_playing || null)
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {

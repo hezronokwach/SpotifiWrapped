@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 
 interface Playlist {
@@ -31,7 +31,7 @@ const Playlists: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/music/playlists?limit=8')
+      const response = await api.get('/music/playlists?limit=8')
       setPlaylists(response.data)
     } catch (err) {
       console.error('Failed to fetch playlists:', err)

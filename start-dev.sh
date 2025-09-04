@@ -1,91 +1,112 @@
 #!/bin/bash
 
-# Simple development startup script
-set -e
+# SpotifiWrapped Development Startup Script
+# Starts both Flask API and React frontend in development mode
 
-# Colors
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m'
+echo "🎵 Starting SpotifiWrapped Development Environment..."
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if setup has been run
-if [ ! -d "venv" ] || [ ! -d "frontend/node_modules" ]; then
-    log_error "Setup not completed. Please run: ./scripts/setup-dev.sh"
+# Check if Python is installed
+if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
+    echo "❌ Python is not installed or not in PATH"
+    echo ""
+    echo "Please install Python first:"
+    echo "📥 Windows: Download from https://python.org/downloads/"
+    echo "📥 macOS: brew install python3"
+    echo "📥 Ubuntu/Debian: sudo apt install python3 python3-pip python3-venv"
+    echo "📥 CentOS/RHEL: sudo yum install python3 python3-pip"
+    echo ""
+    echo "Make sure to add Python to your PATH during installation"
     exit 1
 fi
 
-# Check if .env exists
-if [ ! -f ".env" ]; then
-    log_warn "No .env file found. Creating from template..."
-    cp .env.example .env
-    log_warn "Please edit .env file with your configuration before continuing"
-    exit 1
+# Determine Python command
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD=python3
+elif command -v python &> /dev/null; then
+    PYTHON_CMD=python
 fi
 
-log_info "🚀 Starting Spotify Analytics in development mode..."
+echo "🐍 Using Python: $PYTHON_CMD"
 
-# Function to start backend
-start_backend() {
-    log_info "Starting Flask backend..."
+# Check if virtual environment exists
+if [ ! -d "venv" ]; then
+    echo "📦 Creating Python virtual environment..."
+    $PYTHON_CMD -m venv venv
+fi
+
+# Activate virtual environment
+echo "🔧 Activating virtual environment..."
+if [ -f "venv/bin/activate" ]; then
     source venv/bin/activate
-    python api_app.py &
-    BACKEND_PID=$!
-    echo $BACKEND_PID > .backend.pid
-}
+elif [ -f "venv/Scripts/activate" ]; then
+    source venv/Scripts/activate
+else
+    echo "❌ Could not find virtual environment activation script"
+    exit 1
+fi
 
-# Function to start frontend
-start_frontend() {
-    log_info "Starting React frontend..."
-    cd frontend
-    npm run dev &
-    FRONTEND_PID=$!
-    echo $FRONTEND_PID > ../.frontend.pid
-    cd ..
-}
+# Install Python dependencies
+echo "📥 Installing Python dependencies..."
+pip install -r requirements.txt
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo "⚙️ Creating .env file from template..."
+    cp .env.example .env
+    echo "⚠️  Please edit .env file with your Spotify API credentials!"
+    echo "   SPOTIFY_CLIENT_ID=your_client_id"
+    echo "   SPOTIFY_CLIENT_SECRET=your_client_secret"
+    echo "   SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/callback"
+    read -p "Press Enter after updating .env file..."
+fi
+
+# Start Flask API in background
+echo "🚀 Starting Flask API server on port 5000..."
+$PYTHON_CMD api_app.py &
+FLASK_PID=$!
+
+# Wait for Flask to start
+sleep 3
+
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is not installed. Please install Node.js 16+ and try again."
+    kill $FLASK_PID
+    exit 1
+fi
+
+# Install frontend dependencies
+echo "📦 Installing Node.js dependencies..."
+cd frontend
+npm install
+
+# Start React development server
+echo "🎨 Starting React development server on port 3000..."
+npm run dev &
+REACT_PID=$!
+
+# Wait for React to start
+sleep 5
+
+echo ""
+echo "✅ SpotifiWrapped is now running!"
+echo "🌐 Frontend: http://localhost:3000"
+echo "🔌 API: http://localhost:5000"
+echo ""
+echo "Press Ctrl+C to stop all servers"
 
 # Function to cleanup on exit
 cleanup() {
-    log_info "Shutting down servers..."
-    
-    if [ -f ".backend.pid" ]; then
-        kill $(cat .backend.pid) 2>/dev/null || true
-        rm .backend.pid
-    fi
-    
-    if [ -f ".frontend.pid" ]; then
-        kill $(cat .frontend.pid) 2>/dev/null || true
-        rm .frontend.pid
-    fi
-    
-    log_info "Servers stopped"
+    echo ""
+    echo "🛑 Stopping servers..."
+    kill $FLASK_PID 2>/dev/null
+    kill $REACT_PID 2>/dev/null
+    echo "✅ All servers stopped"
     exit 0
 }
 
-# Set up signal handlers
+# Set trap to cleanup on script exit
 trap cleanup SIGINT SIGTERM
 
-# Start services
-start_backend
-sleep 3  # Give backend time to start
-start_frontend
-
-log_info "🎉 Development servers started!"
-log_info "Backend: http://localhost:5000"
-log_info "Frontend: http://localhost:3000"
-log_info "Press Ctrl+C to stop both servers"
-
-# Wait for user to stop
+# Keep script running
 wait

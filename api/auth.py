@@ -134,7 +134,38 @@ def callback():
                 'client_secret': client_secret
             }
         )
+        
+        # Automatically collect initial data for new users
+        try:
+            from modules.data_collector import SpotifyDataCollector
+            from modules.database import SpotifyDatabase
+            
+            user_id = user_profile['id']
+            db_path = f'data/user_{user_id}_spotify_data.db'
+            user_db = SpotifyDatabase(db_path)
+            
+            # Check if user already has data
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM tracks')
+            track_count = cursor.fetchone()[0]
+            conn.close()
+            
+            # Only collect data if database is empty
+            if track_count == 0:
+                print(f'🔍 DEBUG: Collecting initial data for new user {user_id}')
+                collector = SpotifyDataCollector(spotify_api, user_db)
+                collector.collect_historical_data(user_id)
+                print(f'✅ DEBUG: Initial data collection completed for {user_id}')
+            else:
+                print(f'🔍 DEBUG: User {user_id} already has {track_count} tracks, skipping data collection')
+                
+        except Exception as e:
+            print(f'⚠️ DEBUG: Data collection failed during auth: {e}')
+            # Don't fail the authentication if data collection fails
 
+        
         return jsonify({
             'access_token': access_token,
             'refresh_token': token_info.get('refresh_token'),

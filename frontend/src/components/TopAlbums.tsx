@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 
 interface Album {
@@ -27,7 +27,7 @@ const TopAlbums: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await axios.get('/api/music/albums/top?limit=6')
+      const response = await api.get('/music/albums/top?limit=6')
       setTopAlbums(response.data)
     } catch (err) {
       console.error('Failed to fetch top albums:', err)
@@ -83,7 +83,20 @@ const TopAlbums: React.FC = () => {
           </p>
         </div>
         <div className="text-center py-12" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-          {error || 'No album data available'}
+          {error ? `Error: ${error}` : 'Start listening to music to see your top albums here!'}
+          <div className="mt-4">
+            <button 
+              onClick={fetchTopAlbums}
+              className="px-4 py-2 rounded-lg text-sm"
+              style={{
+                background: 'linear-gradient(45deg, #1DB954, #00D4FF)',
+                color: '#000',
+                border: 'none'
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
     )
