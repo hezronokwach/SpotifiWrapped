@@ -193,26 +193,23 @@ def get_stats():
             playlists = spotify_api.get_playlists()
             api_stats['total_playlists'] = len(playlists) if playlists else 0
 
-            # If database is empty, get some stats from API
-            if db_stats['total_tracks'] == 0:
-                # Get top tracks to show some data
-                top_tracks = spotify_api.get_top_tracks(limit=50)
-                if top_tracks:
-                    api_stats['total_tracks'] = len(top_tracks)
-                    # Extract unique artists and albums from top tracks
-                    artists = set()
-                    albums = set()
-                    total_duration = 0
-
-                    for track in top_tracks:
-                        artists.add(track.get('artist', ''))
-                        albums.add(track.get('album', ''))
-                        total_duration += track.get('duration_ms', 0)
-
-                    api_stats['total_artists'] = len(artists)
-                    api_stats['total_albums'] = len(albums)
-                    api_stats['listening_time_minutes'] = round(total_duration / 60000, 2)
-
+            # Get top tracks for real-time display
+            top_tracks = spotify_api.get_top_tracks(limit=20)
+            if top_tracks:
+                api_stats['api_tracks'] = len(top_tracks)
+                artists = set(track.get('artist', '') for track in top_tracks)
+                albums = set(track.get('album', '') for track in top_tracks)
+                api_stats['api_artists'] = len(artists)
+                api_stats['api_albums'] = len(albums)
+                
+            # If database is empty, use API data as fallback
+            if db_stats['total_tracks'] == 0 and api_stats.get('api_tracks'):
+                db_stats.update({
+                    'total_tracks': api_stats['api_tracks'],
+                    'total_artists': api_stats['api_artists'], 
+                    'total_albums': api_stats['api_albums']
+                })
+                
         except Exception as api_error:
             print(f"API query error: {api_error}")
 
