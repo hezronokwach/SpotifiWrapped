@@ -4,7 +4,7 @@ Replaces the Dash-based frontend with a proper REST API backend
 """
 
 from flask import Flask, jsonify, request
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, verify_jwt_in_request
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
@@ -47,6 +47,23 @@ def create_app():
          allow_headers=['Content-Type', 'Authorization'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
+    # Token validation middleware
+    @app.before_request
+    def check_token():
+        # Skip token validation for auth endpoints and health checks
+        if (request.endpoint and 
+            ('auth' in request.endpoint or 
+             request.endpoint in ['health_check', 'debug_info'] or
+             request.method == 'OPTIONS')):
+            return
+        
+        # Only validate tokens for API endpoints
+        if request.path.startswith('/api/') and not request.path.startswith('/api/auth'):
+            try:
+                verify_jwt_in_request()
+            except Exception as e:
+                return jsonify({'error': 'Invalid or expired token'}), 401
+    
     # Security headers
     @app.after_request
     def add_security_headers(response):

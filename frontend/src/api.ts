@@ -14,8 +14,18 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout for album analysis
 })
 
-// Request interceptor to add auth token
-api.interceptors.request.use((config) => {
+// Check if token is expired
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp * 1000 < Date.now()
+  } catch {
+    return true
+  }
+}
+
+// Get valid token with expiration check
+function getValidToken(): string | null {
   let token = null
   
   // Try auth_session first (primary storage)
@@ -30,6 +40,20 @@ api.interceptors.request.use((config) => {
     token = localStorage.getItem('auth_token')
   }
   
+  // Check if token is expired
+  if (token && isTokenExpired(token)) {
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('auth_session')
+    return null
+  }
+  
+  return token
+}
+
+// Request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = getValidToken()
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -40,14 +64,19 @@ api.interceptors.request.use((config) => {
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     console.error('API Error:', error.response?.data || error.message)
     
     if (error.response?.status === 401) {
-      // Token expired, clear session but don't redirect immediately
+      // Token expired, clear session and redirect to auth
       localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_session')
-      console.log('🔍 API: 401 error - session cleared')
+      console.log('🔍 API: 401 error - redirecting to auth')
+      
+      // Redirect to auth page
+      if (window.location.pathname !== '/auth') {
+        window.location.href = '/auth'
+      }
     }
     
     return Promise.reject(error)
@@ -102,6 +131,56 @@ export function clearCache(key?: string) {
   } else {
     cache.clear()
   }
+}
+
+/**
+ * Refresh JWT token
+ */
+export async function refreshToken(): Promise<string | null> {
+  try {
+    const response = await api.post('/auth/refresh')
+    const newToken = response.data.access_token
+    
+    // Update stored token
+    try {
+      const sessionData = localStorage.getItem('auth_session')
+      if (sessionData) {
+        const session = JSON.parse(sessionData)
+        session.token = newToken
+        localStorage.setItem('auth_session', JSON.stringify(session))
+      } else {
+        localStorage.setItem('auth_token', newToken)
+      }
+    } catch {
+      localStorage.setItem('auth_token', newToken)
+    }
+    
+    return newToken
+  } catch (error) {
+    console.error('Token refresh failed:', error)
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('auth_session')
+    window.location.href = '/auth'
+    return null
+  }
+}
+
+/**
+ * Authentication API calls
+ */
+export const authApi = {
+  refresh: () => refreshToken(),
+  
+  validateCredentials: (clientId: string, clientSecret: string) =>
+    api.post('/auth/validate-credentials', { clientId, clientSecret }),
+    
+  login: (clientId: string, clientSecret: string) =>
+    api.post('/auth/login', { client_id: clientId, client_secret: clientSecret }),
+    
+  callback: (code: string, clientId: string, clientSecret: string) =>
+    api.post('/auth/callback', { code, client_id: clientId, client_secret: clientSecret }),
+    
+  status: () => api.get('/auth/status')
 }
 
 /**

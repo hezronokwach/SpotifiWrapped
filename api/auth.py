@@ -213,38 +213,25 @@ def callback():
         return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/refresh', methods=['POST'])
+@jwt_required()
 def refresh_token():
-    """Refresh Spotify access token"""
+    """Refresh JWT access token"""
     try:
-        data = request.get_json()
-        refresh_token = data.get('refresh_token')
+        current_user = get_jwt_identity()
+        
+        # Create new access token with extended expiry
+        new_access_token = create_access_token(
+            identity=current_user,
+            expires_delta=timedelta(hours=1)
+        )
 
-        if not refresh_token:
-            return jsonify({'error': 'Refresh token required'}), 400
-
-        # Get client credentials from JWT claims (if available)
-        try:
-            from flask_jwt_extended import decode_token
-            # This is a simplified approach - in production, store refresh tokens securely
-            # For now, we'll return a new access token with extended expiry
-
-            # Create new access token
-            new_access_token = create_access_token(
-                identity='refreshed_user',  # This should be the actual user ID
-                expires_delta=timedelta(hours=1)
-            )
-
-            return jsonify({
-                'access_token': new_access_token,
-                'expires_in': 3600,
-                'refresh_token': refresh_token  # Return same refresh token
-            })
-
-        except Exception as decode_error:
-            return jsonify({'error': 'Invalid refresh token'}), 401
+        return jsonify({
+            'access_token': new_access_token,
+            'expires_in': 3600
+        })
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Failed to refresh token'}), 401
 
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
