@@ -132,7 +132,7 @@ const TopTrackHighlight: React.FC = () => {
                   WebkitTextFillColor: 'transparent',
                   textShadow: '0 0 20px rgba(29, 185, 84, 0.3)'
                 }}>
-                  #1
+                  {Math.round((topTrack.duration_ms || 0) / 60000)}:{String(Math.round(((topTrack.duration_ms || 0) % 60000) / 1000)).padStart(2, '0')}
                 </div>
                 <div style={{
                   fontSize: '11px',
@@ -142,7 +142,7 @@ const TopTrackHighlight: React.FC = () => {
                   letterSpacing: '1px',
                   fontFamily: "'Orbitron', monospace"
                 }}>
-                  RANK
+                  DURATION
                 </div>
               </div>
               <div style={{ textAlign: 'center' }}>

@@ -103,15 +103,41 @@ const Playlists: React.FC = () => {
   }
 
   return (
-    <Card className="bg-spotify-dark-gray border-spotify-gray">
-      <CardHeader>
-        <CardTitle className="text-spotify-white">Your Playlists</CardTitle>
-        <CardDescription className="text-spotify-light-gray">
+    <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
+         style={{
+           background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
+           border: '1px solid rgba(0, 212, 255, 0.3)',
+           boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(0, 212, 255, 0.1)',
+           backdropFilter: 'blur(10px)'
+         }}>
+      <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-300"
+           style={{
+             background: 'linear-gradient(45deg, rgba(0, 212, 255, 0.3), rgba(29, 185, 84, 0.3), rgba(139, 92, 246, 0.3), rgba(0, 212, 255, 0.3))',
+             backgroundSize: '400% 400%',
+             animation: 'gradientShift 8s ease infinite',
+             zIndex: -1
+           }}>
+      </div>
+      <div className="mb-6">
+        <h3 className="text-2xl font-bold mb-2 font-orbitron"
+            style={{
+              background: 'linear-gradient(45deg, #00D4FF, #1DB954, #8b5cf6)',
+              backgroundSize: '200% 200%',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px',
+              textShadow: '0 0 20px rgba(0, 212, 255, 0.3)'
+            }}>
+          Your Playlists
+        </h3>
+        <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
           {playlists.total} playlists • Showing {Math.min(8, playlists.playlists.length)}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        </p>
+      </div>
+      <div>
+        <div className="space-y-3">
           {playlists.playlists.slice(0, 8).map((playlist) => (
             <div 
               key={playlist.id} 
@@ -184,8 +210,8 @@ const Playlists: React.FC = () => {
             </button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 

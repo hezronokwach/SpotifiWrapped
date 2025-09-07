@@ -132,7 +132,7 @@ const TopArtistHighlight: React.FC = () => {
                   WebkitTextFillColor: 'transparent',
                   textShadow: '0 0 20px rgba(139, 92, 246, 0.3)'
                 }}>
-                  #1
+                  {topArtist.followers ? `${Math.round(topArtist.followers / 1000)}K` : '—'}
                 </div>
                 <div style={{
                   fontSize: '11px',
@@ -142,7 +142,7 @@ const TopArtistHighlight: React.FC = () => {
                   letterSpacing: '1px',
                   fontFamily: "'Orbitron', monospace"
                 }}>
-                  RANK
+                  FOLLOWERS
                 </div>
               </div>
               <div style={{ textAlign: 'center' }}>

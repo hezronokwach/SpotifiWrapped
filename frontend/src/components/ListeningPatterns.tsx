@@ -63,37 +63,61 @@ const ListeningPatterns: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Card className="bg-spotify-dark-gray border-spotify-gray">
-        <CardHeader>
-          <CardTitle className="text-spotify-white">🕒 Listening Patterns</CardTitle>
-          <CardDescription className="text-spotify-light-gray">
-            When you listen to music most
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-spotify-green"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
+           style={{
+             background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
+             border: '1px solid rgba(29, 185, 84, 0.3)',
+             boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(29, 185, 84, 0.1)',
+             backdropFilter: 'blur(10px)'
+           }}>
+        <div className="mb-6">
+          <h3 className="text-2xl font-bold mb-2 font-orbitron"
+              style={{
+                background: 'linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6)',
+                backgroundSize: '200% 200%',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textTransform: 'uppercase',
+                letterSpacing: '1.5px'
+              }}>
+            🕒 Listening Patterns
+          </h3>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+        </div>
+      </div>
     )
   }
 
   if (error || !patternsData) {
     return (
-      <Card className="bg-spotify-dark-gray border-spotify-gray">
-        <CardHeader>
-          <CardTitle className="text-spotify-white">🕒 Listening Patterns</CardTitle>
-          <CardDescription className="text-spotify-light-gray">
-            When you listen to music most
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-spotify-light-gray py-8">
-            {error || 'No listening patterns data available'}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
+           style={{
+             background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
+             border: '1px solid rgba(29, 185, 84, 0.3)',
+             boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(29, 185, 84, 0.1)',
+             backdropFilter: 'blur(10px)'
+           }}>
+        <div className="mb-6">
+          <h3 className="text-2xl font-bold mb-2 font-orbitron"
+              style={{
+                background: 'linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6)',
+                backgroundSize: '200% 200%',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textTransform: 'uppercase',
+                letterSpacing: '1.5px'
+              }}>
+            🕒 Listening Patterns
+          </h3>
+        </div>
+        <div className="text-center py-8" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          {error || 'No listening patterns data available'}
+        </div>
+      </div>
     )
   }
 
@@ -112,17 +136,40 @@ const ListeningPatterns: React.FC = () => {
   })
 
   return (
-    <Card className="bg-spotify-dark-gray border-spotify-gray">
-      <CardHeader>
-        <CardTitle className="text-spotify-white flex items-center space-x-2">
-          <span>🕒</span>
-          <span>Your Listening Patterns (Last 7 Days)</span>
-        </CardTitle>
-        <CardDescription className="text-spotify-light-gray">
+    <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
+         style={{
+           background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
+           border: '1px solid rgba(29, 185, 84, 0.3)',
+           boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(29, 185, 84, 0.1)',
+           backdropFilter: 'blur(10px)'
+         }}>
+      <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-300"
+           style={{
+             background: 'linear-gradient(45deg, rgba(29, 185, 84, 0.3), rgba(0, 212, 255, 0.3), rgba(139, 92, 246, 0.3), rgba(29, 185, 84, 0.3))',
+             backgroundSize: '400% 400%',
+             animation: 'gradientShift 8s ease infinite',
+             zIndex: -1
+           }}>
+      </div>
+      <div className="mb-6">
+        <h3 className="text-2xl font-bold mb-2 font-orbitron"
+            style={{
+              background: 'linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6)',
+              backgroundSize: '200% 200%',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px',
+              textShadow: '0 0 20px rgba(29, 185, 84, 0.3)'
+            }}>
+          🕒 Listening Patterns
+        </h3>
+        <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
           When you listen to music most frequently
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </p>
+      </div>
+      <div className="space-y-4">
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center p-3 bg-black/20 rounded-lg">
@@ -201,8 +248,8 @@ const ListeningPatterns: React.FC = () => {
             <span className="text-xs text-spotify-light-gray">More</span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
