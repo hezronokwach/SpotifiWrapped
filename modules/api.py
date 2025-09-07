@@ -596,12 +596,14 @@ class SpotifyAPI:
             for idx, playlist in enumerate(results['items'], 1):
                 playlists_data.append({
                     'playlist': playlist['name'],
+                    'name': playlist['name'],  # Add name field for consistency
                     'total_tracks': playlist['tracks']['total'],
                     'public': playlist['public'],
                     'collaborative': playlist['collaborative'],
                     'id': playlist['id'],
                     'image_url': playlist['images'][0]['url'] if playlist['images'] else '',
-                    'owner': playlist['owner']['display_name']
+                    'owner': playlist['owner']['display_name'],
+                    'description': playlist.get('description', '')
                 })
 
             # If we got no data, return sample data

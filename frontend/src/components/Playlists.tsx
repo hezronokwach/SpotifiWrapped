@@ -32,6 +32,7 @@ const Playlists: React.FC = () => {
       setIsLoading(true)
       setError(null)
       const response = await api.get('/music/playlists?limit=8')
+      console.log('Playlists response:', response.data)
       setPlaylists(response.data)
     } catch (err) {
       console.error('Failed to fetch playlists:', err)

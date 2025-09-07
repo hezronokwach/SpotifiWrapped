@@ -302,8 +302,8 @@ const Dashboard: React.FC = () => {
               Most played songs recently
             </p>
           </div>
-          <div className="space-y-3">
-            {topTracks.slice(0, 5).map((track, index) => (
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list">
+            {topTracks.slice(0, 10).map((track, index) => (
               <div key={track.id} 
                    className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
                    style={{
@@ -379,8 +379,8 @@ const Dashboard: React.FC = () => {
               Most listened to artists
             </p>
           </div>
-          <div className="space-y-3">
-            {topArtists.slice(0, 5).map((artist, index) => (
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list artist-list">
+            {topArtists.slice(0, 10).map((artist, index) => (
               <div key={artist.id} 
                    className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
                    style={{

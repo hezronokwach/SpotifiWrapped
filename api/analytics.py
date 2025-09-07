@@ -109,9 +109,10 @@ def get_audio_features():
             values = [track[feature] for track in audio_features_data if track.get(feature) is not None]
             averages[feature] = round(sum(values) / len(values), 3) if values else 0
 
+        # Return both averages and individual track data
         return jsonify({
             'audio_features': averages,
-            'tracks': track_details,
+            'tracks': audio_features_data,  # Return full track data with features
             'tracks_analyzed': len(audio_features_data)
         })
         

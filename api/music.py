@@ -273,9 +273,9 @@ def get_playlists():
         for playlist in playlists_data:
             formatted_playlists.append({
                 'id': playlist.get('id', ''),
-                'name': playlist.get('name', 'Unknown Playlist'),
+                'name': playlist.get('playlist', playlist.get('name', 'Unknown Playlist')),  # Use 'playlist' key first
                 'description': playlist.get('description', ''),
-                'tracks_total': playlist.get('tracks_total', 0),
+                'tracks_total': playlist.get('total_tracks', playlist.get('tracks_total', 0)),  # Use 'total_tracks' key first
                 'public': playlist.get('public', True),
                 'owner': playlist.get('owner', 'Unknown'),
                 'external_urls': {'spotify': f"https://open.spotify.com/playlist/{playlist.get('id', '')}"},

@@ -625,3 +625,44 @@
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
+/* Scrollable Lists Styles */
+.scrollable-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 185, 84, 0.5) transparent;
+}
+
+.scrollable-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.scrollable-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1DB954, #1ED760);
+  border-radius: 3px;
+  box-shadow: 0 0 5px rgba(29, 185, 84, 0.3);
+}
+
+.scrollable-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #1ED760, #1DB954);
+  box-shadow: 0 0 8px rgba(29, 185, 84, 0.5);
+}
+
+/* Artist list scrollbar with purple theme */
+.scrollable-list.artist-list {
+  scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+}
+
+.scrollable-list.artist-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8B5CF6, #A855F7);
+  box-shadow: 0 0 5px rgba(139, 92, 246, 0.3);
+}
+
+.scrollable-list.artist-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #A855F7, #8B5CF6);
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}

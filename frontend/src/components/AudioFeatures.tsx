@@ -96,6 +96,12 @@ const AudioFeatures: React.FC = () => {
 
   const features = audioFeatures.audio_features
 
+  const colors = ['#1DB954', '#1ED760', '#00D4FF', '#8B5CF6', '#F472B6'];
+  
+  // Check if we have individual track data with audio features
+  const hasIndividualFeatures = audioFeatures.tracks && audioFeatures.tracks.length > 0 && 
+    audioFeatures.tracks[0].hasOwnProperty('danceability');
+  
   const data = {
     labels: [
       'Danceability',
@@ -106,9 +112,32 @@ const AudioFeatures: React.FC = () => {
       'Liveness',
       'Speechiness'
     ],
-    datasets: [
-      {
-        label: 'Your Music Profile',
+    datasets: hasIndividualFeatures ? 
+      audioFeatures.tracks.map((track, index) => ({
+        label: `${track.track} - ${track.artist}`,
+        data: [
+          track.danceability || 0,
+          track.energy || 0,
+          track.valence || 0,
+          track.acousticness || 0,
+          track.instrumentalness || 0,
+          track.liveness || 0,
+          track.speechiness || 0
+        ],
+        backgroundColor: `${colors[index % colors.length]}20`,
+        borderColor: colors[index % colors.length],
+        borderWidth: 3,
+        pointBackgroundColor: colors[index % colors.length],
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: colors[index % colors.length],
+        pointHoverBorderWidth: 3,
+      })) : 
+      [{
+        label: 'Your Music Profile (Average)',
         data: [
           features.danceability,
           features.energy,
@@ -120,13 +149,16 @@ const AudioFeatures: React.FC = () => {
         ],
         backgroundColor: 'rgba(29, 185, 84, 0.2)',
         borderColor: '#1DB954',
-        borderWidth: 2,
+        borderWidth: 3,
         pointBackgroundColor: '#1DB954',
         pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 6,
+        pointHoverRadius: 8,
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: '#1DB954',
-      },
-    ],
+        pointHoverBorderWidth: 3,
+      }]
   }
 
   const options = {
@@ -134,7 +166,16 @@ const AudioFeatures: React.FC = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false,
+        display: hasIndividualFeatures,
+        position: 'bottom' as const,
+        labels: {
+          color: '#b3b3b3',
+          font: {
+            size: 14,
+          },
+          usePointStyle: true,
+          pointStyle: 'circle',
+        }
       },
       tooltip: {
         backgroundColor: '#282828',
@@ -143,8 +184,11 @@ const AudioFeatures: React.FC = () => {
         borderColor: '#1DB954',
         borderWidth: 1,
         callbacks: {
-          label: function(context: { label: string; parsed: { r: number } }) {
-            return `${context.label}: ${(context.parsed.r * 100).toFixed(1)}%`
+          label: function(context: any) {
+            const trackName = context.dataset.label;
+            const featureName = context.label;
+            const value = context.parsed.r;
+            return `${trackName}: ${featureName} ${(value * 100).toFixed(1)}%`;
           }
         }
       },
@@ -173,27 +217,28 @@ const AudioFeatures: React.FC = () => {
   }
 
   return (
-    <div className="spotify-card futuristic-chart-card fade-in consistent-height-card">
+    <div className="spotify-card futuristic-chart-card fade-in" style={{ minHeight: '600px' }}>
       <div className="card-header">
         <h3><i className="fas fa-wave-square"></i> Audio Features</h3>
         <i className="fas fa-chart-radar"></i>
       </div>
       
       <div style={{ height: 'calc(100% - 80px)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, minHeight: '300px', marginBottom: '20px' }}>
+        <div style={{ flex: 1, minHeight: '450px', marginBottom: '20px' }}>
           <Radar data={data} options={options} />
         </div>
         
-        <div style={{ 
-          fontSize: '12px', 
-          color: 'var(--text-secondary)', 
-          textAlign: 'center',
-          fontFamily: "'Orbitron', monospace",
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px'
-        }}>
-          Analysis of {audioFeatures.tracks_analyzed} tracks
-        </div>
+        {/* Songs Legend */}
+        {audioFeatures.tracks && audioFeatures.tracks.length > 0 && (
+          <div style={{ 
+            marginBottom: '15px',
+            fontSize: '11px',
+            color: 'var(--text-secondary)'
+          }}>           
+          </div>
+        )}
+        
+        
       </div>
     </div>
   )
