@@ -174,36 +174,34 @@ def get_top_artists():
 @music_bp.route('/albums/top')
 @jwt_required()
 def get_top_albums_endpoint():
-    """Get user's top albums from database analysis"""
+    """Get user's top albums from database analysis (same as Dash app)"""
     try:
         user_id = get_jwt_identity()
         limit = int(request.args.get('limit', 10))
 
-        # Get user-specific database path
-        db_path = f'data/user_{user_id}_spotify_data.db'
-
-        # Initialize user-specific database
+        # Get user-specific database
         from modules.database import SpotifyDatabase
+        db_path = f'data/user_{user_id}_spotify_data.db'
         user_db = SpotifyDatabase(db_path)
 
         # Get Spotify API for user
         spotify_api = get_spotify_api_for_user()
 
-        # Get top albums using the same function as the original Dash app
-        top_albums_data = get_top_albums(spotify_api, limit=limit, user_db=user_db)
+        # Use the same function as Dash app
+        top_albums_df = get_top_albums(spotify_api, limit=limit, user_db=user_db)
 
-        if top_albums_data.empty:
+        if top_albums_df.empty:
             return jsonify({'albums': []})
 
-        # Convert DataFrame to list of dictionaries
+        # Convert DataFrame to list
         albums_list = []
-        for _, album in top_albums_data.iterrows():
+        for _, album in top_albums_df.iterrows():
             albums_list.append({
                 'album': album.get('album', 'Unknown Album'),
                 'artist': album.get('artist', 'Unknown Artist'),
-                'total_count': album.get('total_count', 0),
+                'total_count': int(album.get('total_count', 0)),
                 'image_url': album.get('image_url', ''),
-                'rank': len(albums_list) + 1
+                'rank': int(album.get('rank', len(albums_list) + 1))
             })
 
         return jsonify({'albums': albums_list})

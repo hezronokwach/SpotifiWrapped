@@ -135,14 +135,17 @@ def callback():
             }
         )
         
-        # Automatically collect initial data for new users
+        # Collect essential data immediately for new users
         try:
-            from modules.data_collector import SpotifyDataCollector
             from modules.database import SpotifyDatabase
+            from datetime import datetime
             
             user_id = user_profile['id']
             db_path = f'data/user_{user_id}_spotify_data.db'
             user_db = SpotifyDatabase(db_path)
+            
+            # Save user profile
+            user_db.save_user(user_profile)
             
             # Check if user already has data
             import sqlite3
@@ -154,10 +157,35 @@ def callback():
             
             # Only collect data if database is empty
             if track_count == 0:
-                print(f'🔍 DEBUG: Collecting initial data for new user {user_id}')
-                collector = SpotifyDataCollector(spotify_api, user_db)
-                collector.collect_historical_data(user_id)
-                print(f'✅ DEBUG: Initial data collection completed for {user_id}')
+                print(f'🔍 DEBUG: Collecting essential data for new user {user_id}')
+                
+                # 1. Get recently played tracks (immediate)
+                recently_played = spotify_api.get_recently_played(limit=50)
+                if recently_played:
+                    print(f'🎧 Saving {len(recently_played)} recently played tracks')
+                    for track in recently_played:
+                        user_db.save_track(track)
+                        user_db.save_listening_history(
+                            user_id=user_id,
+                            track_id=track['id'],
+                            played_at=track.get('played_at', datetime.now().isoformat()),
+                            source='recently_played'
+                        )
+                
+                # 2. Get saved tracks (immediate)
+                saved_tracks = spotify_api.get_saved_tracks(limit=50)
+                if saved_tracks:
+                    print(f'💚 Saving {len(saved_tracks)} saved tracks')
+                    for track in saved_tracks:
+                        user_db.save_track(track)
+                        user_db.save_listening_history(
+                            user_id=user_id,
+                            track_id=track['id'],
+                            played_at=track.get('added_at', datetime.now().isoformat()),
+                            source='saved'
+                        )
+                
+                print(f'✅ DEBUG: Essential data collection completed for {user_id}')
             else:
                 print(f'🔍 DEBUG: User {user_id} already has {track_count} tracks, skipping data collection')
                 

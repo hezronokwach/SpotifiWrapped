@@ -11,7 +11,7 @@ const cache = new Map<string, { data: any; timestamp: number }>()
 // API base configuration
 const api = axios.create({
   baseURL: '/api',
-  timeout: 15000, // 15 second timeout
+  timeout: 30000, // 30 second timeout for album analysis
 })
 
 // Request interceptor to add auth token
