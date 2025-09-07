@@ -28,78 +28,147 @@ const TopArtistHighlight: React.FC = () => {
     fetchTopArtist()
   }, [fetchTopArtist])
 
-  // Debug logging to identify the data structure issue
-  useEffect(() => {
-    if (topArtist) {
-      console.log('🔍 Artist data structure:', topArtist);
-      console.log('🔍 Available fields:', Object.keys(topArtist));
-      console.log('🔍 Artist field value:', topArtist.artist);
-      console.log('🔍 Name field value:', topArtist.name);
-    }
-  }, [topArtist])
-
-
-
   if (isLoading) {
     return (
-      <div className="top-artist-card">
-        <div className="spotify-loading">
-          <div className="spotify-spinner"></div>
-        </div>
+      <div className="spotify-card top-artist-highlight fade-in">
+        <div className="loading-shimmer" style={{ height: '200px', borderRadius: '16px' }}></div>
       </div>
     )
   }
 
   if (error || !topArtist) {
     return (
-      <div className="top-artist-card">
-        <div className="spotify-error">
-          {error || 'No top artist data available'}
+      <div className="spotify-card top-artist-highlight fade-in">
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <i className="fas fa-microphone" style={{ fontSize: '48px', marginBottom: '20px', color: 'var(--accent-purple)' }}></i>
+          <p>{error || 'No top artist data available'}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="top-artist-card">
-
-      <div className="content-layer flex items-center space-x-5">
-        <div className="flex-shrink-0">
-          {topArtist.image_url ? (
-            <img
-              src={topArtist.image_url}
-              alt={getArtistName(topArtist)}
-              className="artist-image"
-            />
-          ) : (
-            <div className="artist-image flex items-center justify-center bg-gradient-to-br from-purple-500/20 to-pink-400/20">
-              <span className="text-4xl">⭐</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center mb-2">
-            <span className="artist-rank-badge">⭐</span>
-            <span className="artist-rank-text">#1 ARTIST</span>
+    <div className="spotify-card top-artist-highlight fade-in highlight-bg-animation">
+      <div style={{ padding: '30px', position: 'relative', zIndex: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ flexShrink: 0 }}>
+            {topArtist.image_url ? (
+              <img
+                src={topArtist.image_url}
+                alt={getArtistName(topArtist)}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '50%',
+                  border: '2px solid rgba(139, 92, 246, 0.3)',
+                  transition: 'all 0.3s ease'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(244, 114, 182, 0.1))',
+                border: '2px solid rgba(139, 92, 246, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '40px'
+              }}>
+                ⭐
+              </div>
+            )}
           </div>
 
-          <h3 className="spotify-title">
-            {getArtistName(topArtist)}
-          </h3>
-
-          <p className="artist-subtitle">
-            Your most listened artist
-          </p>
-
-          <div className="flex items-center space-x-6">
-            <div className="text-center">
-              <div className="stat-number text-purple-500">#1</div>
-              <div className="stat-label">RANK</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+              <i className="fas fa-star" style={{
+                fontSize: '20px',
+                color: 'var(--accent-purple)',
+                marginRight: '10px',
+                filter: 'drop-shadow(0 0 10px rgba(139, 92, 246, 0.5))'
+              }}></i>
+              <span style={{
+                fontFamily: "'Orbitron', monospace",
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--accent-purple)',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                #1 ARTIST
+              </span>
             </div>
-            <div className="text-center">
-              <div className="stat-number text-pink-400">{topArtist.popularity}</div>
-              <div className="stat-label">POPULARITY</div>
+
+            <h3 style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              margin: '0 0 8px 0',
+              lineHeight: 1.2,
+              textShadow: '0 0 20px rgba(255, 255, 255, 0.1)'
+            }}>
+              {getArtistName(topArtist)}
+            </h3>
+
+            <p style={{
+              fontSize: '16px',
+              color: 'var(--text-secondary)',
+              margin: '0 0 20px 0'
+            }}>
+              Your most listened artist
+            </p>
+
+            <div style={{ display: 'flex', gap: '30px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  fontFamily: "'Orbitron', monospace",
+                  background: 'linear-gradient(45deg, #8b5cf6, #f472b6)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 0 20px rgba(139, 92, 246, 0.3)'
+                }}>
+                  #1
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  fontFamily: "'Orbitron', monospace"
+                }}>
+                  RANK
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  fontFamily: "'Orbitron', monospace",
+                  background: 'linear-gradient(45deg, #f472b6, #a855f7)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 0 20px rgba(244, 114, 182, 0.3)'
+                }}>
+                  {topArtist.popularity || '—'}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  fontFamily: "'Orbitron', monospace"
+                }}>
+                  POPULARITY
+                </div>
+              </div>
             </div>
           </div>
         </div>

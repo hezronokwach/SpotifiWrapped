@@ -8,7 +8,7 @@ import GenreChart from '../components/GenreChart'
 import SavedTracks from '../components/SavedTracks'
 import Playlists from '../components/Playlists'
 import TopAlbums from '../components/TopAlbums'
-import WrappedSummary from '../components/WrappedSummary'
+
 import ListeningPatterns from '../components/ListeningPatterns'
 import UserProfile from '../components/UserProfile'
 import TopTrackHighlight from '../components/TopTrackHighlight'
@@ -426,8 +426,7 @@ const Dashboard: React.FC = () => {
       {/* Top Albums Section */}
       <TopAlbums />
 
-      {/* Wrapped Summary Section */}
-      <WrappedSummary />
+
 
       {/* Audio Analysis Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
