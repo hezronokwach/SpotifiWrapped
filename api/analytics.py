@@ -195,11 +195,56 @@ def get_listening_patterns():
     try:
         user_id = get_jwt_identity()
         db_path = f'data/user_{user_id}_spotify_data.db'
+        print(f"🔍 PATTERNS DEBUG: User ID: {user_id}, DB path: {db_path}")
 
         # Use direct SQLite connection like original
         try:
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
+                
+                # First check if database and tables exist
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = cursor.fetchall()
+                print(f"🔍 PATTERNS DEBUG: Available tables: {[t[0] for t in tables]}")
+                
+                # Check listening history count
+                cursor.execute("SELECT COUNT(*) FROM listening_history WHERE user_id = ?", (user_id,))
+                total_history = cursor.fetchone()[0]
+                print(f"🔍 PATTERNS DEBUG: Total listening history entries for user: {total_history}")
+                
+                # Check recent entries
+                cursor.execute("SELECT COUNT(*) FROM listening_history WHERE user_id = ? AND datetime(played_at) >= datetime('now', '-7 days')", (user_id,))
+                recent_history = cursor.fetchone()[0]
+                print(f"🔍 PATTERNS DEBUG: Recent (7 days) listening history entries: {recent_history}")
+                
+                # If no recent data, try to collect some from Spotify API
+                if recent_history == 0:
+                    print("🔍 PATTERNS DEBUG: No recent data found, attempting to collect from Spotify API...")
+                    spotify_api = get_user_spotify_api()
+                    if spotify_api:
+                        # Get recently played tracks
+                        recently_played = spotify_api.get_recently_played(limit=50)
+                        if recently_played:
+                            print(f"🔍 PATTERNS DEBUG: Got {len(recently_played)} recently played tracks from API")
+                            
+                            # Save to database
+                            from modules.database import SpotifyDatabase
+                            db = SpotifyDatabase(db_path)
+                            
+                            for track in recently_played:
+                                # Save track
+                                db.save_track(track)
+                                
+                                # Save listening history
+                                played_at = track.get('played_at')
+                                if played_at:
+                                    db.save_listening_history(
+                                        user_id=user_id,
+                                        track_id=track['id'],
+                                        played_at=played_at,
+                                        source='recently_played'
+                                    )
+                            print(f"🔍 PATTERNS DEBUG: Saved {len(recently_played)} tracks to database")
 
                 # Use the exact same query as original Dash app
                 cursor.execute('''
@@ -219,8 +264,12 @@ def get_listening_patterns():
                 ''', (user_id,))
 
                 results = cursor.fetchall()
+                print(f"🔍 PATTERNS DEBUG: Query results: {len(results)} entries found")
+                if results:
+                    print(f"🔍 PATTERNS DEBUG: Sample results: {results[:5]}")
 
                 if not results:
+                    print("🔍 PATTERNS DEBUG: No results found, returning empty data")
                     # Return empty pattern data
                     return jsonify({
                         'listening_patterns': [],
@@ -265,7 +314,9 @@ def get_listening_patterns():
                 })
 
         except sqlite3.Error as e:
-            print(f"Database error in listening patterns: {e}")
+            print(f"❌ Database error in listening patterns: {e}")
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 'listening_patterns': [],
                 'summary': {
@@ -277,6 +328,54 @@ def get_listening_patterns():
 
     except Exception as e:
         print(f"❌ Listening patterns error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@analytics_bp.route('/collect-data')
+@jwt_required()
+def collect_listening_data():
+    """Manually collect recent listening data for testing"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        
+        spotify_api = get_user_spotify_api()
+        if not spotify_api:
+            return jsonify({'error': 'Could not get Spotify API instance'}), 400
+            
+        # Get recently played tracks
+        recently_played = spotify_api.get_recently_played(limit=50)
+        if not recently_played:
+            return jsonify({'message': 'No recently played tracks found'})
+            
+        # Save to database
+        from modules.database import SpotifyDatabase
+        db = SpotifyDatabase(db_path)
+        
+        saved_count = 0
+        for track in recently_played:
+            # Save track
+            db.save_track(track)
+            
+            # Save listening history
+            played_at = track.get('played_at')
+            if played_at:
+                db.save_listening_history(
+                    user_id=user_id,
+                    track_id=track['id'],
+                    played_at=played_at,
+                    source='recently_played'
+                )
+                saved_count += 1
+                
+        return jsonify({
+            'message': f'Successfully collected {saved_count} listening entries',
+            'tracks_processed': len(recently_played)
+        })
+        
+    except Exception as e:
+        print(f"❌ Data collection error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

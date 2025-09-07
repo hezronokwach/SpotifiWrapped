@@ -208,217 +208,163 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* Currently Playing */}
-      {currentTrack && (
-        <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
-             style={{
-               background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
-               border: '1px solid rgba(29, 185, 84, 0.3)',
-               boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(29, 185, 84, 0.1)',
-               backdropFilter: 'blur(10px)'
-             }}>
-          <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-300"
-               style={{
-                 background: 'linear-gradient(45deg, rgba(29, 185, 84, 0.3), rgba(0, 212, 255, 0.3), rgba(139, 92, 246, 0.3), rgba(29, 185, 84, 0.3))',
-                 backgroundSize: '400% 400%',
-                 animation: 'gradientShift 8s ease infinite',
-                 zIndex: -1
-               }}>
+      <div className="currently-playing-section">
+        <div className="spotify-card futuristic-chart-card fade-in">
+          <div className="card-header">
+            <h3><i className="fas fa-play"></i> Currently Playing</h3>
+            <i className="fas fa-music"></i>
           </div>
-          <div className="mb-4">
-            <h3 className="text-2xl font-bold font-orbitron"
-                style={{
-                  background: 'linear-gradient(45deg, #1DB954, #00D4FF)',
-                  backgroundSize: '200% 200%',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  textShadow: '0 0 20px rgba(29, 185, 84, 0.3)'
-                }}>
-              Currently Playing
-            </h3>
-          </div>
-          <div className="flex items-center space-x-4">
-            {currentTrack.images && currentTrack.images.length > 0 && (
-              <img
-                src={currentTrack.images[0].url}
-                alt={currentTrack.album}
-                className="w-16 h-16 rounded-md transition-transform duration-300 hover:scale-110"
-                style={{
-                  border: '2px solid rgba(29, 185, 84, 0.3)',
-                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-                }}
-              />
+          <div className="library-content">
+            {currentTrack ? (
+              <div className="current-track-content">
+                <div className="track-image">
+                  {currentTrack.images && currentTrack.images.length > 0 && (
+                    <img
+                      src={currentTrack.images[0].url}
+                      alt={currentTrack.album}
+                    />
+                  )}
+                </div>
+                <div className="track-info">
+                  <h4>{currentTrack.name}</h4>
+                  <p>by {currentTrack.artist}</p>
+                  <p>from {currentTrack.album}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-pause"></i>
+                <h4>Nothing Playing</h4>
+                <p>Play something on Spotify to see it here!</p>
+              </div>
             )}
-            <div className="flex-1">
-              <h3 className="font-semibold font-orbitron" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>{currentTrack.name}</h3>
-              <p style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{currentTrack.artist}</p>
-              <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.5)' }}>{currentTrack.album}</p>
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Top Highlights Row - matches original Dash layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="highlights-row">
         <TopTrackHighlight />
         <TopArtistHighlight />
       </div>
 
       {/* Top Content Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="charts-row">
         {/* Top Tracks */}
-        <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
-             style={{
-               background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
-               border: '1px solid rgba(29, 185, 84, 0.3)',
-               boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(29, 185, 84, 0.1)',
-               backdropFilter: 'blur(10px)'
-             }}>
-          <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-300"
-               style={{
-                 background: 'linear-gradient(45deg, rgba(29, 185, 84, 0.3), rgba(0, 212, 255, 0.3), rgba(139, 92, 246, 0.3), rgba(29, 185, 84, 0.3))',
-                 backgroundSize: '400% 400%',
-                 animation: 'gradientShift 8s ease infinite',
-                 zIndex: -1
-               }}>
+        <div className="spotify-card futuristic-chart-card fade-in">
+          <div className="card-header">
+            <h3><i className="fas fa-music"></i> Your Top Tracks</h3>
+            <i className="fas fa-chart-bar"></i>
           </div>
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold mb-2 font-orbitron"
-                style={{
-                  background: 'linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6)',
-                  backgroundSize: '200% 200%',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  textShadow: '0 0 20px rgba(29, 185, 84, 0.3)'
-                }}>
-              Your Top Tracks
-            </h3>
-            <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              Most played songs recently
-            </p>
-          </div>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list">
-            {topTracks.slice(0, 10).map((track, index) => (
-              <div key={track.id} 
-                   className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
-                   style={{
-                     background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                     border: '1px solid rgba(255, 255, 255, 0.1)',
-                     backdropFilter: 'blur(10px)'
-                   }}>
-                <span className="font-orbitron text-sm w-6 text-center"
-                      style={{
-                        color: 'rgba(29, 185, 84, 0.8)',
-                        textShadow: '0 0 5px rgba(29, 185, 84, 0.3)'
-                      }}>
-                  {index + 1}
-                </span>
-                {track.images && track.images.length > 0 && (
-                  <img
-                    src={track.images[0].url}
-                    alt={track.album}
-                    className="w-10 h-10 rounded transition-transform duration-300 hover:scale-110"
-                    style={{
-                      border: '2px solid rgba(29, 185, 84, 0.3)',
-                      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-                    }}
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
-                    {track.name}
-                  </p>
-                  <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {track.artist}
-                  </p>
-                </div>
-                <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                  {formatDuration(track.duration_ms)}
-                </span>
+          <div className="library-content">
+            {topTracks.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list">
+                {topTracks.slice(0, 10).map((track, index) => (
+                  <div key={track.id} 
+                       className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
+                       style={{
+                         background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                         border: '1px solid rgba(255, 255, 255, 0.1)',
+                         backdropFilter: 'blur(10px)'
+                       }}>
+                    <span className="font-orbitron text-sm w-6 text-center"
+                          style={{
+                            color: 'rgba(29, 185, 84, 0.8)',
+                            textShadow: '0 0 5px rgba(29, 185, 84, 0.3)'
+                          }}>
+                      {index + 1}
+                    </span>
+                    {track.images && track.images.length > 0 && (
+                      <img
+                        src={track.images[0].url}
+                        alt={track.album}
+                        className="w-10 h-10 rounded transition-transform duration-300 hover:scale-110"
+                        style={{
+                          border: '2px solid rgba(29, 185, 84, 0.3)',
+                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
+                        }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
+                        {track.name}
+                      </p>
+                      <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                        {track.artist}
+                      </p>
+                    </div>
+                    <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                      {formatDuration(track.duration_ms)}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-music"></i>
+                <h4>No Top Tracks Yet</h4>
+                <p>Start listening to music to see your top tracks here!</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Top Artists */}
-        <div className="relative p-6 rounded-3xl border transition-all duration-300 hover:transform hover:scale-[1.01] hover:-translate-y-1"
-             style={{
-               background: 'linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95))',
-               border: '1px solid rgba(139, 92, 246, 0.3)',
-               boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 40px rgba(139, 92, 246, 0.1)',
-               backdropFilter: 'blur(10px)'
-             }}>
-          <div className="absolute inset-0 rounded-3xl opacity-0 hover:opacity-100 transition-opacity duration-300"
-               style={{
-                 background: 'linear-gradient(45deg, rgba(139, 92, 246, 0.3), rgba(244, 114, 182, 0.3), rgba(29, 185, 84, 0.3), rgba(139, 92, 246, 0.3))',
-                 backgroundSize: '400% 400%',
-                 animation: 'gradientShift 8s ease infinite',
-                 zIndex: -1
-               }}>
+        <div className="spotify-card futuristic-chart-card fade-in">
+          <div className="card-header">
+            <h3><i className="fas fa-microphone"></i> Your Top Artists</h3>
+            <i className="fas fa-users"></i>
           </div>
-          <div className="mb-6">
-            <h3 className="text-2xl font-bold mb-2 font-orbitron"
-                style={{
-                  background: 'linear-gradient(45deg, #8B5CF6, #F472B6, #1DB954)',
-                  backgroundSize: '200% 200%',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1.5px',
-                  textShadow: '0 0 20px rgba(139, 92, 246, 0.3)'
-                }}>
-              Your Top Artists
-            </h3>
-            <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              Most listened to artists
-            </p>
-          </div>
-          <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list artist-list">
-            {topArtists.slice(0, 10).map((artist, index) => (
-              <div key={artist.id} 
-                   className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
-                   style={{
-                     background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                     border: '1px solid rgba(255, 255, 255, 0.1)',
-                     backdropFilter: 'blur(10px)'
-                   }}>
-                <span className="font-orbitron text-sm w-6 text-center"
-                      style={{
-                        color: 'rgba(139, 92, 246, 0.8)',
-                        textShadow: '0 0 5px rgba(139, 92, 246, 0.3)'
-                      }}>
-                  {index + 1}
-                </span>
-                {artist.images && artist.images.length > 0 && (
-                  <img
-                    src={artist.images[0].url}
-                    alt={artist.name}
-                    className="w-10 h-10 rounded-full transition-transform duration-300 hover:scale-110"
-                    style={{
-                      border: '2px solid rgba(139, 92, 246, 0.3)',
-                      boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-                    }}
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
-                    {artist.name}
-                  </p>
-                  <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {artist.genres.slice(0, 2).join(', ')}
-                  </p>
-                </div>
-                <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                  {formatNumber(artist.followers)} followers
-                </span>
+          <div className="library-content">
+            {topArtists.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list artist-list">
+                {topArtists.slice(0, 10).map((artist, index) => (
+                  <div key={artist.id} 
+                       className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
+                       style={{
+                         background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                         border: '1px solid rgba(255, 255, 255, 0.1)',
+                         backdropFilter: 'blur(10px)'
+                       }}>
+                    <span className="font-orbitron text-sm w-6 text-center"
+                          style={{
+                            color: 'rgba(139, 92, 246, 0.8)',
+                            textShadow: '0 0 5px rgba(139, 92, 246, 0.3)'
+                          }}>
+                      {index + 1}
+                    </span>
+                    {artist.images && artist.images.length > 0 && (
+                      <img
+                        src={artist.images[0].url}
+                        alt={artist.name}
+                        className="w-10 h-10 rounded-full transition-transform duration-300 hover:scale-110"
+                        style={{
+                          border: '2px solid rgba(139, 92, 246, 0.3)',
+                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
+                        }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
+                        {artist.name}
+                      </p>
+                      <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                        {artist.genres.slice(0, 2).join(', ')}
+                      </p>
+                    </div>
+                    <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                      {formatNumber(artist.followers)} followers
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="empty-state">
+                <i className="fas fa-microphone"></i>
+                <h4>No Top Artists Yet</h4>
+                <p>Start listening to music to see your top artists here!</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

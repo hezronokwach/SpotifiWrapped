@@ -24,6 +24,7 @@ const ListeningPatterns: React.FC = () => {
   const [patternsData, setPatternsData] = useState<PatternsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCollecting, setIsCollecting] = useState(false)
 
   useEffect(() => {
     fetchPatternsData()
@@ -34,12 +35,28 @@ const ListeningPatterns: React.FC = () => {
       setIsLoading(true)
       setError(null)
       const response = await api.get('/analytics/patterns')
+      console.log('🔍 Patterns response:', response.data)
       setPatternsData(response.data)
     } catch (err) {
       console.error('Failed to fetch listening patterns:', err)
       setError('Failed to load listening patterns')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const collectData = async () => {
+    try {
+      setIsCollecting(true)
+      console.log('🔄 Collecting listening data...')
+      const response = await api.get('/analytics/collect-data')
+      console.log('✅ Data collection result:', response.data)
+      await fetchPatternsData()
+    } catch (err) {
+      console.error('Failed to collect data:', err)
+      setError('Failed to collect listening data')
+    } finally {
+      setIsCollecting(false)
     }
   }
 
@@ -122,7 +139,7 @@ const ListeningPatterns: React.FC = () => {
   }
 
   const { listening_patterns, summary } = patternsData
-  const maxCount = Math.max(...listening_patterns.map(p => p.count))
+  const maxCount = Math.max(...listening_patterns.map(p => p.count), 1)
   // Use same day order as original Dash app (Monday first)
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
   const hours = Array.from({ length: 24 }, (_, i) => i)
@@ -171,6 +188,26 @@ const ListeningPatterns: React.FC = () => {
       </div>
       <div className="space-y-4">
         {/* Summary Stats */}
+        {summary.total_plays === 0 && (
+          <div className="text-center mb-4">
+            <button
+              onClick={collectData}
+              disabled={isCollecting}
+              className="px-4 py-2 text-sm rounded-lg transition-colors"
+              style={{
+                background: isCollecting ? 'rgba(139, 92, 246, 0.3)' : 'rgba(29, 185, 84, 0.2)',
+                border: '1px solid rgba(29, 185, 84, 0.5)',
+                color: '#1DB954'
+              }}
+            >
+              {isCollecting ? (
+                <>⏳ Collecting Data...</>
+              ) : (
+                <>📥 Collect Recent Listening Data</>
+              )}
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center p-3 bg-black/20 rounded-lg">
             <div className="text-xl font-bold text-spotify-green">
