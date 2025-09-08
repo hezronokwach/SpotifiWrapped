@@ -409,7 +409,330 @@
   margin-right: 8px;
 }
 
+/* AI Insights Masonry Layout */
+.ai-insights-masonry-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  padding: 20px;
+  min-height: 100vh;
+  align-items: start;
+}
+
+.ai-insights-left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  animation: slideInLeft 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-insights-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  animation: slideInRight 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* AI Card Specific Styling */
+.ai-card-personality {
+  order: 1;
+  animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+  min-height: 400px;
+  max-height: 500px;
+}
+
+.ai-card-genre-evolution {
+  order: 2;
+  animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+  min-height: 500px;
+  max-height: 600px;
+}
+
+.ai-card-wellness {
+  order: 3;
+  animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+  min-height: 600px;
+  max-height: 700px;
+}
+
+.ai-card-stress {
+  order: 1;
+  animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
+  min-height: 800px;
+  position: sticky;
+  top: 20px;
+}
+
+/* Enhanced AI Card Styling */
+.ai-insights-card {
+  background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  border-radius: 20px;
+  padding: 25px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3), 0 0 30px rgba(29, 185, 84, 0.1);
+  backdrop-filter: blur(15px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-insights-card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg,
+    rgba(29, 185, 84, 0.3) 0%,
+    rgba(0, 212, 255, 0.3) 25%,
+    rgba(139, 92, 246, 0.3) 50%,
+    rgba(244, 114, 182, 0.3) 75%,
+    rgba(29, 185, 84, 0.3) 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  border-radius: 20px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.ai-insights-card:hover::before {
+  opacity: 1;
+}
+
+.ai-insights-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(29, 185, 84, 0.6);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 60px rgba(29, 185, 84, 0.3);
+}
+
+/* AI Card Headers */
+.ai-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(29, 185, 84, 0.3);
+  position: relative;
+}
+
+.ai-card-header::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, #1DB954, #00D4FF);
+  border-radius: 1px;
+  box-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+}
+
+.ai-card-icon {
+  font-size: 2rem;
+  margin-right: 15px;
+  background: linear-gradient(45deg, #1DB954, #00D4FF);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.3));
+  animation: glow 3s ease-in-out infinite alternate;
+}
+
+.ai-card-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #1DB954, #00D4FF, #8b5cf6);
+  background-size: 200% 200%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: titleGradient 4s ease infinite;
+  text-shadow: 0 0 20px rgba(29, 185, 84, 0.3);
+  margin: 0;
+}
+
+/* AI Description Styling */
+.ai-description {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  margin: 15px 0;
+  padding: 15px;
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.1), rgba(0, 212, 255, 0.1));
+  border-left: 3px solid #1DB954;
+  border-radius: 8px;
+}
+
+.confidence-badge {
+  background: linear-gradient(45deg, #1DB954, #00D4FF);
+  color: #000;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Orbitron', monospace;
+}
+
+.wellness-score {
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #1DB954, #00D4FF);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.therapeutic-suggestion {
+  color: #1DB954;
+  margin: 0 0 5px 0;
+  font-family: 'Orbitron', monospace;
+}
+
+/* Responsive Design for AI Insights */
+@media (max-width: 1199px) {
+  .ai-insights-masonry-container {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    padding: 16px;
+  }
+  
+  .ai-insights-left-column,
+  .ai-insights-right-column {
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .ai-card-stress {
+    position: static;
+    order: 1;
+  }
+  
+  .ai-card-personality {
+    order: 2;
+  }
+  
+  .ai-card-wellness {
+    order: 3;
+  }
+  
+  .ai-card-genre-evolution {
+    order: 4;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-insights-masonry-container {
+    gap: 20px;
+    padding: 12px;
+  }
+  
+  .ai-insights-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  
+  .ai-card-header {
+    margin-bottom: 15px;
+    padding-bottom: 12px;
+  }
+  
+  .ai-card-icon {
+    font-size: 1.5rem;
+    margin-right: 12px;
+  }
+  
+  .ai-card-title {
+    font-size: 1.2rem;
+  }
+  
+  /* Adjust card heights for mobile */
+  .ai-card-personality,
+  .ai-card-genre-evolution,
+  .ai-card-wellness,
+  .ai-card-stress {
+    min-height: auto;
+    max-height: none;
+  }
+}
+
+/* Animations */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes titleGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px rgba(29, 185, 84, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(29, 185, 84, 0.8));
+  }
+}
+
 /* Loading States */
+.loading-shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.1) 25%,
+    rgba(255,255,255,0.2) 50%,
+    rgba(255,255,255,0.1) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 .dashboard-loading {
   display: flex;
   flex-direction: column;

@@ -389,6 +389,18 @@ const Dashboard: React.FC = () => {
         <Playlists />
       </div>
 
+      {/* AI Insights Link */}
+      <div className="text-center" style={{ marginBottom: '20px' }}>
+        <button
+          onClick={() => window.location.href = '/ai-insights'}
+          className="spotify-button"
+          style={{ marginRight: '20px' }}
+        >
+          <i className="fas fa-brain" style={{ marginRight: '8px' }}></i>
+          View AI Insights
+        </button>
+      </div>
+
       {/* Refresh Button */}
       <div className="text-center">
         <Button

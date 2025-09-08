@@ -10,7 +10,7 @@ const cache = new Map<string, { data: any; timestamp: number }>()
 
 // API base configuration
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : '/api',
   timeout: 30000, // 30 second timeout for album analysis
 })
 
@@ -245,6 +245,25 @@ export const userApi = {
     cachedApiCall(
       'user-stats',
       () => api.get('/user/stats'),
+      useCache
+    ),
+}
+
+/**
+ * AI Insights API calls
+ */
+export const aiApi = {
+  getPersonality: (useCache = true) =>
+    cachedApiCall(
+      'ai-personality',
+      () => api.get('/ai/personality'),
+      useCache
+    ),
+
+  getWellness: (useCache = true) =>
+    cachedApiCall(
+      'ai-wellness',
+      () => api.get('/ai/wellness'),
       useCache
     ),
 }
