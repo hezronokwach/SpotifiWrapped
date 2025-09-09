@@ -353,3 +353,156 @@ class GenreEvolutionTracker:
         )
         
         return fig
+    
+    def get_genre_evolution_chart_data(self, user_id: str) -> Dict:
+        """Get chart data formatted for React Chart.js component."""
+        evolution_data = self.get_genre_evolution_data(user_id)
+        timeline_data = evolution_data.get('timeline_data', [])
+        
+        if not timeline_data:
+            return {
+                'labels': [],
+                'datasets': [],
+                'options': self._get_empty_chart_options()
+            }
+        
+        # Extract labels (months)
+        labels = [data['month'] for data in timeline_data]
+        
+        # Get all genres
+        all_genres = set()
+        for month_data in timeline_data:
+            all_genres.update(month_data['genres'].keys())
+        
+        # Color palette matching Dash implementation
+        colors = ['#1DB954', '#00D4FF', '#8B5CF6', '#F472B6', '#FBBF24', '#EF4444', '#10B981']
+        
+        # Create datasets for each genre
+        datasets = []
+        for i, genre in enumerate(sorted(all_genres)):
+            data = [month_data['genres'].get(genre, 0) for month_data in timeline_data]
+            
+            datasets.append({
+                'label': genre,
+                'data': data,
+                'borderColor': colors[i % len(colors)],
+                'backgroundColor': colors[i % len(colors)] + '20',
+                'borderWidth': 3,
+                'pointRadius': 6,
+                'pointHoverRadius': 8,
+                'tension': 0.4,
+                'fill': False
+            })
+        
+        return {
+            'labels': labels,
+            'datasets': datasets,
+            'options': self._get_chart_options()
+        }
+    
+    def _get_chart_options(self) -> Dict:
+        """Get Chart.js options for genre evolution chart."""
+        return {
+            'responsive': True,
+            'maintainAspectRatio': False,
+            'plugins': {
+                'legend': {
+                    'position': 'top',
+                    'labels': {
+                        'color': 'rgba(255, 255, 255, 0.8)',
+                        'font': {
+                            'family': 'Orbitron, monospace',
+                            'size': 12
+                        },
+                        'usePointStyle': True,
+                        'pointStyle': 'circle'
+                    }
+                },
+                'tooltip': {
+                    'backgroundColor': 'rgba(26, 26, 26, 0.95)',
+                    'titleColor': '#1DB954',
+                    'bodyColor': 'rgba(255, 255, 255, 0.9)',
+                    'borderColor': 'rgba(29, 185, 84, 0.3)',
+                    'borderWidth': 1,
+                    'titleFont': {
+                        'family': 'Orbitron, monospace',
+                        'size': 14
+                    },
+                    'bodyFont': {
+                        'family': 'Orbitron, monospace',
+                        'size': 12
+                    }
+                }
+            },
+            'scales': {
+                'x': {
+                    'grid': {
+                        'color': 'rgba(29, 185, 84, 0.2)',
+                        'drawBorder': False
+                    },
+                    'ticks': {
+                        'color': 'rgba(255, 255, 255, 0.8)',
+                        'font': {
+                            'family': 'Orbitron, monospace',
+                            'size': 11
+                        }
+                    },
+                    'title': {
+                        'display': True,
+                        'text': 'Month',
+                        'color': 'rgba(255, 255, 255, 0.8)',
+                        'font': {
+                            'family': 'Orbitron, monospace',
+                            'size': 12
+                        }
+                    }
+                },
+                'y': {
+                    'grid': {
+                        'color': 'rgba(29, 185, 84, 0.2)',
+                        'drawBorder': False
+                    },
+                    'ticks': {
+                        'color': 'rgba(255, 255, 255, 0.8)',
+                        'font': {
+                            'family': 'Orbitron, monospace',
+                            'size': 11
+                        }
+                    },
+                    'title': {
+                        'display': True,
+                        'text': 'Play Count',
+                        'color': 'rgba(255, 255, 255, 0.8)',
+                        'font': {
+                            'family': 'Orbitron, monospace',
+                            'size': 12
+                        }
+                    },
+                    'beginAtZero': True
+                }
+            },
+            'interaction': {
+                'intersect': False,
+                'mode': 'index'
+            },
+            'elements': {
+                'point': {
+                    'hoverBackgroundColor': '#1DB954',
+                    'hoverBorderColor': '#ffffff',
+                    'hoverBorderWidth': 2
+                }
+            }
+        }
+    
+    def _get_empty_chart_options(self) -> Dict:
+        """Get options for empty chart."""
+        return {
+            'responsive': True,
+            'plugins': {
+                'legend': {'display': False}
+            },
+            'scales': {
+                'x': {'display': False},
+                'y': {'display': False}
+            }
+        }
