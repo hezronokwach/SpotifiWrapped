@@ -1,0 +1,265 @@
+"""
+User profile and statistics endpoints
+"""
+
+from flask import Blueprint, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from modules.database import SpotifyDatabase
+from modules.api import SpotifyAPI
+import os
+import sqlite3
+
+user_bp = Blueprint('user', __name__)
+
+def get_user_spotify_api():
+    """Get SpotifyAPI instance for current user"""
+    try:
+        claims = get_jwt()
+        client_id = claims.get('client_id')
+        client_secret = claims.get('client_secret')
+        spotify_access_token = claims.get('spotify_access_token')
+        redirect_uri = 'http://127.0.0.1:3000/auth/callback'
+
+        if not all([client_id, client_secret, spotify_access_token]):
+            return None
+
+        # Initialize SpotifyAPI
+        spotify_api = SpotifyAPI(client_id, client_secret, redirect_uri)
+
+        # Set the access token directly
+        if hasattr(spotify_api, 'sp') and spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
+            token_info = {
+                'access_token': spotify_access_token,
+                'token_type': 'Bearer',
+                'expires_in': 3600,
+                'refresh_token': claims.get('spotify_refresh_token'),
+                'scope': spotify_api.scopes
+            }
+            spotify_api.sp.auth_manager.token_info = token_info
+
+        return spotify_api
+    except Exception as e:
+        print(f"❌ Error creating SpotifyAPI: {e}")
+        return None
+
+def get_spotify_api_for_user():
+    """Initialize SpotifyAPI with user credentials and access token from JWT token"""
+    try:
+        claims = get_jwt()
+        client_id = claims.get('client_id')
+        client_secret = claims.get('client_secret')
+        spotify_access_token = claims.get('spotify_access_token')
+        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
+
+        if not client_id or not client_secret:
+            raise Exception('Missing Spotify credentials in JWT token')
+
+        if not spotify_access_token:
+            raise Exception('Missing Spotify access token in JWT token')
+
+        # Initialize SpotifyAPI with credentials
+        spotify_api = SpotifyAPI(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri
+        )
+
+        # Manually set the access token in the spotipy client
+        if spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
+            # Create a token info dict that spotipy expects
+            token_info = {
+                'access_token': spotify_access_token,
+                'token_type': 'Bearer',
+                'expires_in': 3600,  # 1 hour
+                'refresh_token': claims.get('spotify_refresh_token'),
+                'scope': spotify_api.scopes
+            }
+
+            # Set the token in the auth manager
+            spotify_api.sp.auth_manager.token_info = token_info
+
+        return spotify_api
+
+    except Exception as e:
+        print(f"❌ DEBUG: Error initializing SpotifyAPI: {e}")
+        raise
+
+@user_bp.route('/profile')
+@jwt_required()
+def get_profile():
+    """Get user profile information - EXACT copy from Dash app"""
+    try:
+        # Get user-specific Spotify API instance (exactly like Dash)
+        spotify_api = get_user_spotify_api()
+        if not spotify_api:
+            return jsonify({'error': 'Failed to initialize Spotify API'}), 500
+
+        # Call get_user_profile() exactly like Dash does
+        user_data = spotify_api.get_user_profile()
+
+        if not user_data:
+            return jsonify({'error': 'Failed to get user profile'}), 500
+
+        # Return exactly what SpotifyAPI.get_user_profile() returns
+        return jsonify(user_data)
+
+    except Exception as e:
+        print(f"❌ Profile error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@user_bp.route('/collect-data', methods=['POST'])
+@jwt_required()
+def collect_initial_data():
+    """Collect initial user data from Spotify API including genre extraction"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        
+        # Initialize components
+        from modules.data_collector import SpotifyDataCollector
+        from modules.database import SpotifyDatabase
+        spotify_api = get_spotify_api_for_user()
+        
+        if not spotify_api:
+            return jsonify({'error': 'Failed to initialize Spotify API'}), 500
+            
+        # Initialize database and data collector
+        user_db = SpotifyDatabase(db_path)
+        collector = SpotifyDataCollector(spotify_api, user_db)
+        
+        # Collect basic data using the correct method
+        success = collector.collect_historical_data(user_id)
+        
+        if success:
+            return jsonify({'message': 'Data collection and genre extraction completed successfully'})
+        else:
+            return jsonify({'error': 'Data collection failed'}), 500
+        
+    except Exception as e:
+        print(f"❌ Data collection error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@user_bp.route('/stats')
+@jwt_required()
+def get_stats():
+    """Get basic user statistics from both database and Spotify API"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+
+        # Initialize components
+        db = SpotifyDatabase(db_path)
+        spotify_api = get_spotify_api_for_user()
+
+        # Get basic statistics from database
+        db_stats = {
+            'total_tracks': 0,
+            'total_artists': 0,
+            'total_albums': 0,
+            'listening_time_minutes': 0
+        }
+
+        # Query database for statistics using proper database connection
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            # Count tracks
+            cursor.execute("SELECT COUNT(*) FROM tracks")
+            result = cursor.fetchone()
+            db_stats['total_tracks'] = result[0] if result and result[0] else 0
+
+            # Count unique artists
+            cursor.execute("SELECT COUNT(DISTINCT artist) FROM tracks")
+            result = cursor.fetchone()
+            db_stats['total_artists'] = result[0] if result and result[0] else 0
+
+            # Count unique albums
+            cursor.execute("SELECT COUNT(DISTINCT album) FROM tracks")
+            result = cursor.fetchone()
+            db_stats['total_albums'] = result[0] if result and result[0] else 0
+
+            # Calculate total listening time
+            cursor.execute("SELECT SUM(duration_ms) FROM tracks")
+            result = cursor.fetchone()
+            total_duration_ms = result[0] if result and result[0] else 0
+            db_stats['listening_time_minutes'] = round(total_duration_ms / 60000, 2) if total_duration_ms else 0
+
+            conn.close()
+
+        except Exception as db_error:
+            print(f"Database query error: {db_error}")
+
+        # Get additional stats from Spotify API
+        api_stats = {}
+        try:
+            # Get playlists count
+            playlists = spotify_api.get_playlists()
+            api_stats['total_playlists'] = len(playlists) if playlists else 0
+
+            # Get top tracks for real-time display
+            top_tracks = spotify_api.get_top_tracks(limit=20)
+            if top_tracks:
+                api_stats['api_tracks'] = len(top_tracks)
+                artists = set(track.get('artist', '') for track in top_tracks)
+                albums = set(track.get('album', '') for track in top_tracks)
+                api_stats['api_artists'] = len(artists)
+                api_stats['api_albums'] = len(albums)
+                
+            # If database is empty, use API data as fallback
+            if db_stats['total_tracks'] == 0 and api_stats.get('api_tracks'):
+                db_stats.update({
+                    'total_tracks': api_stats['api_tracks'],
+                    'total_artists': api_stats['api_artists'], 
+                    'total_albums': api_stats['api_albums']
+                })
+                
+        except Exception as api_error:
+            print(f"API query error: {api_error}")
+
+        # Combine stats (prefer database stats if available, otherwise use API stats)
+        final_stats = {
+            'total_tracks': db_stats['total_tracks'] or api_stats.get('total_tracks', 0),
+            'total_artists': db_stats['total_artists'] or api_stats.get('total_artists', 0),
+            'total_albums': db_stats['total_albums'] or api_stats.get('total_albums', 0),
+            'total_playlists': api_stats.get('total_playlists', 0),
+            'listening_time_minutes': db_stats['listening_time_minutes'] or api_stats.get('listening_time_minutes', 0)
+        }
+
+        return jsonify(final_stats)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@user_bp.route('/extract-genres', methods=['POST'])
+@jwt_required()
+def extract_genres():
+    """Extract genres for user's artists"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        
+        # Initialize components
+        from modules.genre_extractor import GenreExtractor
+        from modules.database import SpotifyDatabase
+        spotify_api = get_spotify_api_for_user()
+        
+        if not spotify_api:
+            return jsonify({'error': 'Failed to initialize Spotify API'}), 500
+            
+        # Initialize database and genre extractor
+        user_db = SpotifyDatabase(db_path)
+        genre_extractor = GenreExtractor(spotify_api, user_db)
+        
+        # Extract genres from recent tracks
+        genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=50)
+        
+        return jsonify({
+            'message': f'Successfully extracted {genres_extracted} genres',
+            'genres_extracted': genres_extracted
+        })
+        
+    except Exception as e:
+        print(f"❌ Genre extraction error: {e}")
+        return jsonify({'error': str(e)}), 500

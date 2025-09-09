@@ -56,7 +56,8 @@ class SpotifyAPIManager:
 
         if user_key not in self.user_apis:
             print(f"🔐 Creating new Spotify API instance for user: {client_id[:8]}...")
-            self.user_apis[user_key] = SpotifyAPI(client_id, client_secret, redirect_uri)
+            # Pass client_id as user_id for cache isolation
+            self.user_apis[user_key] = SpotifyAPI(client_id, client_secret, redirect_uri, user_id=client_id[:8])
         else:
             print(f"🔄 Reusing existing Spotify API instance for user: {client_id[:8]}...")
 

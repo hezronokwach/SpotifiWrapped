@@ -19,12 +19,13 @@ logging.basicConfig(level=logging.WARNING,  # Changed from INFO to WARNING
 logger = logging.getLogger('spotify_api')
 
 class SpotifyAPI:
-    def __init__(self, client_id=None, client_secret=None, redirect_uri=None, use_sample_data=False):
+    def __init__(self, client_id=None, client_secret=None, redirect_uri=None, use_sample_data=False, user_id=None):
         """Initialize Spotify API with credentials. Can be dynamically set or use sample data."""
         self.client_id = client_id if client_id else os.getenv('CLIENT_ID')
         self.client_secret = client_secret if client_secret else os.getenv('CLIENT_SECRET')
         self.redirect_uri = redirect_uri if redirect_uri else os.getenv('REDIRECT_URI')
         self.use_sample_data = use_sample_data
+        self.user_id = user_id or 'anonymous'
         self.scopes = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played user-follow-read'
         self.sp = None
         # Flag to enable AI-based audio features instead of Spotify API
@@ -172,7 +173,7 @@ class SpotifyAPI:
         try:
             print(f"🔐 DEBUG: Creating SpotifyOAuth manager...")
             # SECURITY FIX: Use user-specific cache to prevent token sharing
-            user_cache_path = f'.spotify_cache_{self.client_id[:8]}'
+            user_cache_path = f'.spotify_cache_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}'
             print(f"🔐 DEBUG: Using user-specific cache: {user_cache_path}")
             auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
@@ -198,7 +199,7 @@ class SpotifyAPI:
                     import os
                     temp_dir = tempfile.gettempdir()
                     # SECURITY FIX: Use user-specific auth code file
-                    code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.client_id[:8]}.txt')
+                    code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}.txt')
                     if os.path.exists(code_file):
                         with open(code_file, 'r') as f:
                             auth_code = f.read().strip()
@@ -252,6 +253,24 @@ class SpotifyAPI:
             return self.sp.auth_manager.get_authorize_url()
         return None
 
+    def get_access_token(self, code):
+        """Exchange authorization code for access token."""
+        print(f"🔍 DEBUG: SpotifyAPI.get_access_token called with code: {code[:20] if code else 'None'}...")
+
+        if not self.sp or not hasattr(self.sp, 'auth_manager'):
+            print("❌ DEBUG: No Spotify auth manager available")
+            return None
+
+        try:
+            print("🔍 DEBUG: Getting access token from auth manager...")
+            # Use the auth manager to get the token
+            token_info = self.sp.auth_manager.get_access_token(code)
+            print(f"✅ DEBUG: Token info received: {token_info is not None}")
+            return token_info
+        except Exception as e:
+            print(f"❌ DEBUG: Error getting access token: {e}")
+            return None
+
     def is_authenticated(self):
         """Check if the user is authenticated without triggering prompts."""
         if not self.sp:
@@ -261,7 +280,7 @@ class SpotifyAPI:
             import tempfile
             temp_dir = tempfile.gettempdir()
             # SECURITY FIX: Use user-specific auth code file
-            code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.client_id[:8]}.txt')
+            code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}.txt')
             if os.path.exists(code_file):
                 with open(code_file, 'r') as f:
                     auth_code = f.read().strip()
@@ -577,12 +596,14 @@ class SpotifyAPI:
             for idx, playlist in enumerate(results['items'], 1):
                 playlists_data.append({
                     'playlist': playlist['name'],
+                    'name': playlist['name'],  # Add name field for consistency
                     'total_tracks': playlist['tracks']['total'],
                     'public': playlist['public'],
                     'collaborative': playlist['collaborative'],
                     'id': playlist['id'],
                     'image_url': playlist['images'][0]['url'] if playlist['images'] else '',
-                    'owner': playlist['owner']['display_name']
+                    'owner': playlist['owner']['display_name'],
+                    'description': playlist.get('description', '')
                 })
 
             # If we got no data, return sample data

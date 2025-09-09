@@ -53,6 +53,20 @@ class SpotifyDataCollector:
 
                 self._handle_rate_limit()
 
+            # 5. Extract genres for collected artists
+            logger.info("Starting genre extraction...")
+            try:
+                from modules.genre_extractor import GenreExtractor
+                genre_extractor = GenreExtractor(self.api, self.db)
+                
+                # Extract genres from recently played tracks (limit to avoid long delays)
+                genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=50)
+                logger.info(f"Extracted {genres_extracted} genres from recent tracks")
+                
+            except Exception as e:
+                logger.error(f"Error during genre extraction: {e}")
+                # Continue anyway - genre extraction is not critical
+
             logger.info("Historical data collection completed successfully")
             return True
 

@@ -33,21 +33,39 @@ class EnhancedPersonalityAnalyzer:
     
     def generate_enhanced_personality(self, user_id: str) -> Dict:
         """Generate AI-enhanced personality description."""
-        # Get user data from database
-        user_data = self._get_user_listening_data(user_id)
-        
-        # Generate LLM description
-        ai_description = self._generate_llm_description(user_data)
-        
-        # Get smart content-based recommendations
-        recommendations = self._get_content_based_recommendations(user_id)
-        
-        return {
-            'ai_description': ai_description,
-            'recommendations': recommendations,
-            'personality_type': user_data.get('personality_type', 'Music Explorer'),
-            'confidence_score': self._calculate_confidence(user_data)
-        }
+        try:
+            # Get user data from database
+            user_data = self._get_user_listening_data(user_id)
+            
+            # Calculate confidence first
+            confidence = self._calculate_confidence(user_data)
+            
+            # Generate LLM description
+            ai_description = self._generate_llm_description(user_data)
+            
+            # Get smart content-based recommendations (only if sufficient data)
+            recommendations = []
+            if confidence >= 0.4:
+                recommendations = self._get_content_based_recommendations(user_id)
+            
+            # Determine personality type based on audio features
+            personality_type = self._determine_personality_type(user_data)
+            
+            return {
+                'ai_description': ai_description,
+                'recommendations': recommendations,
+                'personality_type': personality_type,
+                'confidence_score': float(confidence)
+            }
+        except Exception as e:
+            print(f"Error in generate_enhanced_personality: {e}")
+            # Return fallback data
+            return {
+                'ai_description': "Keep listening to more music to unlock deeper personality insights!",
+                'recommendations': [],
+                'personality_type': 'Music Explorer',
+                'confidence_score': 0.2
+            }
     
     def _get_user_listening_data(self, user_id: str) -> Dict:
         """Get comprehensive user listening data from database."""
@@ -148,15 +166,15 @@ class EnhancedPersonalityAnalyzer:
             return {
                 'top_artist': top_artist,
                 'top_genre': top_genre,
-                'total_hours': round(total_hours, 1),
-                'variety_score': round(variety_score, 1),
+                'total_hours': float(round(total_hours, 1)),
+                'variety_score': float(round(variety_score, 1)),
                 'peak_listening_time': peak_time,
                 'recent_mood': recent_mood,
-                'unique_tracks': stats[0] or 0,
-                'total_plays': stats[1] or 0,
-                'avg_energy': stats[2] or 0.5,
-                'avg_valence': stats[3] or 0.5,
-                'avg_danceability': stats[4] or 0.5
+                'unique_tracks': int(stats[0] or 0),
+                'total_plays': int(stats[1] or 0),
+                'avg_energy': float(stats[2] or 0.5),
+                'avg_valence': float(stats[3] or 0.5),
+                'avg_danceability': float(stats[4] or 0.5)
             }
             
         except Exception as e:
@@ -214,6 +232,13 @@ class EnhancedPersonalityAnalyzer:
     
     def _fallback_description(self, user_data: Dict) -> str:
         """Generate enhanced fallback description when LLM is not available."""
+        total_plays = user_data.get('total_plays', 0)
+        unique_tracks = user_data.get('unique_tracks', 0)
+        
+        # Check if we have insufficient data
+        if total_plays < 10 or unique_tracks < 5:
+            return "Keep listening to more music to unlock deeper personality insights! We need more data to provide accurate analysis."
+        
         top_artist = user_data.get('top_artist', 'various artists')
         top_genre = user_data.get('top_genre', 'mixed genres')
         hours = user_data.get('total_hours', 0)
@@ -253,10 +278,15 @@ class EnhancedPersonalityAnalyzer:
             energy_desc = "mellow, laid-back soundscapes"
 
         # Create personalized description
-        description = f"You're a {personality}, {trait}. Your {hours:.1f} hours with {top_artist} " \
-                     f"showcase your love for {top_genre}, while {mood_desc} and preferring {energy_desc}. " \
-                     f"Your {peak_time.lower()} listening sessions reveal someone who uses music as both " \
-                     f"companion and soundtrack to life's moments."
+        if hours > 0:
+            description = f"You're a {personality}, {trait}. Your {hours:.1f} hours with {top_artist} " \
+                         f"showcase your love for {top_genre}, while {mood_desc} and preferring {energy_desc}. " \
+                         f"Your {peak_time.lower()} listening sessions reveal someone who uses music as both " \
+                         f"companion and soundtrack to life's moments."
+        else:
+            description = f"You're a {personality}, {trait}. Your connection to {top_artist} and {top_genre} " \
+                         f"shows you're someone who {mood_desc.replace('gravitating toward', 'appreciates')} " \
+                         f"and enjoys {energy_desc}."
 
         return description
     
@@ -264,6 +294,8 @@ class EnhancedPersonalityAnalyzer:
         """Calculate confidence score for the personality analysis."""
         total_plays = user_data.get('total_plays', 0)
         unique_tracks = user_data.get('unique_tracks', 0)
+        
+        print(f"Calculating confidence: total_plays={total_plays}, unique_tracks={unique_tracks}")
 
         # Base confidence on amount of data
         if total_plays > 100 and unique_tracks > 50:
@@ -272,8 +304,31 @@ class EnhancedPersonalityAnalyzer:
             return 0.75
         elif total_plays > 20 and unique_tracks > 10:
             return 0.6
-        else:
+        elif total_plays > 5 and unique_tracks > 3:
             return 0.4
+        else:
+            return 0.2  # Very low confidence for insufficient data
+    
+    def _determine_personality_type(self, user_data: Dict) -> str:
+        """Determine personality type based on audio features and listening patterns."""
+        energy = user_data.get('avg_energy', 0.5)
+        valence = user_data.get('avg_valence', 0.5)
+        danceability = user_data.get('avg_danceability', 0.5)
+        variety = user_data.get('variety_score', 50)
+        
+        # Determine personality type based on features
+        if energy > 0.7 and danceability > 0.7:
+            return "The Energizer"
+        elif valence > 0.6 and energy > 0.5:
+            return "The Mood Booster"
+        elif variety > 70:
+            return "The Musical Explorer"
+        elif valence < 0.4 and energy < 0.5:
+            return "The Contemplator"
+        elif energy > 0.6:
+            return "The Rhythm Seeker"
+        else:
+            return "The Balanced Listener"
 
     def _get_content_based_recommendations(self, user_id: str, limit: int = 5) -> List[Dict]:
         """Get recommendations based on user's personal music DNA (content-based filtering)."""
@@ -364,8 +419,6 @@ class EnhancedPersonalityAnalyzer:
 
                 candidate_tracks = cursor.fetchall()
 
-            candidate_tracks = cursor.fetchall()
-
             if not candidate_tracks:
                 return []
 
@@ -410,7 +463,7 @@ class EnhancedPersonalityAnalyzer:
                     'name': track[1],
                     'artist': track[2],
                     'image_url': track[3],
-                    'similarity_score': round(final_score, 3),
+                    'similarity_score': float(round(final_score, 3)),
                     'reason': self._generate_recommendation_reason(similarity, user_features, track_features, is_genre_match)
                 })
 

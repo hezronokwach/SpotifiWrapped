@@ -96,10 +96,10 @@ class EnhancedStressDetector:
         # Based on Dimitriev et al., 2023 - HRV studies showing stress response to high-energy/low-valence music
         agitated_mask = (df['energy'] > 0.75) & (df['valence'] < 0.35)
         patterns['agitated_listening'] = {
-            'frequency': agitated_mask.sum(),
-            'intensity': df[agitated_mask]['energy'].mean() if agitated_mask.any() else 0,
+            'frequency': int(agitated_mask.sum()),
+            'intensity': float(df[agitated_mask]['energy'].mean() if agitated_mask.any() else 0),
             'severity': self._calculate_severity(agitated_mask.sum(), [3, 10, 20]),  # Adjusted thresholds
-            'confidence': min(agitated_mask.sum() / 25, 1.0),
+            'confidence': float(min(agitated_mask.sum() / 25, 1.0)),
             'research_basis': 'Thresholds validated against HRV stress response studies'
         }
         
@@ -133,13 +133,13 @@ class EnhancedStressDetector:
                         happy_repetitive_count += 1
 
         patterns['repetitive_behavior'] = {
-            'unique_repeated_tracks': len(repetitive_tracks),
-            'stress_repetitive_tracks': stress_repetitive_count,
-            'happy_repetitive_tracks': happy_repetitive_count,
-            'max_repetitions': track_counts.max() if len(track_counts) > 0 else 0,
-            'repetition_score': (repetitive_tracks.sum() / len(df)) if len(df) > 0 else 0,
-            'stress_rumination_score': stress_rumination_score,
-            'happy_repetition_score': happy_repetition_score,
+            'unique_repeated_tracks': int(len(repetitive_tracks)),
+            'stress_repetitive_tracks': int(stress_repetitive_count),
+            'happy_repetitive_tracks': int(happy_repetitive_count),
+            'max_repetitions': int(track_counts.max() if len(track_counts) > 0 else 0),
+            'repetition_score': float((repetitive_tracks.sum() / len(df)) if len(df) > 0 else 0),
+            'stress_rumination_score': float(stress_rumination_score),
+            'happy_repetition_score': float(happy_repetition_score),
             'severity': self._calculate_severity(stress_repetitive_count, [1, 3, 6]),  # Based on stress-related repetition only
             'research_basis': 'Repetitive listening to sad/low-energy music indicates rumination and emotional dwelling (Sachs et al., 2015; Groarke & Hogan, 2018)'
         }
@@ -148,9 +148,9 @@ class EnhancedStressDetector:
         # Based on Hirotsu et al., 2015: Cortisol nadir occurs near midnight, rises after 3 AM
         late_night_mask = df['hour'].astype(int).isin([0, 1, 2, 3])  # Midnight-3AM only
         patterns['late_night_patterns'] = {
-            'frequency': late_night_mask.sum(),
-            'avg_mood': df[late_night_mask]['valence'].mean() if late_night_mask.any() else 0.5,
-            'energy_level': df[late_night_mask]['energy'].mean() if late_night_mask.any() else 0.5,
+            'frequency': int(late_night_mask.sum()),
+            'avg_mood': float(df[late_night_mask]['valence'].mean() if late_night_mask.any() else 0.5),
+            'energy_level': float(df[late_night_mask]['energy'].mean() if late_night_mask.any() else 0.5),
             'severity': self._calculate_severity(late_night_mask.sum(), [2, 8, 15]),  # Adjusted for narrower window
             'research_basis': 'Midnight-3AM is cortisol nadir period - activity indicates significant sleep disruption'
         }
@@ -160,10 +160,10 @@ class EnhancedStressDetector:
         daily_moods = df.groupby('date')['valence'].agg(['mean', 'std']).reset_index()
         mood_volatility = daily_moods['std'].mean() if len(daily_moods) > 1 else 0
         patterns['mood_volatility'] = {
-            'daily_volatility': mood_volatility,
-            'mood_swings': (daily_moods['std'] > 0.25).sum() if len(daily_moods) > 0 else 0,  # Research threshold
+            'daily_volatility': float(mood_volatility),
+            'mood_swings': int((daily_moods['std'] > 0.25).sum() if len(daily_moods) > 0 else 0),  # Research threshold
             'severity': self._calculate_severity(mood_volatility, [0.2, 0.25, 0.35]),  # Adjusted thresholds
-            'confidence': min(len(daily_moods) / 14, 1.0),  # Based on 2-week minimum for reliable patterns
+            'confidence': float(min(len(daily_moods) / 14, 1.0)),  # Based on 2-week minimum for reliable patterns
             'research_basis': 'Thresholds based on emotion regulation and mood stability research'
         }
         
@@ -171,8 +171,8 @@ class EnhancedStressDetector:
         df_sorted = df.sort_values('played_at')
         energy_diff = df_sorted['energy'].diff().abs()
         patterns['energy_crashes'] = {
-            'crash_frequency': (energy_diff > 0.4).sum(),
-            'avg_crash_magnitude': energy_diff[energy_diff > 0.4].mean() if (energy_diff > 0.4).any() else 0
+            'crash_frequency': int((energy_diff > 0.4).sum()),
+            'avg_crash_magnitude': float(energy_diff[energy_diff > 0.4].mean() if (energy_diff > 0.4).any() else 0)
         }
         
         return patterns
@@ -219,7 +219,7 @@ class EnhancedStressDetector:
         
         print(f"DEBUG: Energy crashes - frequency: {crash_frequency}, normalized: {crash_score:.3f}, weighted: {crash_score * self.stress_weights['energy_crashes']:.3f}")
         
-        final_score = min(score * 100, 100)
+        final_score = float(min(score * 100, 100))
         print(f"DEBUG: Total weighted score: {score:.3f}, final score: {final_score:.1f}")
         
         return final_score  # Convert to 0-100 scale
@@ -372,7 +372,7 @@ class EnhancedStressDetector:
                           if isinstance(indicator, dict) and indicator.get('frequency', 0) > 0)
         confidence += (pattern_count / 5) * 0.4  # Pattern consistency component
         
-        return min(confidence * 100, 95)  # Max 95% confidence
+        return float(min(confidence * 100, 95))  # Max 95% confidence
 
     def _get_db_connection(self, max_retries: int = 3, retry_delay: float = 0.1):
         """Get database connection with retry logic to handle locking."""
