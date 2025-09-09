@@ -20,7 +20,7 @@ class GenreEvolutionTracker:
         conn = sqlite3.connect(self.db_path)
         
         try:
-            # Get genre listening data by month (with unknown genre filtering)
+            # First try with genres table
             query = '''
                 SELECT
                     strftime('%Y-%m', h.played_at) as month,
@@ -40,8 +40,10 @@ class GenreEvolutionTracker:
 
             df = pd.read_sql_query(query, conn, params=(user_id,))
             
+            # If genres table is empty, use fallback approach
             if df.empty:
-                return {'timeline_data': [], 'insights': []}
+                print("Genres table empty, using fallback artist-based approach")
+                return self._get_fallback_evolution_data(conn, user_id, months_back)
             
             # Process data for visualization
             timeline_data = self._process_timeline_data(df)
@@ -56,7 +58,12 @@ class GenreEvolutionTracker:
             
         except Exception as e:
             print(f"Error getting genre evolution data: {e}")
-            return {'timeline_data': [], 'insights': []}
+            # Try fallback approach
+            try:
+                return self._get_fallback_evolution_data(conn, user_id, months_back)
+            except Exception as fallback_error:
+                print(f"Fallback also failed: {fallback_error}")
+                return self._get_insufficient_data_response()
         finally:
             conn.close()
     
@@ -73,12 +80,13 @@ class GenreEvolutionTracker:
             
             for genre in top_genres:
                 genre_data = month_data[month_data['genre_name'] == genre]
-                month_genres[genre] = genre_data['play_count'].sum() if not genre_data.empty else 0
+                count = genre_data['play_count'].sum() if not genre_data.empty else 0
+                month_genres[genre] = int(count)  # Convert to Python int
             
             timeline_data.append({
                 'month': month,
                 'genres': month_genres,
-                'total_plays': month_data['play_count'].sum()
+                'total_plays': int(month_data['play_count'].sum())  # Convert to Python int
             })
         
         return timeline_data
@@ -155,7 +163,88 @@ class GenreEvolutionTracker:
         
         top_genres = current_data.groupby('genre_name')['play_count'].sum().nlargest(5)
         
-        return [{'genre': genre, 'plays': plays} for genre, plays in top_genres.items()]
+        return [{'genre': genre, 'plays': int(plays)} for genre, plays in top_genres.items()]
+    
+    def _get_fallback_evolution_data(self, conn, user_id: str, months_back: int) -> Dict:
+        """Fallback method using artist-based genre inference when genres table is empty."""
+        try:
+            # Get artist listening data by month
+            query = '''
+                SELECT
+                    strftime('%Y-%m', h.played_at) as month,
+                    t.artist,
+                    COUNT(*) as play_count
+                FROM listening_history h
+                JOIN tracks t ON h.track_id = t.track_id
+                WHERE h.user_id = ?
+                AND h.played_at >= date('now', '-{} months')
+                AND t.artist IS NOT NULL
+                AND t.artist != ''
+                AND t.artist != 'Unknown Artist'
+                GROUP BY month, t.artist
+                ORDER BY month, play_count DESC
+            '''.format(months_back)
+
+            df = pd.read_sql_query(query, conn, params=(user_id,))
+            
+            if df.empty:
+                return self._get_insufficient_data_response()
+            
+            # Map artists to genres using simple heuristics
+            df['genre_name'] = df['artist'].apply(self._infer_genre_from_artist)
+            
+            # Group by month and genre
+            genre_df = df.groupby(['month', 'genre_name'])['play_count'].sum().reset_index()
+            
+            # Process data for visualization
+            timeline_data = self._process_timeline_data(genre_df)
+            insights = self._generate_evolution_insights(genre_df)
+            
+            return {
+                'timeline_data': timeline_data,
+                'insights': insights,
+                'current_top_genres': self._get_current_top_genres(genre_df),
+                'biggest_changes': self._detect_biggest_changes(genre_df)
+            }
+            
+        except Exception as e:
+            print(f"Error in fallback evolution data: {e}")
+            return self._get_insufficient_data_response()
+    
+    def _infer_genre_from_artist(self, artist: str) -> str:
+        """Simple genre inference based on artist name."""
+        if not artist:
+            return 'Unknown'
+        
+        artist_lower = artist.lower()
+        
+        # Kenyan artists mapping
+        if any(name in artist_lower for name in ['bien', 'bensoul', 'sauti sol', 'nyashinski']):
+            return 'Kenyan R&B/Hip Hop'
+        elif any(name in artist_lower for name in ['ethic', 'sailors', 'boondocks', 'mbogi']):
+            return 'Gengetone'
+        elif any(name in artist_lower for name in ['khaligraph', 'octopizzo', 'king kaka']):
+            return 'Kenyan Hip Hop'
+        # International artists
+        elif any(name in artist_lower for name in ['drake', 'kendrick', 'j cole', 'travis scott']):
+            return 'Hip Hop'
+        elif any(name in artist_lower for name in ['taylor swift', 'ariana grande', 'dua lipa']):
+            return 'Pop'
+        elif any(name in artist_lower for name in ['burna boy', 'wizkid', 'davido']):
+            return 'Afrobeats'
+        elif any(name in artist_lower for name in ['diamond', 'harmonize', 'rayvanny']):
+            return 'Bongo Flava'
+        else:
+            return 'Mixed'
+    
+    def _get_insufficient_data_response(self) -> Dict:
+        """Return response for insufficient data."""
+        return {
+            'timeline_data': [],
+            'insights': ['Not enough listening history to analyze genre evolution. Keep listening to more music!'],
+            'current_top_genres': [],
+            'biggest_changes': []
+        }
     
     def _detect_biggest_changes(self, df: pd.DataFrame) -> List[Dict]:
         """Detect the biggest changes in genre preferences."""
@@ -179,7 +268,7 @@ class GenreEvolutionTracker:
                 if abs(change) >= 3:  # Significant change threshold
                     changes.append({
                         'genre': genre,
-                        'change': change,
+                        'change': int(change),  # Convert to Python int
                         'direction': 'increased' if change > 0 else 'decreased'
                     })
             

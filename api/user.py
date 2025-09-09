@@ -110,25 +110,30 @@ def get_profile():
 @user_bp.route('/collect-data', methods=['POST'])
 @jwt_required()
 def collect_initial_data():
-    """Collect initial user data from Spotify API"""
+    """Collect initial user data from Spotify API including genre extraction"""
     try:
         user_id = get_jwt_identity()
         db_path = f'data/user_{user_id}_spotify_data.db'
         
         # Initialize components
         from modules.data_collector import SpotifyDataCollector
+        from modules.database import SpotifyDatabase
         spotify_api = get_spotify_api_for_user()
         
         if not spotify_api:
             return jsonify({'error': 'Failed to initialize Spotify API'}), 500
             
-        # Initialize data collector
-        collector = SpotifyDataCollector(spotify_api, db_path)
+        # Initialize database and data collector
+        user_db = SpotifyDatabase(db_path)
+        collector = SpotifyDataCollector(spotify_api, user_db)
         
         # Collect basic data using the correct method
-        collector.collect_historical_data(user_id)
+        success = collector.collect_historical_data(user_id)
         
-        return jsonify({'message': 'Data collection completed successfully'})
+        if success:
+            return jsonify({'message': 'Data collection and genre extraction completed successfully'})
+        else:
+            return jsonify({'error': 'Data collection failed'}), 500
         
     except Exception as e:
         print(f"❌ Data collection error: {e}")
@@ -225,4 +230,36 @@ def get_stats():
         return jsonify(final_stats)
 
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@user_bp.route('/extract-genres', methods=['POST'])
+@jwt_required()
+def extract_genres():
+    """Extract genres for user's artists"""
+    try:
+        user_id = get_jwt_identity()
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        
+        # Initialize components
+        from modules.genre_extractor import GenreExtractor
+        from modules.database import SpotifyDatabase
+        spotify_api = get_spotify_api_for_user()
+        
+        if not spotify_api:
+            return jsonify({'error': 'Failed to initialize Spotify API'}), 500
+            
+        # Initialize database and genre extractor
+        user_db = SpotifyDatabase(db_path)
+        genre_extractor = GenreExtractor(spotify_api, user_db)
+        
+        # Extract genres from recent tracks
+        genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=50)
+        
+        return jsonify({
+            'message': f'Successfully extracted {genres_extracted} genres',
+            'genres_extracted': genres_extracted
+        })
+        
+    except Exception as e:
+        print(f"❌ Genre extraction error: {e}")
         return jsonify({'error': str(e)}), 500

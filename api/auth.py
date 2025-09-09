@@ -185,6 +185,20 @@ def callback():
                             source='saved'
                         )
                 
+                # 3. Extract genres for collected artists
+                try:
+                    print('🎭 Starting genre extraction...')
+                    from modules.genre_extractor import GenreExtractor
+                    genre_extractor = GenreExtractor(spotify_api, user_db)
+                    
+                    # Extract genres from recently played tracks (limit to avoid long delays)
+                    genres_extracted = genre_extractor.extract_genres_from_recent_tracks(max_artists=30)
+                    print(f'✅ Extracted {genres_extracted} genres from recent tracks')
+                    
+                except Exception as genre_error:
+                    print(f'⚠️ Genre extraction failed: {genre_error}')
+                    # Continue anyway - genre extraction is not critical
+                
                 print(f'✅ DEBUG: Essential data collection completed for {user_id}')
             else:
                 print(f'🔍 DEBUG: User {user_id} already has {track_count} tracks, skipping data collection')
