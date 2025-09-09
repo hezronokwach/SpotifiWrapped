@@ -1,36 +1,6 @@
 # SpotifiWrapped
 
-## **🔒 CRITICAL SECURITY NOTICE**
-
-**⚠️ DATA PRIVACY VULNERABILITY FIXED**
-
-If you're hosting this application with existing data, **IMMEDIATELY** implement the following security measures:
-
-### **The Problem**
-- The application previously used a **shared database** for all users
-- When API authentication failed, it would fall back to showing **any user's data** from the shared database
-- This meant users could see other people's private Spotify data (top tracks, artists, listening history)
-
-### **The Fix**
-- Each user now gets their own isolated database: `data/user_{spotify_user_id}_spotify_data.db`
-- No more fallback to shared database
-- Complete data isolation between users
-
-### **If You're Already Hosting**
-1. **Stop the application immediately**
-2. **Backup your existing data**: `cp data/spotify_data.db data/backup_spotify_data.db`
-3. **Clear the shared database**: `rm data/spotify_data.db` (or move it to backup)
-4. **Update to the latest code** with the security fixes
-5. **Restart the application**
-6. **All users must re-authenticate** to create their individual databases
-
-### **For New Installations**
-- This issue is automatically fixed in the latest version
-- Each user gets their own private database from the start
-
----
-
-SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrapped that transforms your music data into stunning, dynamic dashboards. Built with Dash, Plotly, and advanced AI analytics, it provides deep insights into your listening habits, personality analysis, and music trends with beautiful visualizations and real-time interactions. 🎶📊✨
+SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrapped that transforms your music data into stunning, dynamic dashboards. Built with Flask REST API backend and React frontend, featuring advanced AI analytics, it provides deep insights into your listening habits, personality analysis, and music trends with beautiful visualizations and real-time interactions. 🎶📊✨
 
 ![SpotifiWrapped Dashboard](https://via.placeholder.com/800x400?text=SpotifiWrapped+Dashboard)
 
@@ -60,92 +30,139 @@ SpotifiWrapped is a comprehensive, AI-powered interactive remake of Spotify Wrap
 ## 🚀 Quick Start
 
 ### Modern Flask + React Architecture
-SpotifiWrapped now uses a **Flask REST API backend** with a **React frontend** for better performance and maintainability.
+SpotifiWrapped uses a **Flask REST API backend** with a **React frontend** for optimal performance and maintainability.
 
-### Option 1: Development Mode (Recommended)
+### Prerequisites
+- **Python 3.8+** (recommended: Python 3.10+)
+- **Node.js 16+** and npm
+- **Git**
+- **Spotify Developer Account** (for real data)
 
-#### Backend Setup
-1. **Clone and set up the project**
-   ```bash
-   git clone https://github.com/hezronokwach/SpotifiWrapped.git
-   cd SpotifiWrapped
-   ```
+### Development Setup (Recommended)
 
-2. **Create and activate virtual environment**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Python dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` with your credentials:
-   ```env
-   # Spotify API
-   SPOTIFY_CLIENT_ID=your_spotify_client_id
-   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-   SPOTIFY_REDIRECT_URI=http://localhost:3000/auth/callback
-   
-   # Flask API
-   JWT_SECRET_KEY=your-secret-key-change-this
-   ALLOWED_ORIGINS=http://localhost:3000
-   
-   # Optional AI features
-   GEMINI_API_KEY=your_gemini_api_key
-   ```
-
-5. **Start the Flask API server**
-   ```bash
-   python api_app.py
-   ```
-   API will run on `http://localhost:5000`
-
-#### Frontend Setup
-6. **Install Node.js dependencies**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-7. **Start the React development server**
-   ```bash
-   npm run dev
-   ```
-   Frontend will run on `http://localhost:3000`
-
-8. **Open your browser**
-   Navigate to `http://localhost:3000`
-
-### Option 2: Production Mode
-
-1. **Build the React frontend**
-   ```bash
-   cd frontend
-   npm run build
-   ```
-
-2. **Run the Flask API in production**
-   ```bash
-   cd ..
-   python api_app.py
-   ```
-
-### Option 3: Legacy Dash Mode (Deprecated)
-The original Dash implementation is still available:
+#### 1. Clone and Setup Project
 ```bash
-python app.py  # Legacy Dash app on port 8080
+git clone https://github.com/hezronokwach/SpotifiWrapped.git
+cd SpotifiWrapped
+```
+
+#### 2. Backend Setup (Flask API)
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Create environment file
+cp .env.example .env
+```
+
+#### 3. Configure Environment Variables
+Edit `.env` file with your credentials:
+```env
+# Spotify API Credentials (Required for real data)
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/auth/callback
+
+# Flask API Configuration
+JWT_SECRET_KEY=your-secure-secret-key-change-this
+ALLOWED_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
+FLASK_ENV=development
+
+# Optional: AI Features (Enhanced insights)
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+#### 4. Start Flask API Server
+```bash
+# Make sure virtual environment is activated
+python api_app.py
+```
+✅ **Flask API will run on `http://127.0.0.1:5000`**
+
+#### 5. Frontend Setup (React)
+Open a **new terminal** and navigate to the frontend directory:
+```bash
+cd SpotifiWrapped/frontend
+
+# Install Node.js dependencies
+npm install
+
+# Start React development server
+npm run dev
+```
+✅ **React frontend will run on `http://127.0.0.1:3000`**
+
+#### 6. Access the Application
+Open your browser and navigate to:
+**`http://127.0.0.1:3000`**
+
+### Production Deployment
+
+#### Build for Production
+```bash
+# Build React frontend
+cd frontend
+npm run build
+
+# Return to root directory
+cd ..
+
+# Set production environment
+export FLASK_ENV=production  # Linux/macOS
+set FLASK_ENV=production     # Windows
+
+# Run Flask in production mode
+python api_app.py
+```
+
+### Alternative: Legacy Dash Mode
+The original Dash implementation is still available for reference:
+```bash
+python app.py  # Runs on port 8080
 ```
 
 ### Testing
+
+#### Backend Tests
 ```bash
-python3 tests/test_runner.py
+# Ensure virtual environment is activated
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+
+# Run Python tests
+python tests/test_runner.py
+
+# Run specific test modules
+python -m unittest tests.test_database
+python -m unittest tests.test_genre_extractor
+```
+
+#### Frontend Tests
+```bash
+cd frontend
+
+# Run React component tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+```
+
+#### API Health Check
+```bash
+# Test if Flask API is running
+curl http://127.0.0.1:5000/api/health
+
+# Expected response:
+# {"status": "healthy", "message": "Spotify Analytics API is running"}
 ```
 
 ## 🔑 Getting Spotify API Credentials
@@ -183,8 +200,9 @@ The demo mode provides a full experience without requiring Spotify credentials:
 - **Clean Separation**: No mixing of real and sample data
 
 ### **Key Components**
-- **Frontend**: Dash + Plotly for interactive visualizations
-- **Backend**: Python with SQLite for data storage
+- **Frontend**: React + TypeScript with modern UI components
+- **Backend**: Flask REST API with JWT authentication
+- **Database**: User-specific SQLite databases for data isolation
 - **API Integration**: Spotipy for Spotify Web API
 - **AI Analytics**: Custom algorithms for personality and wellness analysis
 - **Real-time Updates**: Live data refresh and playback tracking
@@ -322,6 +340,49 @@ PORT=8080
 
 ## 🚨 Troubleshooting
 
+### **Flask + React Setup Issues**
+
+1. **Flask API not starting**
+   ```bash
+   # Check if virtual environment is activated
+   which python  # Should show path to venv/bin/python
+   
+   # Reinstall dependencies if needed
+   pip install -r requirements.txt
+   
+   # Check for port conflicts
+   lsof -i :5000  # Kill any processes using port 5000
+   ```
+
+2. **React frontend connection errors**
+   ```bash
+   # Ensure both servers are running:
+   # Terminal 1: Flask API on http://127.0.0.1:5000
+   # Terminal 2: React dev server on http://127.0.0.1:3000
+   
+   # Check CORS configuration in .env:
+   ALLOWED_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
+   ```
+
+3. **API timeout errors (408 Request Timeout)**
+   - Spotify API calls taking too long (>8 seconds)
+   - Check internet connection and Spotify credentials
+   - Try refreshing after a few seconds
+
+4. **Authentication issues**
+   - Verify Spotify redirect URI: `http://127.0.0.1:3000/auth/callback`
+   - Check Client ID and Secret in `.env` file
+   - Ensure Spotify app is not in development mode
+
+5. **Database errors**
+   ```bash
+   # User-specific databases: data/user_{spotify_user_id}_spotify_data.db
+   rm data/user_*_spotify_data.db  # Clear if corrupted
+   mkdir -p data && chmod 755 data/
+   ```
+
+### **Legacy Issues**
+
 ### **Common Issues**
 
 1. **"Unknown Artist" or "Unknown Track" displayed**
@@ -363,10 +424,19 @@ PORT=8080
 
 ### **Performance Optimization**
 
-- **API Caching**: Responses are cached for 5 minutes
-- **Batch Loading**: Dashboard data loads in parallel
-- **Error Fallbacks**: Cached data used when API fails
-- **Clear Cache**: Use browser dev tools → Application → Storage → Clear
+- **API Caching**: 5-minute response caching with retry logic
+- **Timeout Handling**: 8-second server, 10-second client timeouts
+- **User Isolation**: Individual databases for security
+- **Error Fallbacks**: Graceful degradation when APIs fail
+- **Clear Cache**: Browser dev tools → Application → Storage → Clear
+
+### **Development Tips**
+
+1. **Use 127.0.0.1** instead of localhost for consistency
+2. **Keep both terminals open** (Flask + React) during development
+3. **Check browser console** for detailed error messages
+4. **Monitor Flask logs** for API debugging
+5. **Use dev tools** to inspect network requests and JWT tokens
 
 ## 🧪 Testing
 
