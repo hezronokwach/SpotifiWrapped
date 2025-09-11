@@ -17,8 +17,18 @@ const OnboardingPage: React.FC = () => {
   }
 
   const handleSpotifyAuth = () => {
-    // Redirect to Spotify OAuth
-    window.location.href = '/auth/login'
+    // Clear demo mode and any stale credentials
+    setDemoMode(false)
+    localStorage.removeItem('spotify_credentials')
+    localStorage.removeItem('spotify_access_token')
+    localStorage.removeItem('spotify_refresh_token')
+    localStorage.removeItem('jwt_token')
+    
+    // Trigger credentials check
+    window.dispatchEvent(new Event('credentialsChanged'))
+    
+    // Redirect to setup page for fresh credentials
+    navigate('/setup')
   }
 
   return (
