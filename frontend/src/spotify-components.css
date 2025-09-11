@@ -418,9 +418,8 @@
 .ai-card-stress {
   order: 1;
   animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
-  min-height: 800px;
-  position: sticky;
-  top: 20px;
+  min-height: auto;
+  position: static;
 }
 
 /* Enhanced AI Card Styling */
@@ -1511,4 +1510,215 @@
 .scrollable-list.artist-list::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #A855F7, #8B5CF6);
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+/* Enhanced Stress Analysis Card Styles */
+.enhanced-stress-card {
+  background: linear-gradient(135deg, rgba(26,26,26,0.95), rgba(18,18,18,0.95));
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 20px;
+  padding: 30px;
+  backdrop-filter: blur(15px);
+  position: relative;
+  overflow: hidden;
+  font-size: 15px;
+}
+
+.enhanced-stress-card::before {
+  content: '';
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  background: linear-gradient(45deg, 
+    rgba(255, 107, 107, 0.3) 0%,
+    rgba(255, 217, 61, 0.3) 25%,
+    rgba(29, 185, 84, 0.3) 50%,
+    rgba(255, 107, 107, 0.3) 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+  border-radius: 20px;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.enhanced-stress-card:hover::before {
+  opacity: 1;
+}
+
+/* Stress Indicator Cards */
+.stress-indicator-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.stress-indicator-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.stress-indicator-card:hover::before {
+  left: 100%;
+}
+
+.stress-indicator-card.active {
+  background: rgba(255,255,255,0.1) !important;
+  transform: translateY(-2px);
+}
+
+/* Stress Timeline Chart Enhancements */
+.stress-timeline-chart {
+  background: rgba(26, 26, 26, 0.8);
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  position: relative;
+}
+
+.stress-timeline-chart::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #FF6B6B, #FFD93D, #1DB954);
+  border-radius: 12px 12px 0 0;
+}
+
+/* Pulsing Animation for High Stress */
+@keyframes stressPulse {
+  0%, 100% { 
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1.0;
+    transform: scale(1.02);
+  }
+}
+
+.high-stress-indicator {
+  animation: stressPulse 2s ease-in-out infinite;
+}
+
+/* Therapeutic Recommendations Enhanced */
+.therapeutic-recommendation {
+  position: relative;
+  overflow: hidden;
+}
+
+.therapeutic-recommendation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #1DB954, #00D4FF);
+}
+
+/* Scientific Disclaimer Enhanced */
+.scientific-disclaimer {
+  position: relative;
+  overflow: hidden;
+}
+
+.scientific-disclaimer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #FFD93D, #FFA500);
+}
+
+/* Stress Level Color Coding */
+.stress-level-high {
+  color: #FF6B6B;
+  text-shadow: 0 0 20px rgba(255, 107, 107, 0.6);
+}
+
+.stress-level-moderate {
+  color: #FFD93D;
+  text-shadow: 0 0 20px rgba(255, 217, 61, 0.6);
+}
+
+.stress-level-low {
+  color: #1DB954;
+  text-shadow: 0 0 20px rgba(29, 185, 84, 0.6);
+}
+
+/* Interactive Elements */
+.stress-info-button {
+  background: none;
+  border: none;
+  color: #00D4FF;
+  cursor: pointer;
+  font-size: 12px;
+  text-decoration: underline;
+  transition: all 0.3s ease;
+}
+
+.stress-info-button:hover {
+  color: #1DB954;
+  text-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+}
+
+/* Expandable Research Details */
+.research-details {
+  animation: slideDown 0.3s ease-out;
+  transform-origin: top;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* Confidence Indicator */
+.confidence-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 212, 255, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  font-size: 11px;
+  color: #00D4FF;
+}
+
+/* Timeline Summary Grid */
+.timeline-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.timeline-day-summary {
+  padding: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.timeline-day-summary:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-1px);
 }

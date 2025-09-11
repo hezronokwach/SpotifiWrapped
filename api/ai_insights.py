@@ -10,11 +10,11 @@ ai_bp = Blueprint('ai', __name__)
 @ai_bp.route('/personality', methods=['GET'])
 @jwt_required()
 def get_personality():
-    """Get enhanced personality analysis"""
+    """Get enhanced personality analysis using Gemini AI"""
     try:
         user_id = get_jwt_identity()
         
-        # Check if this is a demo user or insufficient data
+        # Check if this is a demo user
         if user_id == 'demo-user' or user_id.startswith('demo'):
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_personality_analysis())
@@ -22,23 +22,38 @@ def get_personality():
         db_path = f'data/user_{user_id}_spotify_data.db'
         
         try:
+            # Use the Gemini-powered EnhancedPersonalityAnalyzer
             from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
             analyzer = EnhancedPersonalityAnalyzer(db_path)
             analysis = analyzer.generate_enhanced_personality(user_id)
             
-            # If insufficient data, use sample data
+            print(f"Personality analysis result: confidence={analysis.get('confidence_score', 0)}")
+            
+            # Only fallback to sample data if confidence is very low (< 0.3)
             if analysis.get('confidence_score', 0) < 0.3:
+                print("Using sample data due to low confidence")
                 from modules.ai_sample_data import ai_sample_generator
-                return jsonify(ai_sample_generator.generate_personality_analysis())
+                sample_data = ai_sample_generator.generate_personality_analysis()
+                # Add note that this is sample data
+                sample_data['ai_description'] = "Keep listening to more music to unlock deeper personality insights! We need more data to provide accurate analysis."
+                sample_data['confidence_score'] = 0.2
+                return jsonify(sample_data)
             
             return jsonify(analysis)
+            
         except Exception as e:
-            print(f"Personality analysis failed: {e}")
-            # Fallback to sample data
+            print(f"Enhanced personality analysis failed: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Fallback to sample data with error indication
             from modules.ai_sample_data import ai_sample_generator
-            return jsonify(ai_sample_generator.generate_personality_analysis())
+            sample_data = ai_sample_generator.generate_personality_analysis()
+            sample_data['ai_description'] = "Unable to generate AI analysis at the moment. Here's a sample analysis based on typical listening patterns."
+            return jsonify(sample_data)
             
     except Exception as e:
+        print(f"Personality endpoint error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @ai_bp.route('/wellness', methods=['GET'])
@@ -409,6 +424,12 @@ def get_enhanced_stress_analysis():
     """Get comprehensive enhanced stress analysis with all visualization data"""
     try:
         user_id = get_jwt_identity()
+        
+        # Check if this is a demo user
+        if user_id == 'demo-user' or user_id.startswith('demo'):
+            from modules.ai_sample_data import ai_sample_generator
+            return jsonify(ai_sample_generator.generate_enhanced_stress_analysis())
+        
         db_path = f'data/user_{user_id}_spotify_data.db'
         
         from modules.stress_analysis_api import StressAnalysisAPI
