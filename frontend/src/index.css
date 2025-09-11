@@ -290,4 +290,21 @@
       background-position: 0% 50%;
     }
   }
+
+  /* Onboarding Page Styles */
+  .option-card {
+    @apply bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-8 backdrop-blur-sm transition-all duration-300 hover:transform hover:-translate-y-1 hover:border-opacity-30 hover:shadow-2xl;
+  }
+
+  .option-card:hover {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .option-card:first-child:hover {
+    border-color: rgba(29, 185, 84, 0.5);
+  }
+
+  .option-card:last-child:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+  }
 }

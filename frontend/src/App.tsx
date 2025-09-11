@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import OnboardingPage from './pages/OnboardingPage'
 import AuthCallback from './pages/AuthCallback'
+import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 import DebugCredentials from './components/DebugCredentials'
@@ -80,14 +81,15 @@ const AppRoutes: React.FC = () => {
       />
       <Route
         path="/login"
-        element={
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
-          isAuthenticated ? <Navigate to="/" replace /> : <Login />
-        }
+        element={<Login />}
       />
       <Route
         path="/auth/callback"
         element={<AuthCallback />}
+      />
+      <Route
+        path="/auth"
+        element={<Navigate to="/onboarding" replace />}
       />
       <Route
         path="/"
@@ -115,6 +117,16 @@ const AppRoutes: React.FC = () => {
           <ProtectedRoute>
             <Layout>
               <AIInsights />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Settings />
             </Layout>
           </ProtectedRoute>
         }

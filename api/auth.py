@@ -38,7 +38,7 @@ def login():
         print("✅ DEBUG: User credentials stored in session")
 
         # Get redirect URI from environment
-        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
+        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
 
         # Create SpotifyAPI instance with user credentials
@@ -93,7 +93,7 @@ def callback():
             return jsonify({'error': 'Missing client credentials'}), 400
 
         # Get redirect URI from environment
-        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
+        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
 
         # Create SpotifyAPI instance with user credentials

@@ -76,11 +76,6 @@ const Dashboard: React.FC = () => {
       // Import the configured API client for real data
       const { default: api } = await import('../api')
       
-      // First test the JWT token
-      console.log('🔍 Dashboard: Testing JWT token...')
-      const testRes = await api.get('/music/test')
-      console.log('🔍 Dashboard: JWT test result:', testRes.data)
-
       // Fetch dashboard data sequentially to avoid overwhelming the backend
       console.log('🔍 Dashboard: Fetching user stats...')
       const statsRes = await api.get('/user/stats')
