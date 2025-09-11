@@ -258,7 +258,12 @@ class SpotifyDataCollector:
         """Save a batch of tracks and their listening history."""
         for track in tracks:
             try:
-                # Save track data
+                # Ensure track has audio features - get them if missing
+                if not track.get('energy'):
+                    audio_features = self.api.get_audio_features_safely(track['id'])
+                    track.update(audio_features)
+                
+                # Save track data (now includes audio features)
                 self.db.save_track(track)
 
                 # Get timestamp (played_at or added_at)
