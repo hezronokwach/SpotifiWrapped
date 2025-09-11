@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface PatternData {
   day: string
@@ -21,6 +22,7 @@ interface PatternsResponse {
 }
 
 const ListeningPatterns: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [patternsData, setPatternsData] = useState<PatternsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,12 +30,58 @@ const ListeningPatterns: React.FC = () => {
 
   useEffect(() => {
     fetchPatternsData()
-  }, [])
+  }, [isDemoMode])
 
   const fetchPatternsData = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Generate sample listening patterns for demo mode
+        const samplePatterns = []
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+          for (let hour = 0; hour < 24; hour++) {
+            let count = 0
+            // Simulate realistic listening patterns
+            if (dayIndex < 5) { // Weekdays
+              if (hour >= 7 && hour <= 9) count = Math.floor(Math.random() * 15) + 5 // Morning commute
+              else if (hour >= 12 && hour <= 14) count = Math.floor(Math.random() * 10) + 2 // Lunch
+              else if (hour >= 17 && hour <= 22) count = Math.floor(Math.random() * 20) + 8 // Evening
+              else if (hour >= 22 || hour <= 1) count = Math.floor(Math.random() * 8) + 1 // Late night
+              else count = Math.floor(Math.random() * 5)
+            } else { // Weekends
+              if (hour >= 10 && hour <= 14) count = Math.floor(Math.random() * 18) + 5 // Late morning
+              else if (hour >= 15 && hour <= 23) count = Math.floor(Math.random() * 25) + 10 // Afternoon/evening
+              else count = Math.floor(Math.random() * 8)
+            }
+            
+            samplePatterns.push({
+              day: days[dayIndex],
+              day_num: dayIndex === 6 ? 0 : dayIndex + 1, // Convert to Sunday=0 format
+              hour,
+              count
+            })
+          }
+        }
+        
+        const totalPlays = samplePatterns.reduce((sum, p) => sum + p.count, 0)
+        const maxPattern = samplePatterns.reduce((max, p) => p.count > max.count ? p : max)
+        
+        setPatternsData({
+          listening_patterns: samplePatterns,
+          summary: {
+            total_plays: totalPlays,
+            most_active_hour: maxPattern.hour,
+            most_active_day: maxPattern.day
+          }
+        })
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/analytics/patterns')
       console.log('🔍 Patterns response:', response.data)
       setPatternsData(response.data)

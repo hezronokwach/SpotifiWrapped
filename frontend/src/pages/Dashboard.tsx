@@ -13,6 +13,9 @@ import ListeningPatterns from '../components/ListeningPatterns'
 import UserProfile from '../components/UserProfile'
 import TopTrackHighlight from '../components/TopTrackHighlight'
 import TopArtistHighlight from '../components/TopArtistHighlight'
+import DemoModeIndicator from '../components/DemoModeIndicator'
+import { useDemoMode } from '../contexts/DemoModeContext'
+import { sampleStats, sampleTracks, sampleArtists, sampleCurrentTrack } from '../data/sampleData'
 
 interface UserStats {
   total_tracks: number
@@ -42,21 +45,35 @@ interface Artist {
 }
 
 const Dashboard: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [stats, setStats] = useState<UserStats | null>(null)
   const [topTracks, setTopTracks] = useState<Track[]>([])
   const [topArtists, setTopArtists] = useState<Artist[]>([])
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [isDemoMode])
 
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true)
+      setError(null)
 
-      // Import the configured API client
+      if (isDemoMode) {
+        // Use sample data for demo mode - no API calls needed
+        console.log('📊 Using demo data')
+        setStats(sampleStats)
+        setTopTracks(sampleTracks)
+        setTopArtists(sampleArtists)
+        setCurrentTrack(sampleCurrentTrack)
+        setIsLoading(false)
+        return
+      }
+
+      // Import the configured API client for real data
       const { default: api } = await import('../api')
       
       // First test the JWT token
@@ -81,6 +98,7 @@ const Dashboard: React.FC = () => {
       setCurrentTrack(currentRes.data.currently_playing || null)
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
+      setError('Failed to load dashboard data. Please check your connection and try again.')
     } finally {
       setIsLoading(false)
     }
@@ -97,8 +115,26 @@ const Dashboard: React.FC = () => {
     )
   }
 
+  if (error && !isDemoMode) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <i className="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+          <h3 className="text-xl font-semibold text-white mb-2">Connection Error</h3>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <Button onClick={fetchDashboardData} variant="spotify">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      {/* Demo Mode Indicator */}
+      <DemoModeIndicator />
+      
       {/* User Profile Header - matches original Dash layout */}
       <UserProfile />
 

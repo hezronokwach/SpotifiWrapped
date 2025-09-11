@@ -13,6 +13,7 @@ import {
   Filler
 } from 'chart.js'
 import api from '../api'
+import { useDemoMode } from '../contexts/DemoModeContext'
 import '../spotify-components.css'
 
 // Register Chart.js components
@@ -88,6 +89,7 @@ interface GenreEvolutionData {
 }
 
 const AIInsights: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [personalityData, setPersonalityData] = useState<PersonalityData | null>(null)
   const [wellnessData, setWellnessData] = useState<WellnessData | null>(null)
   const [stressData, setStressData] = useState<StressData | null>(null)
@@ -98,11 +100,87 @@ const AIInsights: React.FC = () => {
 
   useEffect(() => {
     fetchAIInsights()
-  }, [])
+  }, [isDemoMode])
 
   const fetchAIInsights = async () => {
     try {
       setIsLoading(true)
+      
+      if (isDemoMode) {
+        // Use sample AI insights for demo mode
+        setPersonalityData({
+          ai_description: "You're a Sonic Explorer with eclectic taste! Your music choices show curiosity and openness to new experiences. You enjoy both mainstream hits and hidden gems, suggesting a balanced personality that appreciates both familiarity and novelty.",
+          personality_type: "Sonic Explorer",
+          confidence_score: 0.85,
+          recommendations: [
+            { name: "As It Was", artist: "Harry Styles", similarity_score: 0.92, reason: "Matches your pop sensibilities" },
+            { name: "Heat Waves", artist: "Glass Animals", similarity_score: 0.88, reason: "Indie vibes you'll love" }
+          ]
+        })
+        
+        setWellnessData({
+          wellness_score: 78,
+          mood_indicator: "Positive",
+          energy_level: "High",
+          listening_frequency: "Daily Active Listener",
+          recommendations: [
+            "Your music choices suggest good emotional regulation",
+            "Consider adding more calming tracks for better sleep",
+            "Your diverse taste promotes mental flexibility"
+          ]
+        })
+        
+        setStressData({
+          stress_score: 32,
+          stress_level: "Low Stress",
+          stress_indicators: {
+            late_night_patterns: { severity: "mild", frequency: 2, research_basis: "Occasional late listening" },
+            mood_volatility: { severity: "low", frequency: 1, research_basis: "Stable music preferences" }
+          },
+          stress_timeline: [
+            { date: "2024-01-08", stress_score: 28, avg_mood: 0.72, avg_energy: 0.68 },
+            { date: "2024-01-09", stress_score: 35, avg_mood: 0.65, avg_energy: 0.71 },
+            { date: "2024-01-10", stress_score: 30, avg_mood: 0.78, avg_energy: 0.69 }
+          ],
+          personal_triggers: [
+            { type: "temporal", trigger: "Late night listening spikes", recommendation: "Set a music curfew for better sleep" }
+          ],
+          recommendations: [
+            { type: "relaxation", title: "Mindful Listening", description: "Practice focused listening sessions", action: "Try 10-minute meditation with ambient music" }
+          ],
+          confidence: 82
+        })
+        
+        setGenreEvolution({
+          timeline_data: [
+            { month: "Oct 2023", genres: { "pop": 45, "rock": 32, "indie": 28 }, total_plays: 105 },
+            { month: "Nov 2023", genres: { "pop": 52, "rock": 28, "indie": 35 }, total_plays: 115 },
+            { month: "Dec 2023", genres: { "pop": 48, "rock": 35, "indie": 42 }, total_plays: 125 }
+          ],
+          insights: [
+            "Your indie music appreciation has grown 50% over the past 3 months",
+            "Pop remains your consistent favorite across all periods",
+            "You're exploring more diverse genres lately"
+          ],
+          current_top_genres: [
+            { genre: "pop", plays: 48 },
+            { genre: "indie", plays: 42 },
+            { genre: "rock", plays: 35 }
+          ],
+          biggest_changes: [
+            { genre: "indie", change: 14, direction: "increased" },
+            { genre: "electronic", change: 8, direction: "increased" }
+          ]
+        })
+        
+        setRecommendations([
+          { name: "Flowers", artist: "Miley Cyrus", similarity_score: 0.89, reason: "Matches your current pop preferences", image_url: "https://picsum.photos/300/300?random=50" },
+          { name: "Unholy", artist: "Sam Smith ft. Kim Petras", similarity_score: 0.85, reason: "Trending track you might enjoy", image_url: "https://picsum.photos/300/300?random=51" }
+        ])
+        
+        setIsLoading(false)
+        return
+      }
       
       // Fetch all AI insights in parallel
       const [personalityRes, wellnessRes, stressRes, genreRes, recRes] = await Promise.all([

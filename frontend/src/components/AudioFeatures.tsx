@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import '../spotify-components.css'
+import { useDemoMode } from '../contexts/DemoModeContext'
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -45,18 +46,41 @@ interface AudioFeaturesData {
 }
 
 const AudioFeatures: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [audioFeatures, setAudioFeatures] = useState<AudioFeaturesData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAudioFeatures()
-  }, [])
+  }, [isDemoMode])
 
   const fetchAudioFeatures = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample audio features for demo mode
+        const sampleAudioFeatures = {
+          audio_features: {
+            danceability: 0.65,
+            energy: 0.72,
+            speechiness: 0.08,
+            acousticness: 0.25,
+            instrumentalness: 0.15,
+            liveness: 0.18,
+            valence: 0.68,
+            tempo: 125.5
+          },
+          tracks: [],
+          tracks_analyzed: 50
+        }
+        setAudioFeatures(sampleAudioFeatures)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/analytics/audio-features')
       setAudioFeatures(response.data)
     } catch (err) {

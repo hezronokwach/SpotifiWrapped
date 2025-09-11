@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api'
+import { useDemoMode } from '../contexts/DemoModeContext'
+import { sampleUserProfile } from '../data/sampleData'
 
 interface UserData {
   display_name: string
@@ -10,11 +12,25 @@ interface UserData {
 }
 
 const UserProfile: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [userData, setUserData] = useState<UserData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchUserData = useCallback(async () => {
     try {
+      if (isDemoMode) {
+        // Use sample user data for demo mode
+        setUserData({
+          display_name: sampleUserProfile.display_name,
+          followers: sampleUserProfile.followers.total,
+          following: 42, // Sample following count
+          image_url: sampleUserProfile.images[0]?.url,
+          product: sampleUserProfile.product
+        })
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/user/profile')
       setUserData(response.data)
     } catch (err) {
@@ -28,11 +44,11 @@ const UserProfile: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isDemoMode])
 
   useEffect(() => {
     fetchUserData()
-  }, [fetchUserData])
+  }, [fetchUserData, isDemoMode])
 
   if (isLoading) {
     return (

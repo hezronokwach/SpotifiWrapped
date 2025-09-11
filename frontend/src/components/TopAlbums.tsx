@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import '../spotify-components.css'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface Album {
   album: string
@@ -15,18 +16,59 @@ interface TopAlbumsResponse {
 }
 
 const TopAlbums: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [topAlbums, setTopAlbums] = useState<TopAlbumsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTopAlbums()
-  }, [])
+  }, [isDemoMode])
 
   const fetchTopAlbums = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample albums for demo mode
+        const sampleAlbums = {
+          albums: [
+            {
+              album: 'After Hours',
+              artist: 'The Weeknd',
+              total_count: 45,
+              image_url: 'https://picsum.photos/200/200?random=40',
+              rank: 1
+            },
+            {
+              album: 'Fine Line',
+              artist: 'Harry Styles',
+              total_count: 38,
+              image_url: 'https://picsum.photos/200/200?random=41',
+              rank: 2
+            },
+            {
+              album: 'SOUR',
+              artist: 'Olivia Rodrigo',
+              total_count: 32,
+              image_url: 'https://picsum.photos/200/200?random=42',
+              rank: 3
+            },
+            {
+              album: 'Future Nostalgia',
+              artist: 'Dua Lipa',
+              total_count: 28,
+              image_url: 'https://picsum.photos/200/200?random=43',
+              rank: 4
+            }
+          ]
+        }
+        setTopAlbums(sampleAlbums)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/music/albums/top?limit=10')
       setTopAlbums(response.data)
     } catch (err) {

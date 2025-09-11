@@ -100,6 +100,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const logout = () => {
+    // Check if in demo mode before clearing
+    const isDemoMode = localStorage.getItem('demo_mode') === 'true'
+    
     // Clear secure session
     clearSession()
 
@@ -107,8 +110,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null)
     setToken(null)
 
-    // Notify backend
-    axios.post('/api/auth/logout').catch(console.error)
+    // Clear demo mode
+    localStorage.removeItem('demo_mode')
+
+    // Only notify backend if not in demo mode
+    if (!isDemoMode) {
+      axios.post('/api/auth/logout').catch(console.error)
+    }
   }
 
   const handleOAuthCallback = useCallback(async (code: string) => {

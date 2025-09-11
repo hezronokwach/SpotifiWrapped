@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface WrappedTrack {
   name: string
@@ -32,18 +33,51 @@ interface WrappedResponse {
 }
 
 const WrappedSummary: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [wrappedData, setWrappedData] = useState<WrappedResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchWrappedData()
-  }, [])
+  }, [isDemoMode])
 
   const fetchWrappedData = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample wrapped data for demo mode
+        const sampleWrappedData = {
+          wrapped: {
+            listening_stats: {
+              total_minutes_listened: 18420,
+              total_tracks_played: 1247,
+              unique_artists_discovered: 342,
+              unique_albums_explored: 156
+            },
+            top_tracks: [
+              { name: 'Blinding Lights', artist: 'The Weeknd', play_count: '127' },
+              { name: 'Watermelon Sugar', artist: 'Harry Styles', play_count: '98' },
+              { name: 'Good 4 U', artist: 'Olivia Rodrigo', play_count: '85' },
+              { name: 'Levitating', artist: 'Dua Lipa', play_count: '72' },
+              { name: 'Stay', artist: 'The Kid LAROI & Justin Bieber', play_count: '68' }
+            ],
+            top_artists: [
+              { name: 'The Weeknd', genres: ['pop', 'r&b'], play_count: '245' },
+              { name: 'Harry Styles', genres: ['pop', 'rock'], play_count: '198' },
+              { name: 'Olivia Rodrigo', genres: ['pop', 'indie pop'], play_count: '156' },
+              { name: 'Dua Lipa', genres: ['pop', 'dance pop'], play_count: '134' },
+              { name: 'Taylor Swift', genres: ['pop', 'country'], play_count: '112' }
+            ]
+          }
+        }
+        setWrappedData(sampleWrappedData)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/analytics/wrapped')
       setWrappedData(response.data)
     } catch (err) {
