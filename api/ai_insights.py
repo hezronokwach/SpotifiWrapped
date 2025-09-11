@@ -29,15 +29,15 @@ def get_personality():
             
             print(f"Personality analysis result: confidence={analysis.get('confidence_score', 0)}")
             
-            # Only fallback to sample data if confidence is very low (< 0.3)
+            # NEVER return sample data for authenticated users - return error for low confidence
             if analysis.get('confidence_score', 0) < 0.3:
-                print("Using sample data due to low confidence")
-                from modules.ai_sample_data import ai_sample_generator
-                sample_data = ai_sample_generator.generate_personality_analysis()
-                # Add note that this is sample data
-                sample_data['ai_description'] = "Keep listening to more music to unlock deeper personality insights! We need more data to provide accurate analysis."
-                sample_data['confidence_score'] = 0.2
-                return jsonify(sample_data)
+                return jsonify({
+                    'error': 'Insufficient data for personality analysis',
+                    'message': 'We need more listening data to provide accurate personality analysis. Please listen to more music on Spotify.',
+                    'confidence_score': analysis.get('confidence_score', 0),
+                    'personality_type': 'Insufficient Data',
+                    'ai_description': 'Keep listening to more music to unlock deeper personality insights!'
+                }), 400
             
             return jsonify(analysis)
             
@@ -46,11 +46,13 @@ def get_personality():
             import traceback
             traceback.print_exc()
             
-            # Fallback to sample data with error indication
-            from modules.ai_sample_data import ai_sample_generator
-            sample_data = ai_sample_generator.generate_personality_analysis()
-            sample_data['ai_description'] = "Unable to generate AI analysis at the moment. Here's a sample analysis based on typical listening patterns."
-            return jsonify(sample_data)
+            # NEVER return sample data for authenticated users - return error instead
+            return jsonify({
+                'error': 'Failed to generate personality analysis',
+                'message': f'Unable to analyze your music data: {str(e)}',
+                'personality_type': 'Analysis Failed',
+                'ai_description': 'Unable to generate AI analysis at the moment. Please try again later.'
+            }), 500
             
     except Exception as e:
         print(f"Personality endpoint error: {e}")
@@ -88,9 +90,11 @@ def get_wellness():
             return jsonify(wellness_data)
         except Exception as e:
             print(f"Wellness analysis failed: {e}")
-            # Fallback to sample data
-            from modules.ai_sample_data import ai_sample_generator
-            return jsonify(ai_sample_generator.generate_wellness_analysis())
+            # NEVER return sample data for authenticated users - return error instead
+            return jsonify({
+                'error': 'Failed to generate wellness analysis',
+                'message': f'Unable to analyze your wellness data: {str(e)}'
+            }), 500
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -195,10 +199,16 @@ def get_genre_evolution():
             tracker = GenreEvolutionTracker(db_path)
             evolution_data = tracker.get_genre_evolution_data(user_id)
             
-            # Check if we have sufficient data
+            # Check if we have sufficient data - return error instead of sample data
             if not evolution_data.get('timeline_data') or len(evolution_data.get('timeline_data', [])) < 2:
-                from modules.ai_sample_data import ai_sample_generator
-                return jsonify(ai_sample_generator.generate_genre_evolution())
+                return jsonify({
+                    'error': 'Insufficient data for genre evolution',
+                    'message': 'We need more listening history to track your genre evolution. Please listen to more music on Spotify.',
+                    'timeline_data': [],
+                    'insights': ['Keep listening to see your genre evolution!'],
+                    'current_top_genres': [],
+                    'biggest_changes': []
+                }), 400
             
             # Ensure all required fields are present
             if not evolution_data.get('insights'):
@@ -211,9 +221,11 @@ def get_genre_evolution():
             return jsonify(evolution_data)
         except Exception as e:
             print(f"Genre evolution analysis failed: {e}")
-            # Fallback to sample data
-            from modules.ai_sample_data import ai_sample_generator
-            return jsonify(ai_sample_generator.generate_genre_evolution())
+            # NEVER return sample data for authenticated users - return error instead
+            return jsonify({
+                'error': 'Failed to generate genre evolution analysis',
+                'message': f'Unable to analyze your genre evolution: {str(e)}'
+            }), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -276,15 +288,19 @@ def get_stress_analysis():
                 return jsonify(stress_data)
             except Exception as wellness_error:
                 print(f"Wellness analyzer also failed: {wellness_error}")
-                # Fallback to sample data
-                from modules.ai_sample_data import ai_sample_generator
-                return jsonify(ai_sample_generator.generate_stress_analysis())
+                # NEVER return sample data for authenticated users - return error instead
+                return jsonify({
+                    'error': 'Failed to generate stress analysis',
+                    'message': f'Unable to analyze your stress patterns: {str(wellness_error)}'
+                }), 500
         
     except Exception as e:
         print(f"All stress analysis methods failed: {e}")
-        # Final fallback to sample data
-        from modules.ai_sample_data import ai_sample_generator
-        return jsonify(ai_sample_generator.generate_stress_analysis())
+        # NEVER return sample data for authenticated users - return error instead
+        return jsonify({
+            'error': 'Failed to generate stress analysis',
+            'message': f'Unable to analyze your stress patterns: {str(e)}'
+        }), 500
 
 @ai_bp.route('/recommendations', methods=['GET'])
 @jwt_required()
@@ -317,21 +333,31 @@ def get_recommendations():
             except:
                 music_dna = None
             
-            # If insufficient recommendations, use sample data
-            if len(recommendations) < 3:
-                from modules.ai_sample_data import ai_sample_generator
-                return jsonify(ai_sample_generator.generate_advanced_recommendations())
+            # NEVER return sample data for authenticated users - return error instead
+            if len(recommendations) < 1:
+                return jsonify({
+                    'error': 'Insufficient data for recommendations',
+                    'message': 'We need more listening data to generate personalized recommendations. Please listen to more music on Spotify.',
+                    'recommendations': [],
+                    'music_dna': music_dna,
+                    'total_count': 0
+                }), 400
             
             return jsonify({
                 'recommendations': recommendations,
                 'music_dna': music_dna,
                 'total_count': len(recommendations)
             })
+            
         except Exception as e:
             print(f"Recommendations analysis failed: {e}")
-            # Fallback to sample data
-            from modules.ai_sample_data import ai_sample_generator
-            return jsonify(ai_sample_generator.generate_advanced_recommendations())
+            # NEVER return sample data for authenticated users - return error instead
+            return jsonify({
+                'error': 'Failed to generate recommendations',
+                'message': f'Unable to analyze your music data: {str(e)}',
+                'recommendations': [],
+                'total_count': 0
+            }), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

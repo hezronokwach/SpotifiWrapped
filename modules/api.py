@@ -359,38 +359,23 @@ class SpotifyAPI:
                     # Fall back to Spotify API if AI fails
 
             # If not using AI or AI failed, try Spotify API
-            # Add retry mechanism with backoff
-            max_retries = 3
-            retry_count = 0
-
-            while retry_count < max_retries:
-                try:
-                    features = self.sp.audio_features(track_id)
-                    if features and features[0]:
-                        # Cache the result
-                        self.audio_features_cache[track_id] = features[0]
-                        return features[0]
-
-                    fallback = self._generate_fallback_audio_features()
-                    self.audio_features_cache[track_id] = fallback
-                    return fallback
-                except Exception as e:
-                    # Check if it's a 403 error
-                    if "403" in str(e):
-                        # For 403 errors, return fallback data rather than retrying
-                        fallback = self._generate_fallback_audio_features()
-                        self.audio_features_cache[track_id] = fallback
-                        return fallback
-
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        # Exponential backoff
-                        wait_time = 2 ** retry_count
-                        logger.info(f"Retrying in {wait_time} seconds (attempt {retry_count}/{max_retries})")
-                        time.sleep(wait_time)
-                    else:
-                        logger.error(f"Max retries reached for track {track_id}")
-                        raise
+            try:
+                features = self.sp.audio_features(track_id)
+                if features and features[0]:
+                    # Cache the result
+                    self.audio_features_cache[track_id] = features[0]
+                    return features[0]
+            except Exception as e:
+                # Check if it's a 403 error (permission denied)
+                if "403" in str(e):
+                    logger.warning(f"403 error for audio features - using fallback for track {track_id}")
+                else:
+                    logger.warning(f"Audio features API error for track {track_id}: {e}")
+            
+            # Always fall back to generated features if API fails
+            fallback = self._generate_fallback_audio_features()
+            self.audio_features_cache[track_id] = fallback
+            return fallback
 
             fallback = self._generate_fallback_audio_features()
             self.audio_features_cache[track_id] = fallback
@@ -525,12 +510,18 @@ class SpotifyAPI:
                     'explicit': track['explicit'],
                     'preview_url': track['preview_url'],
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
-                    # Audio features
+                    # Audio features - include ALL features for database storage
                     'danceability': audio_features.get('danceability', 0),
                     'energy': audio_features.get('energy', 0),
-                    'tempo': audio_features.get('tempo', 0),
+                    'key': audio_features.get('key', 0),
+                    'loudness': audio_features.get('loudness', 0),
+                    'mode': audio_features.get('mode', 0),
+                    'speechiness': audio_features.get('speechiness', 0),
+                    'acousticness': audio_features.get('acousticness', 0),
+                    'instrumentalness': audio_features.get('instrumentalness', 0),
+                    'liveness': audio_features.get('liveness', 0),
                     'valence': audio_features.get('valence', 0),
-                    'acousticness': audio_features.get('acousticness', 0)
+                    'tempo': audio_features.get('tempo', 0)
                 })
 
             return tracks_data
@@ -559,6 +550,9 @@ class SpotifyAPI:
             for idx, item in enumerate(results['items'], 1):
                 track = item['track']
 
+                # Get audio features for this track
+                audio_features = self.get_audio_features_safely(track['id'])
+                
                 tracks_data.append({
                     'track': track['name'],
                     'artist': track['artists'][0]['name'],
@@ -569,7 +563,19 @@ class SpotifyAPI:
                     'duration_ms': track['duration_ms'],
                     'name': track['name'],  # Add this to satisfy NOT NULL constraint
                     'image_url': track['album']['images'][0]['url'] if track['album']['images'] else '',
-                    'preview_url': track.get('preview_url', '')
+                    'preview_url': track.get('preview_url', ''),
+                    # Audio features - include ALL features for database storage
+                    'danceability': audio_features.get('danceability', 0),
+                    'energy': audio_features.get('energy', 0),
+                    'key': audio_features.get('key', 0),
+                    'loudness': audio_features.get('loudness', 0),
+                    'mode': audio_features.get('mode', 0),
+                    'speechiness': audio_features.get('speechiness', 0),
+                    'acousticness': audio_features.get('acousticness', 0),
+                    'instrumentalness': audio_features.get('instrumentalness', 0),
+                    'liveness': audio_features.get('liveness', 0),
+                    'valence': audio_features.get('valence', 0),
+                    'tempo': audio_features.get('tempo', 0)
                 })
 
             # If we got no data, return sample data
@@ -764,6 +770,9 @@ class SpotifyAPI:
                     track = item['track']
                     played_at = pd.to_datetime(item['played_at'], format='ISO8601')
 
+                    # Get audio features for this track
+                    audio_features = self.get_audio_features_safely(track['id'])
+                    
                     tracks_data.append({
                         'track': track['name'],
                         'artist': track['artists'][0]['name'],
@@ -776,7 +785,19 @@ class SpotifyAPI:
                         'preview_url': track.get('preview_url', ''),
                         'popularity': track.get('popularity', 0),
                         'day_of_week': played_at.day_name(),
-                        'hour_of_day': played_at.hour
+                        'hour_of_day': played_at.hour,
+                        # Audio features - include ALL features for database storage
+                        'danceability': audio_features.get('danceability', 0),
+                        'energy': audio_features.get('energy', 0),
+                        'key': audio_features.get('key', 0),
+                        'loudness': audio_features.get('loudness', 0),
+                        'mode': audio_features.get('mode', 0),
+                        'speechiness': audio_features.get('speechiness', 0),
+                        'acousticness': audio_features.get('acousticness', 0),
+                        'instrumentalness': audio_features.get('instrumentalness', 0),
+                        'liveness': audio_features.get('liveness', 0),
+                        'valence': audio_features.get('valence', 0),
+                        'tempo': audio_features.get('tempo', 0)
                     })
 
                 print(f"Retrieved {len(tracks_data)} recently played tracks")

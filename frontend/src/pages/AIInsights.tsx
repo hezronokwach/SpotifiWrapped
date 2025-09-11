@@ -182,8 +182,8 @@ const AIInsights: React.FC = () => {
         return
       }
       
-      // Fetch all AI insights in parallel
-      const [personalityRes, wellnessRes, stressRes, genreRes, recRes] = await Promise.all([
+      // Fetch all AI insights in parallel with error handling
+      const results = await Promise.allSettled([
         api.get('/ai/personality'),
         api.get('/ai/wellness'),
         api.get('/ai/stress-enhanced'),
@@ -191,11 +191,58 @@ const AIInsights: React.FC = () => {
         api.get('/ai/recommendations')
       ])
       
-      setPersonalityData(personalityRes.data)
-      setWellnessData(wellnessRes.data)
-      setStressData(stressRes.data)
-      setGenreEvolution(genreRes.data)
-      setRecommendations(recRes.data.recommendations || [])
+      // Handle personality data
+      if (results[0].status === 'fulfilled') {
+        setPersonalityData(results[0].value.data)
+      } else {
+        // Check if it's an expected 400 error (insufficient data)
+        const error = results[0].reason
+        if (error?.response?.status === 400) {
+          console.log('Insufficient data for personality analysis - this is expected')
+          setPersonalityData({ error: 'Insufficient data', message: error.response.data.message })
+        } else {
+          console.error('Personality analysis failed:', error)
+          setPersonalityData({ error: 'Failed to load personality analysis' })
+        }
+      }
+      
+      // Handle wellness data
+      if (results[1].status === 'fulfilled') {
+        setWellnessData(results[1].value.data)
+      } else {
+        console.error('Wellness analysis failed:', results[1].reason)
+        setWellnessData(null)
+      }
+      
+      // Handle stress data
+      if (results[2].status === 'fulfilled') {
+        setStressData(results[2].value.data)
+      } else {
+        console.error('Stress analysis failed:', results[2].reason)
+        setStressData(null)
+      }
+      
+      // Handle genre evolution data
+      if (results[3].status === 'fulfilled') {
+        setGenreEvolution(results[3].value.data)
+      } else {
+        console.error('Genre evolution failed:', results[3].reason)
+        setGenreEvolution(null)
+      }
+      
+      // Handle recommendations data
+      if (results[4].status === 'fulfilled') {
+        setRecommendations(results[4].value.data.recommendations || [])
+      } else {
+        // Check if it's an expected 400 error (insufficient data)
+        const error = results[4].reason
+        if (error?.response?.status === 400) {
+          console.log('Insufficient data for recommendations - this is expected')
+        } else {
+          console.error('Recommendations failed:', error)
+        }
+        setRecommendations([])
+      }
       
     } catch (error) {
       console.error('Failed to fetch AI insights:', error)
@@ -277,11 +324,9 @@ const AIInsights: React.FC = () => {
         </div>
 
         {/* Recommendations Section */}
-        {recommendations && recommendations.length > 0 && (
-          <div style={{ marginTop: '40px' }}>
-            <RecommendationsCard recommendations={recommendations} />
-          </div>
-        )}
+        <div style={{ marginTop: '40px' }}>
+          <RecommendationsCard recommendations={recommendations} />
+        </div>
 
         {/* Refresh Button */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
@@ -300,7 +345,51 @@ const AIInsights: React.FC = () => {
 }
 
 // AI Insight Components
-const PersonalityCard: React.FC<{ data: PersonalityData }> = ({ data }) => {
+const PersonalityCard: React.FC<{ data: PersonalityData | any }> = ({ data }) => {
+  // Handle error states
+  if (data?.error) {
+    return (
+      <div className="ai-insights-card ai-card-personality">
+        <div className="ai-card-header">
+          <h3 className="ai-card-title">
+            <i className="ai-card-icon fas fa-brain"></i>
+            🧠 AI-Enhanced Personality
+          </h3>
+          <i className="fas fa-user-circle"></i>
+        </div>
+        
+        <div style={{
+          textAlign: 'center',
+          padding: '40px 20px',
+          background: 'rgba(239, 68, 68, 0.1)',
+          borderRadius: '12px',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        }}>
+          <i className="fas fa-exclamation-triangle" style={{ 
+            fontSize: '3rem', 
+            color: '#EF4444', 
+            marginBottom: '15px'
+          }}></i>
+          <div style={{ 
+            color: 'var(--text-primary)', 
+            fontWeight: 700, 
+            marginBottom: '8px',
+            fontSize: '18px'
+          }}>
+            Analysis Unavailable
+          </div>
+          <div style={{ 
+            color: 'var(--text-secondary)', 
+            fontSize: '14px',
+            lineHeight: '1.4'
+          }}>
+            {data.message || 'Unable to generate personality analysis. Please try again later.'}
+          </div>
+        </div>
+      </div>
+    )
+  }
+  
   const confidenceScore = data.confidence_score || 0
   const hasInsufficientData = confidenceScore < 0.5
   
@@ -1265,51 +1354,82 @@ const RecommendationsCard: React.FC<{ recommendations: any[] }> = ({ recommendat
       <i className="fas fa-stars"></i>
     </div>
     
-    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-      {recommendations.slice(0, 8).map((rec, index) => (
-        <div key={index} style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '12px',
-          marginBottom: '12px',
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '8px',
-          border: '1px solid rgba(255,255,255,0.1)',
-          transition: 'all 0.3s ease'
-        }}>
-          {rec.image_url && (
-            <img src={rec.image_url} alt={rec.name} style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '6px',
-              marginRight: '15px',
-              border: '2px solid rgba(29,185,84,0.3)'
-            }} />
-          )}
-          <div style={{ flex: 1 }}>
-            <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: '4px' }}>
-              {rec.name}
-            </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
-              {rec.artist}
-            </div>
-            <div style={{ color: 'var(--accent-tertiary)', fontSize: '12px' }}>
-              {rec.reason}
-            </div>
-          </div>
-          <div style={{
-            background: 'linear-gradient(45deg, #1DB954, #00D4FF)',
-            color: '#000',
-            padding: '4px 8px',
-            borderRadius: '12px',
-            fontSize: '11px',
-            fontWeight: 600
+    {recommendations && recommendations.length > 0 ? (
+      <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+        {recommendations.slice(0, 8).map((rec, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px',
+            marginBottom: '12px',
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            transition: 'all 0.3s ease'
           }}>
-            {Math.round(rec.similarity_score * 100)}%
+            {rec.image_url && (
+              <img src={rec.image_url} alt={rec.name} style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '6px',
+                marginRight: '15px',
+                border: '2px solid rgba(29,185,84,0.3)'
+              }} />
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: '4px' }}>
+                {rec.name}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
+                {rec.artist}
+              </div>
+              <div style={{ color: 'var(--accent-tertiary)', fontSize: '12px' }}>
+                {rec.reason}
+              </div>
+            </div>
+            <div style={{
+              background: 'linear-gradient(45deg, #1DB954, #00D4FF)',
+              color: '#000',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: 600
+            }}>
+              {Math.round(rec.similarity_score * 100)}%
+            </div>
           </div>
+        ))}
+      </div>
+    ) : (
+      <div style={{
+        textAlign: 'center',
+        padding: '40px 20px',
+        background: 'rgba(255, 193, 7, 0.1)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 193, 7, 0.3)'
+      }}>
+        <i className="fas fa-music" style={{ 
+          fontSize: '3rem', 
+          color: '#FFC107', 
+          marginBottom: '15px'
+        }}></i>
+        <div style={{ 
+          color: 'var(--text-primary)', 
+          fontWeight: 700, 
+          marginBottom: '8px',
+          fontSize: '18px'
+        }}>
+          No Recommendations Available
         </div>
-      ))}
-    </div>
+        <div style={{ 
+          color: 'var(--text-secondary)', 
+          fontSize: '14px',
+          lineHeight: '1.4'
+        }}>
+          Listen to more music to get personalized AI recommendations based on your taste!
+        </div>
+      </div>
+    )}
   </div>
 )
 

@@ -328,3 +328,93 @@ def get_current_track():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@music_bp.route('/audio-features/fix', methods=['POST'])
+@jwt_required()
+def fix_missing_audio_features():
+    """Fix missing audio features for existing tracks"""
+    try:
+        user_id = get_jwt_identity()
+        
+        # Get user-specific database
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        db = SpotifyDatabase(db_path)
+        
+        # Get Spotify API
+        spotify_api = get_spotify_api_for_user()
+        
+        # Get tracks without audio features
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT track_id, name, artist 
+            FROM tracks 
+            WHERE energy IS NULL 
+            AND track_id NOT LIKE 'genre-%'
+            LIMIT 50
+        """)
+        
+        tracks_without_features = cursor.fetchall()
+        
+        if not tracks_without_features:
+            return jsonify({
+                'message': 'All tracks already have audio features',
+                'updated_count': 0
+            })
+        
+        updated_count = 0
+        
+        # Get audio features for each track and update database
+        for track_id, name, artist in tracks_without_features:
+            try:
+                # Get audio features using the API method
+                audio_features = spotify_api.get_audio_features_safely(track_id)
+                
+                # Update the track in database
+                cursor.execute("""
+                    UPDATE tracks SET
+                        danceability = ?,
+                        energy = ?,
+                        key = ?,
+                        loudness = ?,
+                        mode = ?,
+                        speechiness = ?,
+                        acousticness = ?,
+                        instrumentalness = ?,
+                        liveness = ?,
+                        valence = ?,
+                        tempo = ?
+                    WHERE track_id = ?
+                """, (
+                    audio_features.get('danceability'),
+                    audio_features.get('energy'),
+                    audio_features.get('key'),
+                    audio_features.get('loudness'),
+                    audio_features.get('mode'),
+                    audio_features.get('speechiness'),
+                    audio_features.get('acousticness'),
+                    audio_features.get('instrumentalness'),
+                    audio_features.get('liveness'),
+                    audio_features.get('valence'),
+                    audio_features.get('tempo'),
+                    track_id
+                ))
+                
+                updated_count += 1
+                
+            except Exception as e:
+                print(f"Error updating audio features for {track_id}: {e}")
+                continue
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Updated audio features for {updated_count} tracks',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
