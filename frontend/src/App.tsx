@@ -39,6 +39,12 @@ const AppRoutes: React.FC = () => {
   // Check credentials on mount and when storage changes
   useEffect(() => {
     const checkCredentials = () => {
+      // Skip credential check if user is authenticated or in demo mode
+      if (isAuthenticated) {
+        setNeedsOnboarding(false)
+        return
+      }
+      
       const hasCredentials = hasValidCredentials()
       console.log('🔍 App.tsx: Checking credentials:', hasCredentials)
       setNeedsOnboarding(!hasCredentials)
@@ -54,15 +60,13 @@ const AppRoutes: React.FC = () => {
     }
 
     window.addEventListener('storage', handleStorageChange)
-
-    // Also listen for custom events when credentials change
     window.addEventListener('credentialsChanged', handleStorageChange)
 
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('credentialsChanged', handleStorageChange)
     }
-  }, [])
+  }, [isAuthenticated])
 
   // Show loading while checking credentials
   if (needsOnboarding === null || isLoading) {

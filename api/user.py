@@ -11,6 +11,34 @@ import sqlite3
 
 user_bp = Blueprint('user', __name__)
 
+def validate_user_access(user_id, claims):
+    """Validate user has access to their own data only"""
+    if not user_id:
+        raise Exception('No user ID provided')
+    
+    jwt_user_id = claims.get('spotify_user_id')
+    if user_id != jwt_user_id:
+        raise Exception(f'User access violation: {user_id} != {jwt_user_id}')
+    
+    session_token = claims.get('user_session_token')
+    if not session_token:
+        raise Exception('Missing session token')
+    
+    return True
+
+def get_secure_database_path(user_id):
+    """Get secure database path for user with validation"""
+    if not user_id or not isinstance(user_id, str) or len(user_id) < 3:
+        raise Exception('Invalid user ID for database access')
+    
+    # Sanitize user ID to prevent path traversal
+    import re
+    safe_user_id = re.sub(r'[^a-zA-Z0-9_-]', '', user_id)
+    if safe_user_id != user_id:
+        raise Exception('User ID contains invalid characters')
+    
+    return f'data/user_{safe_user_id}_spotify_data.db'
+
 def get_user_spotify_api():
     """Get SpotifyAPI instance for current user"""
     try:
@@ -142,10 +170,15 @@ def collect_initial_data():
 @user_bp.route('/stats')
 @jwt_required()
 def get_stats():
-    """Get basic user statistics from both database and Spotify API"""
+    """Get basic user statistics with strict user isolation"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        claims = get_jwt()
+        
+        # Security validation
+        validate_user_access(user_id, claims)
+        
+        db_path = get_secure_database_path(user_id)
 
         # Initialize components
         db = SpotifyDatabase(db_path)

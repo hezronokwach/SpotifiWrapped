@@ -28,14 +28,22 @@ load_dotenv()
 def create_app():
     app = Flask(__name__)
 
-    # Configuration
-    secret_key = os.getenv('JWT_SECRET_KEY', 'your-secret-key-change-this')
-    app.config['SECRET_KEY'] = secret_key  # Required for Flask sessions
+    # Security Configuration
+    import secrets
+    secret_key = os.getenv('JWT_SECRET_KEY', secrets.token_urlsafe(64))
+    app.config['SECRET_KEY'] = secret_key
     app.config['JWT_SECRET_KEY'] = secret_key
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)  # Shorter expiry for security
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+    
+    # Session Security
     app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+    
+    # Additional Security
+    app.config['WTF_CSRF_TIME_LIMIT'] = None
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max request size
 
     # Initialize extensions
     jwt = JWTManager(app)
@@ -47,9 +55,28 @@ def create_app():
          allow_headers=['Content-Type', 'Authorization'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
-    # Token validation middleware
+    # Rate limiting storage
+    from collections import defaultdict
+    import time
+    request_counts = defaultdict(list)
+    
+    # Security middleware
     @app.before_request
-    def check_token():
+    def security_checks():
+        # Rate limiting (100 requests per minute per IP)
+        client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+        current_time = time.time()
+        
+        # Clean old requests
+        request_counts[client_ip] = [req_time for req_time in request_counts[client_ip] 
+                                   if current_time - req_time < 60]
+        
+        # Check rate limit
+        if len(request_counts[client_ip]) >= 100:
+            return jsonify({'error': 'Rate limit exceeded'}), 429
+        
+        request_counts[client_ip].append(current_time)
+        
         # Skip token validation for auth endpoints and health checks
         if (request.endpoint and 
             ('auth' in request.endpoint or 
@@ -61,6 +88,20 @@ def create_app():
         if request.path.startswith('/api/') and not request.path.startswith('/api/auth'):
             try:
                 verify_jwt_in_request()
+                
+                # Additional JWT validation
+                from flask_jwt_extended import get_jwt
+                claims = get_jwt()
+                user_id = get_jwt_identity()
+                
+                # Validate user session token exists
+                if not claims.get('user_session_token'):
+                    return jsonify({'error': 'Invalid session token'}), 401
+                
+                # Validate user ID consistency
+                if user_id != claims.get('spotify_user_id'):
+                    return jsonify({'error': 'User identity mismatch'}), 401
+                    
             except Exception as e:
                 return jsonify({'error': 'Invalid or expired token'}), 401
     

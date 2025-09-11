@@ -124,15 +124,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🔍 AuthContext: Starting OAuth callback processing...')
       setIsLoading(true)
 
-      // Get stored credentials for the callback (try OAuth-specific first)
+      // Get stored credentials for the callback
       console.log('🔍 AuthContext: Looking for stored credentials...')
-      let credentials = getOAuthCredentials()
+      let credentials = getStoredCredentials()
+      
       if (!credentials) {
-        console.log('🔍 AuthContext: No OAuth credentials, trying regular credentials...')
-        credentials = getStoredCredentials()
+        // Try alternative storage locations
+        const altCreds = localStorage.getItem('spotify_credentials')
+        if (altCreds) {
+          try {
+            credentials = JSON.parse(altCreds)
+            console.log('✅ AuthContext: Found credentials in alternative storage')
+          } catch (e) {
+            console.error('❌ AuthContext: Failed to parse alternative credentials')
+          }
+        }
       }
+      
       if (!credentials) {
         console.error('❌ AuthContext: No credentials found during OAuth callback')
+        console.log('🔍 AuthContext: Available localStorage keys:', Object.keys(localStorage))
         throw new Error('No credentials found during OAuth callback')
       }
       console.log('✅ AuthContext: Credentials found for callback')
@@ -160,8 +171,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update local state
       setToken(tokenData.access_token)
       setUser(tokenData.user)
+      
+      // Trigger a credentials check update
+      window.dispatchEvent(new Event('credentialsChanged'))
 
       console.log('✅ AuthContext: Authentication completed successfully')
+      console.log('🔍 AuthContext: User set to:', tokenData.user)
+      console.log('🔍 AuthContext: Token set to:', tokenData.access_token ? 'Present' : 'Missing')
 
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname)

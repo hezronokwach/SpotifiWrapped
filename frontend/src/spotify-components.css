@@ -223,15 +223,18 @@
   background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  padding: 16px;
+  padding: 16px 16px 20px 16px;
   text-align: center;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: visible;
-  height: 320px;
+  height: 340px;
   min-width: 200px;
   max-width: 200px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .album-card:hover {
@@ -262,15 +265,27 @@
   transform: scale(1.05);
 }
 
+.album-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
 .album-info h4 {
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
   margin: 0 0 4px 0;
-  line-height: 1.2;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  max-height: 36px;
 }
 
 .album-info p {

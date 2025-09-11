@@ -31,11 +31,15 @@ def login():
             print("❌ DEBUG: Missing client credentials")
             return jsonify({'error': 'Missing client credentials'}), 400
 
-        # Store user-provided credentials in session for callback
-        # NOTE: These are the user's own Spotify app credentials, not from .env
-        session['spotify_client_id'] = client_id
-        session['spotify_client_secret'] = client_secret
-        print("✅ DEBUG: User credentials stored in session")
+        # Generate secure session ID for this login attempt
+        import secrets
+        session_id = secrets.token_urlsafe(32)
+        
+        # Store credentials with session isolation
+        session['login_session_id'] = session_id
+        session[f'spotify_client_id_{session_id}'] = client_id
+        session[f'spotify_client_secret_{session_id}'] = client_secret
+        print(f"✅ DEBUG: User credentials stored with session ID: {session_id[:8]}...")
 
         # Get redirect URI from environment
         redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
@@ -122,18 +126,32 @@ def callback():
             print("❌ DEBUG: Failed to get user profile")
             return jsonify({'error': 'Failed to get user profile'}), 400
 
-        # Create JWT token with user ID and Spotify tokens
+        # Create secure JWT token with user isolation
+        user_id = user_profile['id']
+        
+        # Generate unique session token for this user
+        import secrets
+        user_session_token = secrets.token_urlsafe(16)
+        
         access_token = create_access_token(
-            identity=user_profile['id'],
+            identity=user_id,
             additional_claims={
                 'spotify_access_token': token_info['access_token'],
                 'spotify_refresh_token': token_info.get('refresh_token'),
                 'display_name': user_profile.get('display_name'),
                 'email': user_profile.get('email'),
                 'client_id': client_id,
-                'client_secret': client_secret
+                'client_secret': client_secret,
+                'user_session_token': user_session_token,
+                'spotify_user_id': user_id  # Explicit user ID for validation
             }
         )
+        
+        # Clear session credentials after JWT creation
+        session.pop('login_session_id', None)
+        for key in list(session.keys()):
+            if key.startswith('spotify_client_'):
+                session.pop(key, None)
         
         # Collect essential data immediately for new users
         try:
