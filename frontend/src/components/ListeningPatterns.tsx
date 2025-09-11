@@ -21,7 +21,11 @@ interface PatternsResponse {
   summary: PatternsSummary
 }
 
-const ListeningPatterns: React.FC = () => {
+interface ListeningPatternsProps {
+  refreshTrigger?: number
+}
+
+const ListeningPatterns: React.FC<ListeningPatternsProps> = ({ refreshTrigger }) => {
   const { isDemoMode } = useDemoMode()
   const [patternsData, setPatternsData] = useState<PatternsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -31,6 +35,13 @@ const ListeningPatterns: React.FC = () => {
   useEffect(() => {
     fetchPatternsData()
   }, [isDemoMode])
+  
+  // Refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchPatternsData()
+    }
+  }, [refreshTrigger])
 
   const fetchPatternsData = async () => {
     try {
@@ -97,8 +108,19 @@ const ListeningPatterns: React.FC = () => {
     try {
       setIsCollecting(true)
       console.log('🔄 Collecting listening data...')
-      const response = await api.get('/analytics/collect-data')
-      console.log('✅ Data collection result:', response.data)
+      
+      // First refresh recent listening data
+      await api.post('/music/refresh-data')
+      console.log('✅ Recent data refreshed')
+      
+      // Then try to collect additional data if endpoint exists
+      try {
+        const response = await api.get('/analytics/collect-data')
+        console.log('✅ Data collection result:', response.data)
+      } catch (collectError) {
+        console.log('⚠️ Analytics collect endpoint not available, using refresh only')
+      }
+      
       await fetchPatternsData()
     } catch (err) {
       console.error('Failed to collect data:', err)
@@ -233,6 +255,15 @@ const ListeningPatterns: React.FC = () => {
         <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
           When you listen to music most frequently
         </p>
+        <div className="text-sm font-medium" style={{ color: '#1DB954', marginTop: '4px' }}>
+          📅 {(() => {
+            const endDate = new Date()
+            const startDate = new Date(endDate)
+            startDate.setDate(startDate.getDate() - 7)
+            return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
+          })()
+          } (Last 7 days)
+        </div>
       </div>
       <div className="space-y-4">
         {/* Summary Stats */}
@@ -303,16 +334,7 @@ const ListeningPatterns: React.FC = () => {
                   {day.slice(0, 3)}
                 </div>
                 <div className="flex gap-1 flex-1">
-                  {hours.map(hour => {
-                    const count = patternLookup.get(`${dayIndex}-${hour}`) || 0
-                    return (
-                      <div
-                        key={`${dayIndex}-${hour}`}
-                        className={`h-3 flex-1 rounded-sm ${getHeatmapColor(count, maxCount)} transition-colors min-w-[8px]`}
-                        title={`${day} ${formatHour(hour)}: ${count} plays`}
-                      />
-                    )
-                  })}
+
                 </div>
               </div>
             ))}

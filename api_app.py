@@ -63,7 +63,8 @@ def create_app():
     # Security middleware
     @app.before_request
     def security_checks():
-        # Rate limiting (100 requests per minute per IP)
+        # Conservative rate limiting (200 requests per minute per IP)
+        # This protects against Spotify API rate limits
         client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
         current_time = time.time()
         
@@ -71,9 +72,9 @@ def create_app():
         request_counts[client_ip] = [req_time for req_time in request_counts[client_ip] 
                                    if current_time - req_time < 60]
         
-        # Check rate limit
-        if len(request_counts[client_ip]) >= 100:
-            return jsonify({'error': 'Rate limit exceeded'}), 429
+        # Check rate limit - conservative to stay under Spotify limits
+        if len(request_counts[client_ip]) >= 200:
+            return jsonify({'error': 'Rate limit exceeded - please wait a moment'}), 429
         
         request_counts[client_ip].append(current_time)
         

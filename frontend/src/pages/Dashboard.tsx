@@ -52,10 +52,52 @@ const Dashboard: React.FC = () => {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   useEffect(() => {
     fetchDashboardData()
   }, [isDemoMode])
+
+  // Auto-refresh currently playing track every 30 seconds
+  useEffect(() => {
+    if (isDemoMode) return
+    
+    const refreshCurrentTrack = async () => {
+      try {
+        const { default: api } = await import('../api')
+        const currentRes = await api.get('/music/tracks/current')
+        setCurrentTrack(currentRes.data.currently_playing || null)
+      } catch (error) {
+        console.log('Failed to refresh current track:', error)
+      }
+    }
+    
+    const interval = setInterval(refreshCurrentTrack, 30000) // 30 seconds
+    
+    return () => clearInterval(interval)
+  }, [isDemoMode])
+
+  const refreshListeningData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      const { default: api } = await import('../api')
+      
+      console.log('🔄 Refreshing recent listening data...')
+      const refreshRes = await api.post('/music/refresh-data')
+      console.log('✅ Listening data refreshed:', refreshRes.data)
+      
+      // After refreshing data, reload the dashboard and trigger component refreshes
+      await fetchDashboardData()
+      setRefreshTrigger(prev => prev + 1)
+      
+    } catch (error) {
+      console.error('Failed to refresh listening data:', error)
+      setError('Failed to refresh listening data. Please try again.')
+      setIsLoading(false)
+    }
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -444,7 +486,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Listening Patterns Row */}
-      <ListeningPatterns />
+      <ListeningPatterns refreshTrigger={refreshTrigger} />
 
       {/* Library Content Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -465,14 +507,24 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Refresh Button */}
-      <div className="text-center">
+      <div className="text-center space-x-4">
         <Button
           onClick={fetchDashboardData}
           variant="spotify"
           disabled={isLoading}
         >
-          {isLoading ? 'Refreshing...' : 'Refresh Data'}
+          {isLoading ? 'Refreshing...' : 'Refresh Dashboard'}
         </Button>
+        
+        {!isDemoMode && (
+          <Button
+            onClick={refreshListeningData}
+            className="bg-blue-600 hover:bg-blue-500 text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Updating...' : 'Update Recent Plays'}
+          </Button>
+        )}
       </div>
     </div>
   )

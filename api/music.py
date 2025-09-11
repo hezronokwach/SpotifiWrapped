@@ -395,6 +395,63 @@ def get_current_track():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@music_bp.route('/refresh-data', methods=['POST'])
+@jwt_required()
+def refresh_listening_data():
+    """Refresh user's listening data from Spotify API"""
+    try:
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        # Security validation
+        validate_user_access(user_id, claims)
+        
+        # Get user-specific database
+        db_path = get_user_database_path(user_id)
+        db = SpotifyDatabase(db_path)
+        
+        # Get Spotify API
+        spotify_api = get_spotify_api_for_user()
+        
+        # Get recent listening data
+        recently_played = spotify_api.get_recently_played(limit=50)
+        
+        if not recently_played:
+            return jsonify({
+                'message': 'No recent listening data found',
+                'updated_count': 0
+            })
+        
+        updated_count = 0
+        from datetime import datetime
+        
+        for track in recently_played:
+            try:
+                # Save track to database
+                db.save_track(track)
+                
+                # Save listening history
+                db.save_listening_history(
+                    user_id=user_id,
+                    track_id=track['id'],
+                    played_at=track.get('played_at', datetime.now().isoformat()),
+                    source='recently_played'
+                )
+                
+                updated_count += 1
+                
+            except Exception as e:
+                print(f"Error updating track {track.get('id', 'unknown')}: {e}")
+                continue
+        
+        return jsonify({
+            'message': f'Updated {updated_count} recent tracks',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @music_bp.route('/audio-features/fix', methods=['POST'])
 @jwt_required()
 def fix_missing_audio_features():
