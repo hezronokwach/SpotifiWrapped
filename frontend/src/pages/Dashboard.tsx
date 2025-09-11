@@ -209,36 +209,68 @@ const Dashboard: React.FC = () => {
 
       {/* Currently Playing */}
       <div className="currently-playing-section">
-        <div className="spotify-card futuristic-chart-card fade-in">
+        <div className="currently-playing-card">
           <div className="card-header">
             <h3><i className="fas fa-play"></i> Currently Playing</h3>
-            <i className="fas fa-music"></i>
+            <div className="playback-status">
+              {currentTrack ? (
+                <i className="fas fa-play" style={{ color: '#1DB954' }}></i>
+              ) : (
+                <i className="fas fa-pause" style={{ color: 'rgba(255,255,255,0.5)' }}></i>
+              )}
+            </div>
           </div>
-          <div className="library-content">
-            {currentTrack ? (
-              <div className="current-track-content">
-                <div className="track-image">
-                  {currentTrack.images && currentTrack.images.length > 0 && (
-                    <img
-                      src={currentTrack.images[0].url}
-                      alt={currentTrack.album}
+          
+          {currentTrack ? (
+            <div className="track-content">
+              <div className="album-art">
+                {currentTrack.images && currentTrack.images.length > 0 ? (
+                  <img 
+                    src={currentTrack.images[0].url} 
+                    alt={currentTrack.album}
+                    className="album-image"
+                  />
+                ) : (
+                  <div className="album-placeholder">
+                    <i className="fas fa-music"></i>
+                  </div>
+                )}
+              </div>
+              
+              <div className="track-details">
+                <h4 className="track-name">{currentTrack.name}</h4>
+                <p className="track-artist">by {currentTrack.artist}</p>
+                <p className="track-album">from {currentTrack.album}</p>
+                
+                <div className="progress-section">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill"
+                      style={{ 
+                        width: currentTrack.duration_ms > 0 
+                          ? `${Math.min(100, Math.max(0, (currentTrack.progress_ms || 0) / currentTrack.duration_ms * 100))}%`
+                          : '0%'
+                      }}
                     />
-                  )}
-                </div>
-                <div className="track-info">
-                  <h4>{currentTrack.name}</h4>
-                  <p>by {currentTrack.artist}</p>
-                  <p>from {currentTrack.album}</p>
+                  </div>
+                  <div className="time-indicators">
+                    <span className="current-time">
+                      {formatDuration(currentTrack.progress_ms || 0)}
+                    </span>
+                    <span className="total-time">
+                      {formatDuration(currentTrack.duration_ms)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="empty-state">
-                <i className="fas fa-pause"></i>
-                <h4>Nothing Playing</h4>
-                <p>Play something on Spotify to see it here!</p>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <i className="fas fa-pause"></i>
+              <h4>Nothing Playing</h4>
+              <p>Play something on Spotify to see it here!</p>
+            </div>
+          )}
         </div>
       </div>
 

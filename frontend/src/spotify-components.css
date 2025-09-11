@@ -183,49 +183,6 @@
   margin-bottom: 30px;
 }
 
-.current-track-content {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 20px;
-}
-
-.track-image img {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-}
-
-.track-info h4 {
-  color: #ffffff;
-  margin: 0 0 5px 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.track-info p {
-  color: #b3b3b3;
-  margin: 0 0 5px 0;
-  font-size: 0.9rem;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 4px;
-  background: #333333;
-  border-radius: 2px;
-  margin-top: 10px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #1DB954;
-  border-radius: 2px;
-  transition: width 0.3s ease;
-}
-
 /* Top Albums Horizontal Scroll */
 .top-albums-container {
   display: flex !important;
@@ -1235,6 +1192,215 @@
   transform: translateY(-8px) scale(1.02);
   border-color: rgba(139, 92, 246, 0.6);
   box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 60px rgba(139, 92, 246, 0.3);
+}
+
+/* Currently Playing Card - Dash-inspired */
+.currently-playing-card {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  margin-bottom: 30px;
+}
+
+.currently-playing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(29, 185, 84, 0.2);
+  border-color: rgba(29, 185, 84, 0.3);
+}
+
+.currently-playing-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.currently-playing-card .card-header h3 {
+  font-family: 'Orbitron', monospace;
+  font-weight: 600;
+  color: #1DB954;
+  margin: 0;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.currently-playing-card .card-header i {
+  margin-right: 8px;
+  filter: drop-shadow(0 0 10px rgba(29, 185, 84, 0.3));
+}
+
+.playback-status {
+  font-size: 1.2rem;
+}
+
+.track-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.album-art {
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+}
+
+.album-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.3s ease;
+}
+
+.currently-playing-card:hover .album-image {
+  transform: scale(1.05);
+}
+
+.album-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.2), rgba(0, 212, 255, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.track-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.track-artist {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-album {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 20px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-section {
+  width: 100%;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1DB954, #1ED760);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(29, 185, 84, 0.4);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+}
+
+.time-indicators {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'Orbitron', monospace;
+  font-weight: 500;
+}
+
+.currently-playing-card .empty-state {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 40px 20px;
+}
+
+.currently-playing-card .empty-state i {
+  font-size: 3rem;
+  color: rgba(29, 185, 84, 0.3);
+  margin-bottom: 16px;
+}
+
+.currently-playing-card .empty-state h4 {
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.currently-playing-card .empty-state p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design for Currently Playing */
+@media (max-width: 768px) {
+  .track-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+  
+  .album-art {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .track-details {
+    width: 100%;
+  }
+  
+  .track-name {
+    font-size: 1.2rem;
+  }
 }
 
 /* Scrollable Lists Styles */
