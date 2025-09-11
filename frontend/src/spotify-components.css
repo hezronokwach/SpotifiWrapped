@@ -949,6 +949,294 @@
   line-height: 1.4;
 }
 
+/* Soundwave Container - Dash-inspired */
+.soundwave-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 300px;
+}
+
+.soundwave-scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 185, 84, 0.5) transparent;
+  max-height: 400px;
+  padding: 8px;
+}
+
+.soundwave-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.soundwave-scrollable::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.soundwave-scrollable::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1DB954, #1ED760);
+  border-radius: 3px;
+  box-shadow: 0 0 5px rgba(29, 185, 84, 0.3);
+}
+
+.soundwave-scrollable::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #1ED760, #1DB954);
+  box-shadow: 0 0 8px rgba(29, 185, 84, 0.5);
+}
+
+.soundwave-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Soundwave Items - Dash-inspired */
+.soundwave-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 80px;
+  gap: 12px;
+}
+
+.soundwave-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(29, 185, 84, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(29, 185, 84, 0.2);
+}
+
+.soundwave-item.artist-item:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+/* Soundwave Rank */
+.soundwave-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.rank-number {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1DB954;
+  text-shadow: 0 0 10px rgba(29, 185, 84, 0.5);
+  margin-bottom: 4px;
+}
+
+.artist-item .rank-number {
+  color: #8B5CF6;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+.status-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.status-top {
+  background: linear-gradient(45deg, #1DB954, #1ED760);
+  color: #000;
+}
+
+.status-high {
+  background: linear-gradient(45deg, #00D4FF, #1DB954);
+  color: #000;
+}
+
+.status-good {
+  background: linear-gradient(45deg, #8B5CF6, #00D4FF);
+  color: #fff;
+}
+
+/* Soundwave Image */
+.soundwave-image {
+  flex-shrink: 0;
+}
+
+.track-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.artist-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.track-image-placeholder,
+.artist-image-placeholder {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.2), rgba(0, 212, 255, 0.1));
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.artist-image-placeholder {
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(244, 114, 182, 0.1));
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.soundwave-item:hover .track-image,
+.soundwave-item:hover .artist-image {
+  transform: scale(1.05);
+}
+
+/* Soundwave Content */
+.soundwave-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-title {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.track-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1DB954;
+  text-shadow: 0 0 5px rgba(29, 185, 84, 0.3);
+}
+
+.artist-item .stat-value {
+  color: #8B5CF6;
+  text-shadow: 0 0 5px rgba(139, 92, 246, 0.3);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Orbitron', monospace;
+}
+
+/* Soundwave Empty State */
+.soundwave-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.empty-soundwave-content {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.empty-soundwave-content i {
+  font-size: 48px;
+  color: #1DB954;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.empty-soundwave-content p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Soundwave Loading */
+.soundwave-loading {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.soundwave-shimmer {
+  height: 80px;
+  border-radius: 12px;
+  width: 100%;
+}
+
+/* Top Track/Artist Soundwave Specific */
+.top-track-soundwave,
+.top-artist-soundwave {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+  min-height: 120px;
+}
+
+.top-artist-soundwave {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.top-track-soundwave:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(29, 185, 84, 0.6);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 60px rgba(29, 185, 84, 0.3);
+}
+
+.top-artist-soundwave:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 60px rgba(139, 92, 246, 0.3);
+}
+
 /* Scrollable Lists Styles */
 .scrollable-list {
   scrollbar-width: thin;

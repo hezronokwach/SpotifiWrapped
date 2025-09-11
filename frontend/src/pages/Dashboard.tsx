@@ -251,118 +251,118 @@ const Dashboard: React.FC = () => {
       {/* Top Content Charts Row */}
       <div className="charts-row">
         {/* Top Tracks */}
-        <div className="spotify-card futuristic-chart-card fade-in">
+        <div className="spotify-card soundwave-container fade-in">
           <div className="card-header">
             <h3><i className="fas fa-music"></i> Your Top Tracks</h3>
             <i className="fas fa-chart-bar"></i>
           </div>
-          <div className="library-content">
+          <div className="soundwave-scrollable">
             {topTracks.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list">
+              <div className="soundwave-list">
                 {topTracks.slice(0, 10).map((track, index) => (
-                  <div key={track.id} 
-                       className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
-                       style={{
-                         background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                         backdropFilter: 'blur(10px)'
-                       }}>
-                    <span className="font-orbitron text-sm w-6 text-center"
-                          style={{
-                            color: 'rgba(29, 185, 84, 0.8)',
-                            textShadow: '0 0 5px rgba(29, 185, 84, 0.3)'
-                          }}>
-                      {index + 1}
-                    </span>
-                    {track.images && track.images.length > 0 && (
-                      <img
-                        src={track.images[0].url}
-                        alt={track.album}
-                        className="w-10 h-10 rounded transition-transform duration-300 hover:scale-110"
-                        style={{
-                          border: '2px solid rgba(29, 185, 84, 0.3)',
-                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-                        }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
-                        {track.name}
-                      </p>
-                      <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                        {track.artist}
-                      </p>
+                  <div key={track.id} className="soundwave-item">
+                    <div className="soundwave-rank">
+                      <span className="rank-number">{index + 1}</span>
+                      {index === 0 && <div className="status-badge status-top">🔥 Most Played</div>}
+                      {index === 1 && <div className="status-badge status-high">⭐ Fan Favorite</div>}
+                      {index === 2 && <div className="status-badge status-good">🎵 Top Hit</div>}
                     </div>
-                    <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                      {formatDuration(track.duration_ms)}
-                    </span>
+                    
+                    <div className="soundwave-image">
+                      {track.images && track.images.length > 0 ? (
+                        <img
+                          src={track.images[0].url}
+                          alt={track.album}
+                          className="track-image"
+                        />
+                      ) : (
+                        <div className="track-image-placeholder">🎵</div>
+                      )}
+                    </div>
+
+                    <div className="soundwave-content">
+                      <div className="track-title">{track.name}</div>
+                      <div className="track-subtitle">{track.artist} • {track.album}</div>
+                      
+                      <div className="track-stats">
+                        <div className="stat-item">
+                          <span className="stat-value">{formatDuration(track.duration_ms)}</span>
+                          <span className="stat-label">Duration</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-value">{track.popularity || '—'}</span>
+                          <span className="stat-label">Popularity</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="empty-state">
-                <i className="fas fa-music"></i>
-                <h4>No Top Tracks Yet</h4>
-                <p>Start listening to music to see your top tracks here!</p>
+              <div className="soundwave-empty">
+                <div className="empty-soundwave-content">
+                  <i className="fas fa-music"></i>
+                  <p>No top tracks data available</p>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         {/* Top Artists */}
-        <div className="spotify-card futuristic-chart-card fade-in">
+        <div className="spotify-card soundwave-container fade-in">
           <div className="card-header">
             <h3><i className="fas fa-microphone"></i> Your Top Artists</h3>
             <i className="fas fa-users"></i>
           </div>
-          <div className="library-content">
+          <div className="soundwave-scrollable">
             {topArtists.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollable-list artist-list">
+              <div className="soundwave-list">
                 {topArtists.slice(0, 10).map((artist, index) => (
-                  <div key={artist.id} 
-                       className="flex items-center space-x-3 p-3 rounded-xl transition-all duration-300 hover:transform hover:scale-[1.02]"
-                       style={{
-                         background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                         backdropFilter: 'blur(10px)'
-                       }}>
-                    <span className="font-orbitron text-sm w-6 text-center"
-                          style={{
-                            color: 'rgba(139, 92, 246, 0.8)',
-                            textShadow: '0 0 5px rgba(139, 92, 246, 0.3)'
-                          }}>
-                      {index + 1}
-                    </span>
-                    {artist.images && artist.images.length > 0 && (
-                      <img
-                        src={artist.images[0].url}
-                        alt={artist.name}
-                        className="w-10 h-10 rounded-full transition-transform duration-300 hover:scale-110"
-                        style={{
-                          border: '2px solid rgba(139, 92, 246, 0.3)',
-                          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)'
-                        }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate" style={{ color: '#ffffff', textShadow: '0 0 10px rgba(255, 255, 255, 0.3)' }}>
-                        {artist.name}
-                      </p>
-                      <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                        {artist.genres.slice(0, 2).join(', ')}
-                      </p>
+                  <div key={artist.id} className="soundwave-item artist-item">
+                    <div className="soundwave-rank">
+                      <span className="rank-number">{index + 1}</span>
+                      {index === 0 && <div className="status-badge status-top">⭐ Top Artist</div>}
+                      {index === 1 && <div className="status-badge status-high">🎤 Fan Favorite</div>}
+                      {index === 2 && <div className="status-badge status-good">🎵 Rising Star</div>}
                     </div>
-                    <span className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
-                      {formatNumber(artist.followers)} followers
-                    </span>
+                    
+                    <div className="soundwave-image">
+                      {artist.images && artist.images.length > 0 ? (
+                        <img
+                          src={artist.images[0].url}
+                          alt={artist.name}
+                          className="artist-image"
+                        />
+                      ) : (
+                        <div className="artist-image-placeholder">🎤</div>
+                      )}
+                    </div>
+
+                    <div className="soundwave-content">
+                      <div className="track-title">{artist.name}</div>
+                      <div className="track-subtitle">{artist.genres.slice(0, 2).join(', ') || 'Various Genres'}</div>
+                      
+                      <div className="track-stats">
+                        <div className="stat-item">
+                          <span className="stat-value">{formatNumber(artist.followers)}</span>
+                          <span className="stat-label">Followers</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-value">{artist.popularity || '—'}</span>
+                          <span className="stat-label">Popularity</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="empty-state">
-                <i className="fas fa-microphone"></i>
-                <h4>No Top Artists Yet</h4>
-                <p>Start listening to music to see your top artists here!</p>
+              <div className="soundwave-empty">
+                <div className="empty-soundwave-content">
+                  <i className="fas fa-microphone"></i>
+                  <p>No top artists data available</p>
+                </div>
               </div>
             )}
           </div>
