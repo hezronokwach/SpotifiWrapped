@@ -334,7 +334,17 @@ const ListeningPatterns: React.FC<ListeningPatternsProps> = ({ refreshTrigger })
                   {day.slice(0, 3)}
                 </div>
                 <div className="flex gap-1 flex-1">
-
+                  {hours.map(hour => {
+                    const count = patternLookup.get(`${dayIndex}-${hour}`) || 0
+                    return (
+                      <div
+                        key={`${dayIndex}-${hour}`}
+                        className={`h-6 flex-1 rounded-md ${getHeatmapColor(count, maxCount)} transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer min-w-[12px]`}
+                        title={`${day} ${formatHour(hour)}: ${count} plays`}
+                        style={{ minWidth: '12px' }}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             ))}
