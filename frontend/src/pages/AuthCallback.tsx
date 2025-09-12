@@ -27,17 +27,20 @@ const AuthCallback: React.FC = () => {
       if (code) {
         console.log('✅ AuthCallback: OAuth code received, calling handleOAuthCallback directly...')
 
-        // Call handleOAuthCallback directly instead of waiting for useEffect
+        // Call handleOAuthCallback directly
         handleOAuthCallback(code)
           .then(() => {
             console.log('✅ AuthCallback: OAuth callback completed successfully')
             setProcessingComplete(true)
-            navigate('/', { replace: true })
+            // Small delay to ensure state is updated
+            setTimeout(() => {
+              navigate('/dashboard', { replace: true })
+            }, 100)
           })
           .catch((error) => {
             console.error('❌ AuthCallback: OAuth callback failed:', error)
             setProcessingComplete(true)
-            navigate('/login', { replace: true })
+            navigate('/onboarding', { replace: true })
           })
       } else {
         console.error('❌ AuthCallback: No code received, redirecting to login')

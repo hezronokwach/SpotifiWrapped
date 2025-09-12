@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface Playlist {
   id: string
@@ -19,18 +20,62 @@ interface PlaylistsResponse {
 }
 
 const Playlists: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [playlists, setPlaylists] = useState<PlaylistsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPlaylists()
-  }, [])
+  }, [isDemoMode])
 
   const fetchPlaylists = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample playlists for demo mode
+        const samplePlaylists = {
+          playlists: [
+            {
+              id: 'demo_playlist_1',
+              name: 'My Top Songs 2024',
+              description: 'Your most played tracks this year',
+              tracks_total: 47,
+              images: [{ url: 'https://picsum.photos/300/300?random=20' }],
+              owner: 'Demo User',
+              public: false,
+              external_urls: { spotify: '#' }
+            },
+            {
+              id: 'demo_playlist_2', 
+              name: 'Chill Vibes',
+              description: 'Perfect for relaxing and unwinding',
+              tracks_total: 32,
+              images: [{ url: 'https://picsum.photos/300/300?random=21' }],
+              owner: 'Demo User',
+              public: true,
+              external_urls: { spotify: '#' }
+            },
+            {
+              id: 'demo_playlist_3',
+              name: 'Workout Mix',
+              description: 'High energy tracks for your fitness routine',
+              tracks_total: 28,
+              images: [{ url: 'https://picsum.photos/300/300?random=22' }],
+              owner: 'Demo User',
+              public: false,
+              external_urls: { spotify: '#' }
+            }
+          ],
+          total: 3
+        }
+        setPlaylists(samplePlaylists)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/music/playlists?limit=8')
       console.log('Playlists response:', response.data)
       setPlaylists(response.data)

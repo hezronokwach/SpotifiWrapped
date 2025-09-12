@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { formatDuration } from '../lib/utils'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface SavedTrack {
   id: string
@@ -20,18 +21,62 @@ interface SavedTracksResponse {
 }
 
 const SavedTracks: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [savedTracks, setSavedTracks] = useState<SavedTracksResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSavedTracks()
-  }, [])
+  }, [isDemoMode])
 
   const fetchSavedTracks = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample saved tracks for demo mode
+        const sampleSavedTracks = {
+          saved_tracks: [
+            {
+              id: 'demo_saved_1',
+              name: 'Blinding Lights',
+              artist: 'The Weeknd',
+              album: 'After Hours',
+              duration_ms: 200040,
+              added_at: '2024-01-15T10:30:00Z',
+              images: [{ url: 'https://picsum.photos/300/300?random=30' }],
+              external_urls: { spotify: '#' }
+            },
+            {
+              id: 'demo_saved_2',
+              name: 'Watermelon Sugar',
+              artist: 'Harry Styles',
+              album: 'Fine Line',
+              duration_ms: 174000,
+              added_at: '2024-01-10T14:20:00Z',
+              images: [{ url: 'https://picsum.photos/300/300?random=31' }],
+              external_urls: { spotify: '#' }
+            },
+            {
+              id: 'demo_saved_3',
+              name: 'Good 4 U',
+              artist: 'Olivia Rodrigo',
+              album: 'SOUR',
+              duration_ms: 178147,
+              added_at: '2024-01-05T09:15:00Z',
+              images: [{ url: 'https://picsum.photos/300/300?random=32' }],
+              external_urls: { spotify: '#' }
+            }
+          ],
+          total: 3
+        }
+        setSavedTracks(sampleSavedTracks)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/music/tracks/saved?limit=10')
       setSavedTracks(response.data)
     } catch (err) {

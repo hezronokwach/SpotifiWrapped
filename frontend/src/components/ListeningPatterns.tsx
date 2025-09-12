@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface PatternData {
   day: string
@@ -20,7 +21,12 @@ interface PatternsResponse {
   summary: PatternsSummary
 }
 
-const ListeningPatterns: React.FC = () => {
+interface ListeningPatternsProps {
+  refreshTrigger?: number
+}
+
+const ListeningPatterns: React.FC<ListeningPatternsProps> = ({ refreshTrigger }) => {
+  const { isDemoMode } = useDemoMode()
   const [patternsData, setPatternsData] = useState<PatternsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,12 +34,65 @@ const ListeningPatterns: React.FC = () => {
 
   useEffect(() => {
     fetchPatternsData()
-  }, [])
+  }, [isDemoMode])
+  
+  // Refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      fetchPatternsData()
+    }
+  }, [refreshTrigger])
 
   const fetchPatternsData = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Generate sample listening patterns for demo mode
+        const samplePatterns = []
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+          for (let hour = 0; hour < 24; hour++) {
+            let count = 0
+            // Simulate realistic listening patterns
+            if (dayIndex < 5) { // Weekdays
+              if (hour >= 7 && hour <= 9) count = Math.floor(Math.random() * 15) + 5 // Morning commute
+              else if (hour >= 12 && hour <= 14) count = Math.floor(Math.random() * 10) + 2 // Lunch
+              else if (hour >= 17 && hour <= 22) count = Math.floor(Math.random() * 20) + 8 // Evening
+              else if (hour >= 22 || hour <= 1) count = Math.floor(Math.random() * 8) + 1 // Late night
+              else count = Math.floor(Math.random() * 5)
+            } else { // Weekends
+              if (hour >= 10 && hour <= 14) count = Math.floor(Math.random() * 18) + 5 // Late morning
+              else if (hour >= 15 && hour <= 23) count = Math.floor(Math.random() * 25) + 10 // Afternoon/evening
+              else count = Math.floor(Math.random() * 8)
+            }
+            
+            samplePatterns.push({
+              day: days[dayIndex],
+              day_num: dayIndex === 6 ? 0 : dayIndex + 1, // Convert to Sunday=0 format
+              hour,
+              count
+            })
+          }
+        }
+        
+        const totalPlays = samplePatterns.reduce((sum, p) => sum + p.count, 0)
+        const maxPattern = samplePatterns.reduce((max, p) => p.count > max.count ? p : max)
+        
+        setPatternsData({
+          listening_patterns: samplePatterns,
+          summary: {
+            total_plays: totalPlays,
+            most_active_hour: maxPattern.hour,
+            most_active_day: maxPattern.day
+          }
+        })
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/analytics/patterns')
       console.log('🔍 Patterns response:', response.data)
       setPatternsData(response.data)
@@ -49,8 +108,19 @@ const ListeningPatterns: React.FC = () => {
     try {
       setIsCollecting(true)
       console.log('🔄 Collecting listening data...')
-      const response = await api.get('/analytics/collect-data')
-      console.log('✅ Data collection result:', response.data)
+      
+      // First refresh recent listening data
+      await api.post('/music/refresh-data')
+      console.log('✅ Recent data refreshed')
+      
+      // Then try to collect additional data if endpoint exists
+      try {
+        const response = await api.get('/analytics/collect-data')
+        console.log('✅ Data collection result:', response.data)
+      } catch (collectError) {
+        console.log('⚠️ Analytics collect endpoint not available, using refresh only')
+      }
+      
       await fetchPatternsData()
     } catch (err) {
       console.error('Failed to collect data:', err)
@@ -185,6 +255,15 @@ const ListeningPatterns: React.FC = () => {
         <p className="text-sm" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
           When you listen to music most frequently
         </p>
+        <div className="text-sm font-medium" style={{ color: '#1DB954', marginTop: '4px' }}>
+          📅 {(() => {
+            const endDate = new Date()
+            const startDate = new Date(endDate)
+            startDate.setDate(startDate.getDate() - 7)
+            return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
+          })()
+          } (Last 7 days)
+        </div>
       </div>
       <div className="space-y-4">
         {/* Summary Stats */}
@@ -260,8 +339,9 @@ const ListeningPatterns: React.FC = () => {
                     return (
                       <div
                         key={`${dayIndex}-${hour}`}
-                        className={`h-3 flex-1 rounded-sm ${getHeatmapColor(count, maxCount)} transition-colors min-w-[8px]`}
+                        className={`h-6 flex-1 rounded-md ${getHeatmapColor(count, maxCount)} transition-all duration-200 hover:scale-110 hover:z-10 cursor-pointer min-w-[12px]`}
                         title={`${day} ${formatHour(hour)}: ${count} plays`}
+                        style={{ minWidth: '12px' }}
                       />
                     )
                   })}

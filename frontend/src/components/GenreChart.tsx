@@ -7,6 +7,7 @@ import {
   Legend,
 } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -20,18 +21,39 @@ interface GenreResponse {
 }
 
 const GenreChart: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [genreData, setGenreData] = useState<GenreResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchGenreData()
-  }, [])
+  }, [isDemoMode])
 
   const fetchGenreData = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample genre data for demo mode
+        const sampleGenreData = {
+          genres: {
+            'pop': 45,
+            'rock': 32,
+            'indie pop': 28,
+            'alternative': 22,
+            'electronic': 18,
+            'hip hop': 15,
+            'r&b': 12,
+            'folk': 8
+          }
+        }
+        setGenreData(sampleGenreData)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/analytics/genres')
       setGenreData(response.data)
     } catch (err) {

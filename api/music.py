@@ -12,6 +12,34 @@ import os
 
 music_bp = Blueprint('music', __name__)
 
+def validate_user_access(user_id, claims):
+    """Validate user has access to their own data only"""
+    if not user_id:
+        raise Exception('No user ID provided')
+    
+    jwt_user_id = claims.get('spotify_user_id')
+    if user_id != jwt_user_id:
+        raise Exception(f'User access violation: {user_id} != {jwt_user_id}')
+    
+    session_token = claims.get('user_session_token')
+    if not session_token:
+        raise Exception('Missing session token')
+    
+    return True
+
+def get_user_database_path(user_id):
+    """Get secure database path for user with validation"""
+    if not user_id or not isinstance(user_id, str) or len(user_id) < 3:
+        raise Exception('Invalid user ID for database access')
+    
+    # Sanitize user ID to prevent path traversal
+    import re
+    safe_user_id = re.sub(r'[^a-zA-Z0-9_-]', '', user_id)
+    if safe_user_id != user_id:
+        raise Exception('User ID contains invalid characters')
+    
+    return f'data/user_{safe_user_id}_spotify_data.db'
+
 @music_bp.route('/test')
 @jwt_required()
 def test_jwt():
@@ -31,14 +59,29 @@ def test_jwt():
         return jsonify({'error': str(e)}), 500
 
 def get_spotify_api_for_user():
-    """Initialize SpotifyAPI with user credentials and access token from JWT token"""
+    """Initialize SpotifyAPI with strict user isolation and validation"""
     try:
+        # Get current user ID from JWT
+        current_user_id = get_jwt_identity()
         claims = get_jwt()
+        
+        # Validate user identity matches JWT claims
+        jwt_spotify_user_id = claims.get('spotify_user_id')
+        if jwt_spotify_user_id != current_user_id:
+            raise Exception('User identity mismatch - security violation')
+        
+        # Validate session token exists
+        user_session_token = claims.get('user_session_token')
+        if not user_session_token:
+            raise Exception('Missing user session token - security violation')
+        
         client_id = claims.get('client_id')
         client_secret = claims.get('client_secret')
         spotify_access_token = claims.get('spotify_access_token')
-        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
+        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
 
+        print(f"🔍 DEBUG: Validated user: {current_user_id}")
+        print(f"🔍 DEBUG: Session token: {user_session_token[:8]}...")
         print(f"🔍 DEBUG: JWT claims - client_id: {client_id[:8] if client_id else 'None'}...")
         print(f"🔍 DEBUG: JWT claims - access_token: {'Present' if spotify_access_token else 'Missing'}")
 
@@ -79,14 +122,23 @@ def get_spotify_api_for_user():
 @music_bp.route('/tracks/top')
 @jwt_required()
 def get_top_tracks():
-    """Get user's top tracks"""
+    """Get user's top tracks with strict user isolation"""
     try:
         print("🔍 DEBUG: Top tracks endpoint called")
+        
+        # Get and validate user identity
         user_id = get_jwt_identity()
-        time_range = request.args.get('time_range', 'medium_term')  # short_term, medium_term, long_term
+        claims = get_jwt()
+        
+        # Security validation
+        if not user_id or user_id != claims.get('spotify_user_id'):
+            print(f"❌ SECURITY: User ID mismatch - JWT: {user_id}, Claims: {claims.get('spotify_user_id')}")
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        time_range = request.args.get('time_range', 'medium_term')
         limit = min(int(request.args.get('limit', 20)), 50)
 
-        print(f"🔍 DEBUG: Getting top tracks for user: {user_id}, time_range: {time_range}, limit: {limit}")
+        print(f"🔍 DEBUG: Validated user {user_id} requesting top tracks: time_range={time_range}, limit={limit}")
 
         spotify_api = get_spotify_api_for_user()
         print("✅ DEBUG: SpotifyAPI initialized for top tracks")
@@ -129,14 +181,23 @@ def get_top_tracks():
 @music_bp.route('/artists/top')
 @jwt_required()
 def get_top_artists():
-    """Get user's top artists"""
+    """Get user's top artists with strict user isolation"""
     try:
         print("🔍 DEBUG: Top artists endpoint called")
+        
+        # Get and validate user identity
         user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        # Security validation
+        if not user_id or user_id != claims.get('spotify_user_id'):
+            print(f"❌ SECURITY: User ID mismatch - JWT: {user_id}, Claims: {claims.get('spotify_user_id')}")
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
         time_range = request.args.get('time_range', 'medium_term')
         limit = min(int(request.args.get('limit', 20)), 50)
 
-        print(f"🔍 DEBUG: Getting top artists for user: {user_id}, time_range: {time_range}, limit: {limit}")
+        print(f"🔍 DEBUG: Validated user {user_id} requesting top artists: time_range={time_range}, limit={limit}")
 
         spotify_api = get_spotify_api_for_user()
         print("✅ DEBUG: SpotifyAPI initialized for top artists")
@@ -174,14 +235,19 @@ def get_top_artists():
 @music_bp.route('/albums/top')
 @jwt_required()
 def get_top_albums_endpoint():
-    """Get user's top albums from database analysis (same as Dash app)"""
+    """Get user's top albums with strict user isolation"""
     try:
         user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        # Security validation
+        validate_user_access(user_id, claims)
+        
         limit = int(request.args.get('limit', 10))
 
-        # Get user-specific database
+        # Get user-specific database with secure path
         from modules.database import SpotifyDatabase
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = get_user_database_path(user_id)
         user_db = SpotifyDatabase(db_path)
 
         # Get Spotify API for user
@@ -325,6 +391,153 @@ def get_current_track():
         }
         
         return jsonify({'currently_playing': formatted_track})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@music_bp.route('/refresh-data', methods=['POST'])
+@jwt_required()
+def refresh_listening_data():
+    """Refresh user's listening data from Spotify API"""
+    try:
+        user_id = get_jwt_identity()
+        claims = get_jwt()
+        
+        # Security validation
+        validate_user_access(user_id, claims)
+        
+        # Get user-specific database
+        db_path = get_user_database_path(user_id)
+        db = SpotifyDatabase(db_path)
+        
+        # Get Spotify API
+        spotify_api = get_spotify_api_for_user()
+        
+        # Get recent listening data
+        recently_played = spotify_api.get_recently_played(limit=50)
+        
+        if not recently_played:
+            return jsonify({
+                'message': 'No recent listening data found',
+                'updated_count': 0
+            })
+        
+        updated_count = 0
+        from datetime import datetime
+        
+        for track in recently_played:
+            try:
+                # Save track to database
+                db.save_track(track)
+                
+                # Save listening history
+                db.save_listening_history(
+                    user_id=user_id,
+                    track_id=track['id'],
+                    played_at=track.get('played_at', datetime.now().isoformat()),
+                    source='recently_played'
+                )
+                
+                updated_count += 1
+                
+            except Exception as e:
+                print(f"Error updating track {track.get('id', 'unknown')}: {e}")
+                continue
+        
+        return jsonify({
+            'message': f'Updated {updated_count} recent tracks',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@music_bp.route('/audio-features/fix', methods=['POST'])
+@jwt_required()
+def fix_missing_audio_features():
+    """Fix missing audio features for existing tracks"""
+    try:
+        user_id = get_jwt_identity()
+        
+        # Get user-specific database
+        db_path = f'data/user_{user_id}_spotify_data.db'
+        db = SpotifyDatabase(db_path)
+        
+        # Get Spotify API
+        spotify_api = get_spotify_api_for_user()
+        
+        # Get tracks without audio features
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT track_id, name, artist 
+            FROM tracks 
+            WHERE energy IS NULL 
+            AND track_id NOT LIKE 'genre-%'
+            LIMIT 50
+        """)
+        
+        tracks_without_features = cursor.fetchall()
+        
+        if not tracks_without_features:
+            return jsonify({
+                'message': 'All tracks already have audio features',
+                'updated_count': 0
+            })
+        
+        updated_count = 0
+        
+        # Get audio features for each track and update database
+        for track_id, name, artist in tracks_without_features:
+            try:
+                # Get audio features using the API method
+                audio_features = spotify_api.get_audio_features_safely(track_id)
+                
+                # Update the track in database
+                cursor.execute("""
+                    UPDATE tracks SET
+                        danceability = ?,
+                        energy = ?,
+                        key = ?,
+                        loudness = ?,
+                        mode = ?,
+                        speechiness = ?,
+                        acousticness = ?,
+                        instrumentalness = ?,
+                        liveness = ?,
+                        valence = ?,
+                        tempo = ?
+                    WHERE track_id = ?
+                """, (
+                    audio_features.get('danceability'),
+                    audio_features.get('energy'),
+                    audio_features.get('key'),
+                    audio_features.get('loudness'),
+                    audio_features.get('mode'),
+                    audio_features.get('speechiness'),
+                    audio_features.get('acousticness'),
+                    audio_features.get('instrumentalness'),
+                    audio_features.get('liveness'),
+                    audio_features.get('valence'),
+                    audio_features.get('tempo'),
+                    track_id
+                ))
+                
+                updated_count += 1
+                
+            except Exception as e:
+                print(f"Error updating audio features for {track_id}: {e}")
+                continue
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'message': f'Updated audio features for {updated_count} tracks',
+            'updated_count': updated_count
+        })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

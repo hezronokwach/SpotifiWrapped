@@ -52,10 +52,18 @@ function getValidToken(): string | null {
 
 // Request interceptor to add auth token
 api.interceptors.request.use((config) => {
-  const token = getValidToken()
+  // Skip auth for login and callback endpoints
+  const skipAuth = [
+    '/auth/login',
+    '/auth/callback',
+    '/auth/validate-credentials'
+  ].some(path => config.url?.includes(path))
   
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (!skipAuth) {
+    const token = getValidToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   
   return config
@@ -68,14 +76,15 @@ api.interceptors.response.use(
     console.error('API Error:', error.response?.data || error.message)
     
     if (error.response?.status === 401) {
-      // Token expired, clear session and redirect to auth
+      // Token expired or invalid, clear session and redirect to login
       localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_session')
-      console.log('🔍 API: 401 error - redirecting to auth')
+      localStorage.removeItem('spotify_credentials')
+      console.log('🔍 API: 401 error - redirecting to login')
       
-      // Redirect to auth page
-      if (window.location.pathname !== '/auth') {
-        window.location.href = '/auth'
+      // Redirect to onboarding page
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/' && window.location.pathname !== '/onboarding') {
+        window.location.href = '/onboarding'
       }
     }
     
@@ -160,7 +169,7 @@ export async function refreshToken(): Promise<string | null> {
     console.error('Token refresh failed:', error)
     localStorage.removeItem('auth_token')
     localStorage.removeItem('auth_session')
-    window.location.href = '/auth'
+    window.location.href = '/onboarding'
     return null
   }
 }

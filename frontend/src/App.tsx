@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { DemoModeProvider, useDemoMode } from './contexts/DemoModeContext'
 import Dashboard from './pages/Dashboard'
 import AIInsights from './pages/AIInsights'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
+import OnboardingPage from './pages/OnboardingPage'
 import AuthCallback from './pages/AuthCallback'
+import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 import DebugCredentials from './components/DebugCredentials'
@@ -14,12 +17,13 @@ import './index.css'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth()
+  const { isDemoMode } = useDemoMode()
 
-  if (isLoading) {
+  if (isLoading && !isDemoMode) {
     return <LoadingSpinner message="Authenticating..." />
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+  return (isAuthenticated || isDemoMode) ? <>{children}</> : <Navigate to="/onboarding" replace />
 }
 
 const AppRoutes: React.FC = () => {
@@ -35,6 +39,12 @@ const AppRoutes: React.FC = () => {
   // Check credentials on mount and when storage changes
   useEffect(() => {
     const checkCredentials = () => {
+      // Skip credential check if user is authenticated or in demo mode
+      if (isAuthenticated) {
+        setNeedsOnboarding(false)
+        return
+      }
+      
       const hasCredentials = hasValidCredentials()
       console.log('🔍 App.tsx: Checking credentials:', hasCredentials)
       setNeedsOnboarding(!hasCredentials)
@@ -50,15 +60,13 @@ const AppRoutes: React.FC = () => {
     }
 
     window.addEventListener('storage', handleStorageChange)
-
-    // Also listen for custom events when credentials change
     window.addEventListener('credentialsChanged', handleStorageChange)
 
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('credentialsChanged', handleStorageChange)
     }
-  }, [])
+  }, [isAuthenticated])
 
   // Show loading while checking credentials
   if (needsOnboarding === null || isLoading) {
@@ -69,23 +77,37 @@ const AppRoutes: React.FC = () => {
     <Routes>
       <Route
         path="/onboarding"
+        element={<OnboardingPage />}
+      />
+      <Route
+        path="/setup"
         element={needsOnboarding ? <Onboarding /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/login"
-        element={
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
-          isAuthenticated ? <Navigate to="/" replace /> : <Login />
-        }
+        element={<Login />}
       />
       <Route
         path="/auth/callback"
         element={<AuthCallback />}
       />
       <Route
+        path="/auth"
+        element={<Navigate to="/onboarding" replace />}
+      />
+      <Route
         path="/"
         element={
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
+          <ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
           <ProtectedRoute>
             <Layout>
               <Dashboard />
@@ -96,10 +118,19 @@ const AppRoutes: React.FC = () => {
       <Route
         path="/ai-insights"
         element={
-          needsOnboarding ? <Navigate to="/onboarding" replace /> :
           <ProtectedRoute>
             <Layout>
               <AIInsights />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Settings />
             </Layout>
           </ProtectedRoute>
         }
@@ -111,14 +142,16 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-spotify-black">
-          <AppRoutes />
-          <DebugCredentials />
-        </div>
-      </Router>
-    </AuthProvider>
+    <DemoModeProvider>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen bg-spotify-black">
+            <AppRoutes />
+            <DebugCredentials />
+          </div>
+        </Router>
+      </AuthProvider>
+    </DemoModeProvider>
   )
 }
 

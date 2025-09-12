@@ -29,45 +29,55 @@ class AISampleDataGenerator:
         ]
     
     def generate_personality_analysis(self) -> Dict[str, Any]:
-        """Generate sample personality analysis data."""
+        """Generate sample personality analysis data with Gemini-style descriptions."""
         personality_types = [
             {
-                'name': 'The Sonic Explorer',
-                'description': 'You have an adventurous spirit when it comes to music, constantly seeking new sounds and artists. Your playlist is a journey through different genres and eras, reflecting your curious and open-minded personality.',
+                'name': 'Rhythm Analyst',
+                'description': 'You have an innate connection to the mathematical beauty of music - the way beats align, how melodies interweave, and the subtle complexities that make a song truly special. Your listening patterns reveal a deep appreciation for musical craftsmanship.',
+                'confidence': 0.85,
+                'traits': ['Analytical', 'Detail-oriented', 'Musical', 'Sophisticated']
+            },
+            {
+                'name': 'Sonic Explorer',
+                'description': 'Your musical journey is one of constant discovery and adventure. You approach each new song like an explorer charting unknown territories, always eager to uncover hidden gems and experience the full spectrum of human emotion through sound.',
                 'confidence': 0.87,
                 'traits': ['Curious', 'Open-minded', 'Creative', 'Adventurous']
             },
             {
-                'name': 'The Mood Curator',
-                'description': 'You use music as an emotional compass, carefully selecting tracks that match or enhance your current state of mind. Your listening patterns show sophisticated emotional intelligence.',
+                'name': 'Emotional Architect',
+                'description': 'You construct your emotional landscape through carefully chosen melodies and harmonies. Your music taste reflects someone who understands the profound connection between sound and feeling, using music as both refuge and inspiration.',
                 'confidence': 0.82,
                 'traits': ['Emotionally Intelligent', 'Introspective', 'Empathetic', 'Thoughtful']
             },
             {
-                'name': 'The Rhythm Enthusiast',
-                'description': 'Beat and rhythm drive your musical choices. You gravitate toward danceable, high-energy tracks that get your body moving and your spirit lifted.',
+                'name': 'Vibe Curator',
+                'description': 'You possess an exceptional ability to read the room and set the perfect musical atmosphere. Your playlists are masterfully crafted experiences that transport listeners to exactly where they need to be emotionally.',
                 'confidence': 0.79,
-                'traits': ['Energetic', 'Social', 'Optimistic', 'Active']
+                'traits': ['Social', 'Intuitive', 'Creative', 'Influential']
             }
         ]
         
         selected_type = random.choice(personality_types)
         
-        # Generate recommendations
+        # Generate recommendations with more sophisticated reasons
         recommendations = []
+        sophisticated_reasons = [
+            'Reflects your adventurous musical spirit',
+            'Matches the mathematical precision you appreciate in music',
+            'Complements your sophisticated harmonic preferences',
+            'Aligns with your emotional intelligence in music selection',
+            'Fits your pattern of discovering hidden musical gems',
+            'Resonates with your appreciation for musical craftsmanship',
+            'Matches your ability to find beauty in complex arrangements'
+        ]
+        
         for i in range(5):
             recommendations.append({
                 'name': random.choice(self.sample_tracks),
                 'artist': random.choice(self.sample_artists),
                 'image_url': f'https://picsum.photos/300/300?random={i+10}',
-                'similarity_score': random.uniform(0.7, 0.95),
-                'reason': random.choice([
-                    'Matches your adventurous music taste',
-                    'Similar energy to your top tracks',
-                    'Complements your mood preferences',
-                    'Fits your genre exploration pattern',
-                    'Aligns with your emotional listening style'
-                ])
+                'similarity_score': random.uniform(0.75, 0.95),
+                'reason': random.choice(sophisticated_reasons)
             })
         
         return {
@@ -81,7 +91,9 @@ class AISampleDataGenerator:
                 'energy': random.uniform(0.5, 0.9),
                 'valence': random.uniform(0.4, 0.8),
                 'acousticness': random.uniform(0.1, 0.6)
-            }
+            },
+            'llm_generated': False,  # Indicate this is sample data
+            'note': 'This is sample data for demonstration. Connect your Spotify for AI-powered analysis.'
         }
     
     def generate_wellness_analysis(self) -> Dict[str, Any]:
@@ -332,6 +344,136 @@ class AISampleDataGenerator:
             'diversity_score': random.uniform(0.6, 0.9),
             'total_tracks': random.randint(150, 500)
         }
+    
+    def generate_enhanced_stress_analysis(self) -> Dict[str, Any]:
+        """Generate enhanced stress analysis with all visualization components."""
+        # Get base stress data
+        base_stress = self.generate_stress_analysis()
+        
+        # Create timeline chart data
+        timeline_chart_data = {
+            'dates': [item['date'] for item in base_stress['stress_timeline']],
+            'stress_scores': [item['stress_score'] for item in base_stress['stress_timeline']],
+            'mood_scores': [item['avg_mood'] * 100 for item in base_stress['stress_timeline']],
+            'energy_scores': [item['avg_energy'] * 100 for item in base_stress['stress_timeline']]
+        }
+        
+        # Enhanced indicators breakdown
+        indicators_breakdown = []
+        for key, indicator in base_stress['stress_indicators'].items():
+            severity_colors = {
+                'high': '#FF6B6B',
+                'moderate': '#FFD93D', 
+                'mild': '#FFA726',
+                'low': '#1DB954'
+            }
+            
+            indicator_icons = {
+                'agitated_listening': '🎵',
+                'repetitive_behavior': '🔄',
+                'late_night_patterns': '🌙',
+                'mood_volatility': '📊',
+                'energy_crashes': '📉'
+            }
+            
+            indicator_names = {
+                'agitated_listening': 'Agitated Listening',
+                'repetitive_behavior': 'Repetitive Behavior',
+                'late_night_patterns': 'Late Night Patterns',
+                'mood_volatility': 'Mood Volatility',
+                'energy_crashes': 'Energy Crashes'
+            }
+            
+            formatted_indicator = {
+                'key': key,
+                'name': indicator_names.get(key, key.replace('_', ' ').title()),
+                'icon': indicator_icons.get(key, '📈'),
+                'frequency': indicator.get('frequency', 0),
+                'severity': indicator.get('severity', 'low'),
+                'severity_color': severity_colors.get(indicator.get('severity', 'low'), '#1DB954'),
+                'confidence': indicator.get('confidence', 0.7),
+                'research_basis': indicator.get('research_basis', 'Pattern analysis'),
+                'detected': indicator.get('frequency', 0) > 0
+            }
+            
+            # Add specific data for repetitive behavior
+            if key == 'repetitive_behavior':
+                formatted_indicator.update({
+                    'stress_repetitive_tracks': indicator.get('stress_repetitive_tracks', 0),
+                    'happy_repetitive_tracks': indicator.get('happy_repetitive_tracks', 0),
+                    'max_repetitions': indicator.get('max_repetitions', 0)
+                })
+            
+            indicators_breakdown.append(formatted_indicator)
+        
+        # Enhanced personal triggers
+        personal_triggers_formatted = []
+        for trigger in base_stress['personal_triggers']:
+            trigger_icons = {
+                'temporal': '⏰',
+                'artist': '🎤',
+                'genre': '🎵',
+                'general': '🚨'
+            }
+            
+            formatted_trigger = {
+                'type': trigger.get('type', 'general'),
+                'trigger': trigger.get('trigger', ''),
+                'recommendation': trigger.get('recommendation', ''),
+                'icon': trigger_icons.get(trigger.get('type', 'general'), '🚨'),
+                'severity': 'moderate'
+            }
+            personal_triggers_formatted.append(formatted_trigger)
+        
+        # Enhanced therapeutic recommendations
+        therapeutic_recommendations = []
+        for rec in base_stress['recommendations']:
+            rec_icons = {
+                'calming': '🧘',
+                'sleep': '😴',
+                'stability': '⚖️',
+                'general': '💡'
+            }
+            
+            formatted_rec = {
+                'type': rec.get('type', 'general'),
+                'title': rec.get('title', 'Recommendation'),
+                'description': rec.get('description', ''),
+                'action': rec.get('action', ''),
+                'evidence': 'Based on music therapy research and stress management studies',
+                'confidence': 0.85,
+                'icon': rec_icons.get(rec.get('type', 'general'), '💡')
+            }
+            therapeutic_recommendations.append(formatted_rec)
+        
+        # Confidence metrics
+        confidence_metrics = {
+            'overall_confidence': base_stress['confidence'],
+            'data_quality_confidence': min(base_stress['confidence'] * 1.2, 95),
+            'pattern_consistency_confidence': random.uniform(70, 90),
+            'research_validation_confidence': 85,
+            'confidence_explanation': 'Good confidence with sufficient sample data for demonstration'
+        }
+        
+        # Combine all enhanced data
+        enhanced_data = {
+            **base_stress,
+            'timeline_chart_data': timeline_chart_data,
+            'indicators_breakdown': indicators_breakdown,
+            'personal_triggers_formatted': personal_triggers_formatted,
+            'therapeutic_recommendations': therapeutic_recommendations,
+            'confidence_metrics': confidence_metrics,
+            'scientific_disclaimer': 'This analysis is based on music listening patterns and research-validated stress indicators. Results show ~75-85% accuracy in research studies. This should not replace professional mental health assessment.',
+            'research_basis': {
+                'agitated_listening': 'Dimitriev et al., 2023 - HRV studies showing stress response',
+                'repetitive_behavior': 'Sachs et al., 2015 & Groarke & Hogan, 2018',
+                'late_night_patterns': 'Hirotsu et al., 2015 - Cortisol nadir studies',
+                'mood_volatility': 'Emotion regulation research',
+                'overall_methodology': 'Multi-indicator approach based on validated music psychology research'
+            }
+        }
+        
+        return enhanced_data
     
     def generate_insights_summary(self) -> Dict[str, Any]:
         """Generate comprehensive AI insights summary."""

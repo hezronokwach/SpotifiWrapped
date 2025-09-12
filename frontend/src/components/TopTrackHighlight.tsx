@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Track, getTrackName } from '../types/spotify'
 import { musicApi } from '../api'
+import { useDemoMode } from '../contexts/DemoModeContext'
+import { sampleTracks } from '../data/sampleData'
 import '../spotify-components.css'
 
 const TopTrackHighlight: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [topTrack, setTopTrack] = useState<Track | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -12,6 +15,18 @@ const TopTrackHighlight: React.FC = () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample data for demo mode
+        const demoTrack = {
+          ...sampleTracks[0],
+          image_url: sampleTracks[0].images[0]?.url
+        }
+        setTopTrack(demoTrack)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await musicApi.getTopTracks(1)
       if (response.tracks && response.tracks.length > 0) {
         setTopTrack(response.tracks[0])
@@ -22,11 +37,11 @@ const TopTrackHighlight: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [isDemoMode])
 
   useEffect(() => {
     fetchTopTrack()
-  }, [fetchTopTrack])
+  }, [fetchTopTrack, isDemoMode])
 
   if (isLoading) {
     return (

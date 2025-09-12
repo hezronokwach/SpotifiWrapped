@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import '../spotify-components.css'
+import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface Album {
   album: string
@@ -15,18 +16,101 @@ interface TopAlbumsResponse {
 }
 
 const TopAlbums: React.FC = () => {
+  const { isDemoMode } = useDemoMode()
   const [topAlbums, setTopAlbums] = useState<TopAlbumsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTopAlbums()
-  }, [])
+  }, [isDemoMode])
 
   const fetchTopAlbums = async () => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      if (isDemoMode) {
+        // Use sample albums for demo mode
+        const sampleAlbums = {
+          albums: [
+            {
+              album: 'After Hours',
+              artist: 'The Weeknd',
+              total_count: 45,
+              image_url: 'https://picsum.photos/200/200?random=40',
+              rank: 1
+            },
+            {
+              album: 'Fine Line',
+              artist: 'Harry Styles',
+              total_count: 38,
+              image_url: 'https://picsum.photos/200/200?random=41',
+              rank: 2
+            },
+            {
+              album: 'SOUR',
+              artist: 'Olivia Rodrigo',
+              total_count: 32,
+              image_url: 'https://picsum.photos/200/200?random=42',
+              rank: 3
+            },
+            {
+              album: 'Future Nostalgia',
+              artist: 'Dua Lipa',
+              total_count: 28,
+              image_url: 'https://picsum.photos/200/200?random=43',
+              rank: 4
+            },
+            {
+              album: 'Positions',
+              artist: 'Ariana Grande',
+              total_count: 25,
+              image_url: 'https://picsum.photos/200/200?random=44',
+              rank: 5
+            },
+            {
+              album: 'Folklore',
+              artist: 'Taylor Swift',
+              total_count: 22,
+              image_url: 'https://picsum.photos/200/200?random=45',
+              rank: 6
+            },
+            {
+              album: 'Blinding Lights',
+              artist: 'The Weeknd',
+              total_count: 20,
+              image_url: 'https://picsum.photos/200/200?random=46',
+              rank: 7
+            },
+            {
+              album: 'Levitating',
+              artist: 'Dua Lipa',
+              total_count: 18,
+              image_url: 'https://picsum.photos/200/200?random=47',
+              rank: 8
+            },
+            {
+              album: 'Good 4 U',
+              artist: 'Olivia Rodrigo',
+              total_count: 16,
+              image_url: 'https://picsum.photos/200/200?random=48',
+              rank: 9
+            },
+            {
+              album: 'Watermelon Sugar',
+              artist: 'Harry Styles',
+              total_count: 14,
+              image_url: 'https://picsum.photos/200/200?random=49',
+              rank: 10
+            }
+          ]
+        }
+        setTopAlbums(sampleAlbums)
+        setIsLoading(false)
+        return
+      }
+      
       const response = await api.get('/music/albums/top?limit=10')
       setTopAlbums(response.data)
     } catch (err) {
@@ -132,7 +216,7 @@ const TopAlbums: React.FC = () => {
         </div>
 
         <div className="top-albums-container">
-          {topAlbums.albums.map((album, index) => (
+          {topAlbums.albums.slice(0, 10).map((album, index) => (
             <div key={`${album.artist}-${album.album}`} className="album-card">
               <div className="album-rank">#{index + 1}</div>
               
@@ -156,9 +240,9 @@ const TopAlbums: React.FC = () => {
               </div>
               
               <div className="album-info">
-                <h4>{album.album}</h4>
-                <p>{album.artist}</p>
-                <div className="album-score">{album.total_count} plays</div>
+                <h4 title={album.album}>{album.album}</h4>
+                <p title={album.artist}>{album.artist}</p>
+                <div className="album-score">Score: {album.total_count}</div>
               </div>
             </div>
           ))}
