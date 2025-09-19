@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 
 import { Button } from '../components/ui/button'
-import { formatNumber, formatDuration } from '../lib/utils'
+import { formatNumber, formatDuration } from '../lib/utils.ts'
 import AudioFeatures from '../components/AudioFeatures'
 import GenreChart from '../components/GenreChart'
 import SavedTracks from '../components/SavedTracks'
@@ -14,7 +14,7 @@ import TopTrackHighlight from '../components/TopTrackHighlight'
 import TopArtistHighlight from '../components/TopArtistHighlight'
 import DemoModeIndicator from '../components/DemoModeIndicator'
 import { useDemoMode } from '../contexts/DemoModeContext'
-import { sampleStats, sampleTracks, sampleArtists, sampleCurrentTrack } from '../data/sampleData'
+import { sampleStats, sampleTracks, sampleArtists, sampleCurrentTrack } from '../data/sampleData.ts'
 
 interface UserStats {
   total_tracks: number

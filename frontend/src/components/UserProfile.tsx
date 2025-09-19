@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import api from '../api'
 import { useDemoMode } from '../contexts/DemoModeContext'
-import { sampleUserProfile } from '../data/sampleData'
+import { sampleUserProfile } from '../data/sampleData.ts'
 
 interface UserData {
   display_name: string
