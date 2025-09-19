@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { formatDuration } from '../lib/utils.ts'
+import { formatDuration } from '../lib/utils'
 import { useDemoMode } from '../contexts/DemoModeContext'
 
 interface SavedTrack {

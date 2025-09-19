@@ -12,7 +12,7 @@ import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 import DebugCredentials from './components/DebugCredentials'
-import { hasValidCredentials } from './lib/credentials.ts'
+import { hasValidCredentials } from './lib/credentials'
 import './index.css'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
