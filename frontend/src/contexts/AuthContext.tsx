@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import { authApi } from '../api'
+import api, { authApi } from '../api'
 import {
   initializeSession,
   storeSession,
@@ -83,6 +83,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Get auth URL from backend with credentials
       console.log('🔍 AuthContext: Requesting auth URL from backend...')
+      console.log('🔍 AuthContext: API baseURL:', api.defaults.baseURL)
       const response = await authApi.login(credentials.clientId, credentials.clientSecret)
       const authUrl = response.data.auth_url
       console.log('✅ AuthContext: Auth URL received:', authUrl)
