@@ -9,8 +9,17 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 const cache = new Map<string, { data: any; timestamp: number }>()
 
 // API base configuration
+const getApiBaseUrl = () => {
+  // Force production URL when deployed
+  if (window.location.hostname === 'spotifiwrapped.vercel.app') {
+    return 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api'
+  }
+  // Development
+  return 'http://localhost:5000/api'
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api',
+  baseURL: getApiBaseUrl(),
   timeout: 30000, // 30 second timeout for album analysis
   withCredentials: false, // Don't send cookies to external API
 })
