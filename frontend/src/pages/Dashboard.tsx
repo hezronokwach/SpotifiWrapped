@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
 
 import { Button } from '../components/ui/button'
 import { formatNumber, formatDuration } from '../lib/utils'
@@ -32,6 +31,8 @@ interface Track {
   album: string
   popularity: number
   duration_ms: number
+  progress_ms?: number
+  is_playing?: boolean
   images: Array<{ url: string }>
 }
 
@@ -110,7 +111,7 @@ const Dashboard: React.FC = () => {
         setStats(sampleStats)
         setTopTracks(sampleTracks)
         setTopArtists(sampleArtists)
-        setCurrentTrack(sampleCurrentTrack)
+        setCurrentTrack({ ...sampleCurrentTrack, popularity: 85 })
         setIsLoading(false)
         return
       }

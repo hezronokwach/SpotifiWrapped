@@ -18,7 +18,7 @@ const Onboarding: React.FC = () => {
   const navigate = useNavigate()
   const { login } = useAuth()
   const [step, setStep] = useState<'welcome' | 'credentials' | 'validation'>('welcome')
-  const [credentials, setCredentials] = useState<Partial<SpotifyCredentials>>({
+  const [credentials, setCredentials] = useState({
     clientId: '',
     clientSecret: ''
   })
@@ -37,7 +37,7 @@ const Onboarding: React.FC = () => {
     checkCredentials()
   }, [navigate]) // navigate is stable from React Router
 
-  const handleInputChange = (field: keyof SpotifyCredentials, value: string) => {
+  const handleInputChange = (field: 'clientId' | 'clientSecret', value: string) => {
     setCredentials(prev => ({ ...prev, [field]: value }))
     setErrors([]) // Clear errors when user types
     setValidationError(null)
@@ -45,7 +45,12 @@ const Onboarding: React.FC = () => {
 
   const handleCredentialsSubmit = async () => {
     // Validate format first
-    const validation = validateCredentials(credentials)
+    const fullCredentials: SpotifyCredentials = {
+      clientId: credentials.clientId || '',
+      clientSecret: credentials.clientSecret || ''
+    }
+    
+    const validation = validateCredentials(fullCredentials)
     if (!validation.isValid) {
       setErrors(validation.errors)
       return
@@ -56,11 +61,11 @@ const Onboarding: React.FC = () => {
 
     try {
       // Validate with Spotify API
-      const apiValidation = await validateCredentialsWithAPI(credentials as SpotifyCredentials)
+      const apiValidation = await validateCredentialsWithAPI(fullCredentials)
       
       if (apiValidation.isValid) {
         // Store credentials securely
-        storeCredentials(credentials as SpotifyCredentials)
+        storeCredentials(fullCredentials)
         setStep('validation')
 
         // Start login process directly instead of navigating

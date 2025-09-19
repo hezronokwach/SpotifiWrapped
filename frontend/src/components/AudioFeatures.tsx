@@ -37,6 +37,13 @@ interface AudioFeatures {
 interface TrackInfo {
   track: string
   artist: string
+  danceability?: number
+  energy?: number
+  valence?: number
+  acousticness?: number
+  instrumentalness?: number
+  liveness?: number
+  speechiness?: number
 }
 
 interface AudioFeaturesData {

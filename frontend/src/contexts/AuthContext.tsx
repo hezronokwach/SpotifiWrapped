@@ -8,7 +8,7 @@ import {
   validateSession,
   type TokenData
 } from '../lib/session'
-import { getStoredCredentials, getOAuthCredentials } from '../lib/credentials'
+import { getStoredCredentials } from '../lib/credentials'
 
 interface User {
   id: string

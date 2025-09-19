@@ -10,7 +10,7 @@ const cache = new Map<string, { data: any; timestamp: number }>()
 
 // API base configuration
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : '/api',
+  baseURL: import.meta.env.DEV ? 'http://localhost:5000/api' : '/api',
   timeout: 30000, // 30 second timeout for album analysis
 })
 
