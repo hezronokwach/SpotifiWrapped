@@ -221,8 +221,8 @@ const SavedTracks: React.FC = () => {
                      color: '#ffffff',
                      textShadow: '0 0 10px rgba(255, 255, 255, 0.3)'
                    }}
-                   onMouseEnter={(e) => e.target.style.color = '#1DB954'}
-                   onMouseLeave={(e) => e.target.style.color = '#ffffff'}>
+                   onMouseEnter={(e) => (e.target as HTMLElement).style.color = '#1DB954'}
+                   onMouseLeave={(e) => (e.target as HTMLElement).style.color = '#ffffff'}>
                   {track.name}
                 </p>
                 <p className="text-sm truncate" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>

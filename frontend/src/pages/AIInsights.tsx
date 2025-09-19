@@ -39,6 +39,8 @@ interface PersonalityData {
     similarity_score: number
     reason: string
   }>
+  error?: string
+  message?: string
 }
 
 interface WellnessData {
@@ -199,10 +201,10 @@ const AIInsights: React.FC = () => {
         const error = results[0].reason
         if (error?.response?.status === 400) {
           console.log('Insufficient data for personality analysis - this is expected')
-          setPersonalityData({ error: 'Insufficient data', message: error.response.data.message })
+          setPersonalityData({ error: 'Insufficient data', message: error.response.data.message } as PersonalityData)
         } else {
           console.error('Personality analysis failed:', error)
-          setPersonalityData({ error: 'Failed to load personality analysis' })
+          setPersonalityData({ error: 'Failed to load personality analysis' } as PersonalityData)
         }
       }
       
@@ -484,7 +486,7 @@ const PersonalityCard: React.FC<{ data: PersonalityData | any }> = ({ data }) =>
             🎵 AI Recommendations
           </h5>
           <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-            {data.recommendations.slice(0, 3).map((rec, index) => (
+            {data.recommendations.slice(0, 3).map((rec: any, index: number) => (
               <div key={index} style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -850,7 +852,7 @@ const StressAnalysisCard: React.FC<{ data: StressData }> = ({ data }) => {
             🔬 Detailed Stress Indicators
           </h5>
           <div style={{ display: 'grid', gap: '12px' }}>
-            {Object.entries(data.stress_indicators).map(([key, indicator]: [string, any], index) => {
+            {Object.entries(data.stress_indicators).map(([key, indicator]: [string, any]) => {
               const getSeverityColor = (severity: string) => {
                 switch(severity) {
                   case 'high': return '#FF6B6B'
@@ -1166,76 +1168,7 @@ const StressAnalysisCard: React.FC<{ data: StressData }> = ({ data }) => {
 }
 
 const GenreEvolutionCard: React.FC<{ data: GenreEvolutionData }> = ({ data }) => {
-  // Create chart data for visualization
-  const createGenreChart = () => {
-    if (!data.timeline_data || data.timeline_data.length === 0) {
-      return {
-        data: [],
-        layout: {
-          title: 'Not enough data for genre evolution',
-          paper_bgcolor: 'rgba(26, 26, 26, 0.95)',
-          plot_bgcolor: 'rgba(26, 26, 26, 0.8)',
-          font: { color: 'rgba(255, 255, 255, 0.7)' },
-          height: 300
-        }
-      }
-    }
 
-    // Get all genres from timeline data
-    const allGenres = new Set<string>()
-    data.timeline_data.forEach(monthData => {
-      Object.keys(monthData.genres).forEach(genre => allGenres.add(genre))
-    })
-
-    // Color palette for genres (matching Dash implementation)
-    const colors = ['#1DB954', '#00D4FF', '#8B5CF6', '#F472B6', '#FBBF24', '#EF4444', '#10B981']
-    
-    // Create traces for each genre
-    const traces = Array.from(allGenres).map((genre, index) => ({
-      x: data.timeline_data.map(d => d.month),
-      y: data.timeline_data.map(d => d.genres[genre] || 0),
-      type: 'scatter',
-      mode: 'lines+markers',
-      name: genre,
-      line: { color: colors[index % colors.length], width: 3 },
-      marker: { size: 8 },
-      hovertemplate: `<b>${genre}</b><br>Month: %{x}<br>Plays: %{y}<extra></extra>`
-    }))
-
-    return {
-      data: traces,
-      layout: {
-        title: {
-          text: 'Your Genre Evolution Journey',
-          font: { family: 'Orbitron, monospace', size: 18, color: '#1DB954' },
-          x: 0.5
-        },
-        xaxis: {
-          title: 'Month',
-          gridcolor: 'rgba(29, 185, 84, 0.2)',
-          tickfont: { family: 'Orbitron, monospace', color: 'rgba(255, 255, 255, 0.8)' }
-        },
-        yaxis: {
-          title: 'Play Count',
-          gridcolor: 'rgba(29, 185, 84, 0.2)',
-          tickfont: { family: 'Orbitron, monospace', color: 'rgba(255, 255, 255, 0.8)' }
-        },
-        plot_bgcolor: 'rgba(26, 26, 26, 0.8)',
-        paper_bgcolor: 'rgba(26, 26, 26, 0.95)',
-        font: { family: 'Orbitron, monospace', color: 'white' },
-        legend: {
-          bgcolor: 'rgba(26, 26, 26, 0.8)',
-          bordercolor: 'rgba(29, 185, 84, 0.3)',
-          borderwidth: 1
-        },
-        height: 300,
-        margin: { t: 60, b: 40, l: 60, r: 40 }
-      },
-      config: { displayModeBar: false }
-    }
-  }
-
-  const chartConfig = createGenreChart()
 
   return (
     <div className="ai-insights-card ai-card-genre-evolution">

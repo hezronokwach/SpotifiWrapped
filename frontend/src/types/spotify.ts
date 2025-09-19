@@ -23,6 +23,9 @@ export interface Track {
   valence?: number
   tempo?: number
   acousticness?: number
+  instrumentalness?: number
+  liveness?: number
+  speechiness?: number
   // Current playing state
   progress_ms?: number
   is_playing?: boolean
@@ -109,6 +112,34 @@ export interface SavedTracksResponse {
 export interface PlaylistsResponse {
   playlists: Playlist[]
   total: number
+}
+
+// Additional interfaces
+export interface TrackInfo extends Track {
+  danceability: number
+  energy: number
+  valence: number
+  acousticness: number
+  instrumentalness: number
+  liveness: number
+  speechiness: number
+}
+
+export interface PersonalityData {
+  personality_type: string
+  confidence: number
+  description: string
+  traits: string[]
+  recommendations?: any[]
+  stress_indicators?: Record<string, any>
+  error?: string
+  message?: string
+}
+
+export interface SpotifyCredentials {
+  clientId: string
+  clientSecret: string
+  redirectUri: string
 }
 
 // Utility functions for data access

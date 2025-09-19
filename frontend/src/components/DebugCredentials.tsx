@@ -1,10 +1,15 @@
 import React from 'react'
-import { hasValidCredentials, getStoredCredentials, getOAuthCredentials } from '../lib/credentials'
+import { hasValidCredentials, getStoredCredentials, type SpotifyCredentials } from '../lib/credentials'
 import { useAuth } from '../contexts/AuthContext'
 
 const DebugCredentials: React.FC = () => {
   const { isAuthenticated, isLoading, login } = useAuth()
-  const [debugInfo, setDebugInfo] = React.useState({
+  const [debugInfo, setDebugInfo] = React.useState<{
+    hasCredentials: boolean
+    storedCredentials: SpotifyCredentials | null
+    oauthCredentials: SpotifyCredentials | null
+    timestamp: number
+  }>({
     hasCredentials: false,
     storedCredentials: null,
     oauthCredentials: null,
@@ -36,7 +41,7 @@ const DebugCredentials: React.FC = () => {
       setDebugInfo({
         hasCredentials: hasValidCredentials(),
         storedCredentials: getStoredCredentials(),
-        oauthCredentials: getOAuthCredentials(),
+        oauthCredentials: getStoredCredentials(),
         timestamp: Date.now()
       })
     }
@@ -61,7 +66,7 @@ const DebugCredentials: React.FC = () => {
   }, [])
 
   // Only show in development
-  if (process.env.NODE_ENV !== 'development') {
+  if (!import.meta.env.DEV) {
     return null
   }
 
