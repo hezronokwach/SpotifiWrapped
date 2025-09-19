@@ -93,6 +93,7 @@ def callback():
         client_secret = data.get('client_secret')
 
         print(f"🔍 DEBUG: code: {code[:20] if code else 'None'}...")
+        print(f"🔍 DEBUG: code length: {len(code) if code else 0}")
         print(f"🔍 DEBUG: client_id: {client_id[:8] if client_id else 'None'}...")
         print(f"🔍 DEBUG: client_secret: {'***' if client_secret else 'None'}")
 
@@ -112,6 +113,14 @@ def callback():
             redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
         print(f"🔍 DEBUG: origin: {origin}")
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
+        print(f"🔍 DEBUG: redirect_uri matches origin: {redirect_uri == f'{origin}/auth/callback'}")
+        
+        # Validate code format
+        import urllib.parse
+        decoded_code = urllib.parse.unquote(code)
+        print(f"🔍 DEBUG: Original code: {code[:20]}...")
+        print(f"🔍 DEBUG: Decoded code: {decoded_code[:20]}...")
+        print(f"🔍 DEBUG: Code needs decoding: {code != decoded_code}")
 
         # Create SpotifyAPI instance with user credentials
         print("🔍 DEBUG: Creating SpotifyAPI instance for callback...")
@@ -124,20 +133,34 @@ def callback():
 
         # Exchange code for tokens
         print("🔍 DEBUG: Exchanging code for access token...")
+        print(f"🔍 DEBUG: Using redirect_uri for token exchange: {redirect_uri}")
+        
         try:
-            token_info = spotify_api.get_access_token(code)
+            # Use decoded code for token exchange
+            token_info = spotify_api.get_access_token(decoded_code)
             print(f"🔍 DEBUG: Token info received: {token_info is not None}")
         except Exception as token_error:
             print(f"❌ DEBUG: Token exchange error: {token_error}")
-            if 'invalid_grant' in str(token_error):
-                return jsonify({
-                    'error': 'Authorization code expired or already used. Please try logging in again.',
-                    'code': 'INVALID_GRANT'
-                }), 400
+            print(f"🔍 DEBUG: Full error details: {repr(token_error)}")
+            
+            # Try with original code if decoding failed
+            if decoded_code != code:
+                print("🔍 DEBUG: Trying with original encoded code...")
+                try:
+                    token_info = spotify_api.get_access_token(code)
+                    print(f"🔍 DEBUG: Token info with original code: {token_info is not None}")
+                except Exception as second_error:
+                    print(f"❌ DEBUG: Second attempt also failed: {second_error}")
+                    return jsonify({
+                        'error': 'Authorization code expired or already used. Please try logging in again.',
+                        'code': 'INVALID_GRANT',
+                        'details': f'Redirect URI: {redirect_uri}'
+                    }), 400
             else:
                 return jsonify({
-                    'error': f'Token exchange failed: {str(token_error)}',
-                    'code': 'TOKEN_EXCHANGE_ERROR'
+                    'error': 'Authorization code expired or already used. Please try logging in again.',
+                    'code': 'INVALID_GRANT',
+                    'details': f'Redirect URI: {redirect_uri}'
                 }), 400
 
         if not token_info:
