@@ -60,8 +60,27 @@ def login():
         print("✅ DEBUG: SpotifyAPI instance created")
 
         print("🔍 DEBUG: Getting auth URL...")
-        auth_url = spotify_api.get_auth_url()
-        print(f"🔍 DEBUG: auth_url: {auth_url}")
+        
+        # Generate auth URL manually to ensure consistency
+        import urllib.parse
+        scope = 'user-top-read user-library-read playlist-read-private user-read-currently-playing user-read-recently-played user-follow-read'
+        state = secrets.token_urlsafe(16)
+        
+        auth_params = {
+            'client_id': client_id,
+            'response_type': 'code',
+            'redirect_uri': redirect_uri,
+            'scope': scope,
+            'show_dialog': 'true',
+            'state': state
+        }
+        
+        auth_url = 'https://accounts.spotify.com/authorize?' + urllib.parse.urlencode(auth_params)
+        print(f"🔍 DEBUG: Manual auth_url: {auth_url}")
+        
+        # Store state for validation
+        session[f'oauth_state_{client_id[:8]}'] = state
+        print(f"🔍 DEBUG: Stored OAuth state: {state}")
 
         if not auth_url:
             print("❌ DEBUG: Failed to generate authorization URL")
@@ -86,11 +105,13 @@ def callback():
         print("🔍 DEBUG: Callback endpoint called")
 
         data = request.get_json()
-        print(f"🔍 DEBUG: Request data: {data}")
+        print(f"🔍 DEBUG: Callback request data: {data}")
+        print(f"🔍 DEBUG: Callback timestamp: {__import__('time').time()}")
 
         code = data.get('code')
         client_id = data.get('client_id')
         client_secret = data.get('client_secret')
+        state = data.get('state')  # Get state parameter
 
         print(f"🔍 DEBUG: code: {code[:20] if code else 'None'}...")
         print(f"🔍 DEBUG: code length: {len(code) if code else 0}")
@@ -116,12 +137,27 @@ def callback():
         print(f"🔍 DEBUG: redirect_uri matches origin: {redirect_uri == f'{origin}/auth/callback'}")
         
 
+        # Validate state parameter if present
+        if state:
+            stored_state = session.get(f'oauth_state_{client_id[:8]}')
+            print(f"🔍 DEBUG: Received state: {state}")
+            print(f"🔍 DEBUG: Stored state: {stored_state}")
+            if state != stored_state:
+                print("❌ DEBUG: OAuth state mismatch")
+                return jsonify({
+                    'error': 'OAuth state mismatch. Please try logging in again.',
+                    'code': 'STATE_MISMATCH'
+                }), 400
+            # Clean up state
+            session.pop(f'oauth_state_{client_id[:8]}', None)
+        
         # Validate code format
         import urllib.parse
         decoded_code = urllib.parse.unquote(code)
         print(f"🔍 DEBUG: Original code: {code[:20]}...")
         print(f"🔍 DEBUG: Decoded code: {decoded_code[:20]}...")
         print(f"🔍 DEBUG: Code needs decoding: {code != decoded_code}")
+        print(f"🔍 DEBUG: Code timestamp check: {__import__('time').time()}")
 
         # Create SpotifyAPI instance with user credentials
         print("🔍 DEBUG: Creating SpotifyAPI instance for callback...")
