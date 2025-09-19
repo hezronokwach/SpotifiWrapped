@@ -50,18 +50,12 @@ def login():
         print(f"🔍 DEBUG: origin: {origin}")
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
 
-        # Create SpotifyAPI instance with user credentials and consistent cache
+        # Create SpotifyAPI instance with user credentials
         print("🔍 DEBUG: Creating SpotifyAPI instance...")
-        
-        # Use a consistent cache key based on client_id to maintain OAuth state
-        cache_path = f".spotify_cache_{client_id[:8]}"
-        print(f"🔍 DEBUG: Using cache path: {cache_path}")
-        
         spotify_api = SpotifyAPI(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            cache_path=cache_path
+            redirect_uri=redirect_uri
         )
         print("✅ DEBUG: SpotifyAPI instance created")
 
@@ -128,18 +122,12 @@ def callback():
         print(f"🔍 DEBUG: Decoded code: {decoded_code[:20]}...")
         print(f"🔍 DEBUG: Code needs decoding: {code != decoded_code}")
 
-        # Create SpotifyAPI instance with user credentials and consistent cache
+        # Create SpotifyAPI instance with user credentials
         print("🔍 DEBUG: Creating SpotifyAPI instance for callback...")
-        
-        # Use a consistent cache key based on client_id to maintain OAuth state
-        cache_path = f".spotify_cache_{client_id[:8]}"
-        print(f"🔍 DEBUG: Using cache path: {cache_path}")
-        
         spotify_api = SpotifyAPI(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            cache_path=cache_path
+            redirect_uri=redirect_uri
         )
         print("✅ DEBUG: SpotifyAPI instance created")
 
