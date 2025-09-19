@@ -8,18 +8,15 @@ import axios, { AxiosResponse } from 'axios'
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 const cache = new Map<string, { data: any; timestamp: number }>()
 
-// API base configuration
-const getApiBaseUrl = () => {
-  // Force production URL when deployed
-  if (window.location.hostname === 'spotifiwrapped.vercel.app') {
-    return 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api'
-  }
-  // Development
-  return 'http://localhost:5000/api'
-}
+// API base configuration - Force Leepcell backend in production
+const API_BASE_URL = window.location.hostname.includes('localhost') 
+  ? 'http://localhost:5000/api'
+  : 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api'
+
+console.log('🔍 API Base URL:', API_BASE_URL)
 
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: API_BASE_URL,
   timeout: 30000, // 30 second timeout for album analysis
   withCredentials: false, // Don't send cookies to external API
 })
