@@ -12,6 +12,7 @@ const cache = new Map<string, { data: any; timestamp: number }>()
 const api = axios.create({
   baseURL: import.meta.env.DEV ? 'http://localhost:5000/api' : 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api',
   timeout: 30000, // 30 second timeout for album analysis
+  withCredentials: false, // Don't send cookies to external API
 })
 
 // Check if token is expired
