@@ -7,8 +7,8 @@ import {
   clearSession,
   validateSession,
   type TokenData
-} from '../lib/session'
-import { getStoredCredentials } from '../lib/credentials'
+} from '@/lib/session'
+import { getStoredCredentials } from '@/lib/credentials'
 
 interface User {
   id: string

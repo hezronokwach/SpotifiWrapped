@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Track, getTrackName } from '../types/spotify'
 import { musicApi } from '../api'
 import { useDemoMode } from '../contexts/DemoModeContext'
-import { sampleTracks } from '../data/sampleData'
+import { sampleTracks } from '@/data/sampleData'
 import '../spotify-components.css'
 
 const TopTrackHighlight: React.FC = () => {

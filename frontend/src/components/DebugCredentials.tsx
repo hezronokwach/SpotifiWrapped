@@ -1,5 +1,5 @@
 import React from 'react'
-import { hasValidCredentials, getStoredCredentials, type SpotifyCredentials } from '../lib/credentials'
+import { hasValidCredentials, getStoredCredentials, type SpotifyCredentials } from '@/lib/credentials'
 import { useAuth } from '../contexts/AuthContext'
 
 const DebugCredentials: React.FC = () => {

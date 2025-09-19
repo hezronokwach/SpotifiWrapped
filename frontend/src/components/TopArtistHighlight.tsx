@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Artist, getArtistName } from '../types/spotify'
 import { musicApi } from '../api'
 import { useDemoMode } from '../contexts/DemoModeContext'
-import { sampleArtists } from '../data/sampleData'
+import { sampleArtists } from '@/data/sampleData'
 import '../spotify-components.css'
 
 const TopArtistHighlight: React.FC = () => {

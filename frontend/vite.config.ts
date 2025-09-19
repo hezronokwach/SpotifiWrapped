@@ -8,7 +8,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@/lib": path.resolve(__dirname, "./src/lib"),
+      "@/data": path.resolve(__dirname, "./src/data"),
+      "@/components": path.resolve(__dirname, "./src/components"),
     },
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
   },
   server: {
     host: '0.0.0.0',

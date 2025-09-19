@@ -12,7 +12,7 @@ import {
   validateCredentialsWithAPI,
   hasValidCredentials,
   type SpotifyCredentials
-} from '../lib/credentials'
+} from '@/lib/credentials'
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate()
