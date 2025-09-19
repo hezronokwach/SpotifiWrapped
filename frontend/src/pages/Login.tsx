@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
+import { authApi } from '../api'
 
 const Login: React.FC = () => {
   const navigate = useNavigate()
@@ -28,23 +29,8 @@ const Login: React.FC = () => {
       }))
 
       // Call the Flask API to get the auth URL
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to get authorization URL')
-      }
-
-      const data = await response.json()
+      const response = await authApi.login(clientId, clientSecret)
+      const data = response.data
       window.location.href = data.auth_url
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initiate Spotify authentication')
