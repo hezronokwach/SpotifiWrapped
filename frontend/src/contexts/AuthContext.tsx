@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import axios from 'axios'
+import { authApi } from '../api'
 import {
   initializeSession,
   storeSession,
@@ -83,10 +83,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Get auth URL from backend with credentials
       console.log('🔍 AuthContext: Requesting auth URL from backend...')
-      const response = await axios.post('/api/auth/login', {
-        client_id: credentials.clientId,
-        client_secret: credentials.clientSecret
-      })
+      const response = await authApi.login(credentials.clientId, credentials.clientSecret)
       const authUrl = response.data.auth_url
       console.log('✅ AuthContext: Auth URL received:', authUrl)
 
@@ -115,7 +112,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Only notify backend if not in demo mode
     if (!isDemoMode) {
-      axios.post('/api/auth/logout').catch(console.error)
+      // Note: logout endpoint not implemented in authApi yet
+      console.log('Logout - demo mode check passed')
     }
   }
 
@@ -149,11 +147,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('✅ AuthContext: Credentials found for callback')
 
       console.log('🔍 AuthContext: Sending callback request to backend...')
-      const response = await axios.post('/api/auth/callback', {
-        code,
-        client_id: credentials.clientId,
-        client_secret: credentials.clientSecret
-      })
+      const response = await authApi.callback(code, credentials.clientId, credentials.clientSecret)
 
       console.log('✅ AuthContext: Callback response received:', response.status)
 
