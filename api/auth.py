@@ -131,66 +131,62 @@ def callback():
         )
         print("✅ DEBUG: SpotifyAPI instance created")
 
-        # Exchange code for tokens
+        # Exchange code for tokens using direct method (more reliable)
         print("🔍 DEBUG: Exchanging code for access token...")
         print(f"🔍 DEBUG: Using redirect_uri for token exchange: {redirect_uri}")
         
+        # Use direct token exchange with Spotify API (primary method)
+        print("🔍 DEBUG: Using direct token exchange...")
         try:
-            # Use decoded code for token exchange
-            token_info = spotify_api.get_access_token(decoded_code)
-            print(f"🔍 DEBUG: Token info received: {token_info is not None}")
-        except Exception as token_error:
-            print(f"❌ DEBUG: Token exchange error: {token_error}")
-            print(f"🔍 DEBUG: Full error details: {repr(token_error)}")
+            import requests
+            import base64
             
-            # Try direct token exchange with Spotify API as fallback
-            print("🔍 DEBUG: Trying direct token exchange...")
-            try:
-                import requests
-                import base64
-                
-                # Prepare token exchange request
-                auth_string = f"{client_id}:{client_secret}"
-                auth_bytes = auth_string.encode('ascii')
-                auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-                
-                headers = {
-                    'Authorization': f'Basic {auth_b64}',
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-                
-                data = {
-                    'grant_type': 'authorization_code',
-                    'code': decoded_code,
-                    'redirect_uri': redirect_uri
-                }
-                
-                print(f"🔍 DEBUG: Direct token exchange with redirect_uri: {redirect_uri}")
-                response = requests.post(
-                    'https://accounts.spotify.com/api/token',
-                    headers=headers,
-                    data=data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    token_info = response.json()
-                    print(f"✅ DEBUG: Direct token exchange successful")
-                else:
-                    print(f"❌ DEBUG: Direct token exchange failed: {response.status_code} - {response.text}")
-                    return jsonify({
-                        'error': 'Authorization code expired or already used. Please try logging in again.',
-                        'code': 'INVALID_GRANT',
-                        'details': f'Status: {response.status_code}, Response: {response.text[:200]}'
-                    }), 400
-                    
-            except Exception as direct_error:
-                print(f"❌ DEBUG: Direct token exchange also failed: {direct_error}")
+            # Prepare token exchange request
+            auth_string = f"{client_id}:{client_secret}"
+            auth_bytes = auth_string.encode('ascii')
+            auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+            
+            headers = {
+                'Authorization': f'Basic {auth_b64}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            
+            token_data = {
+                'grant_type': 'authorization_code',
+                'code': decoded_code,
+                'redirect_uri': redirect_uri
+            }
+            
+            print(f"🔍 DEBUG: Direct token exchange with redirect_uri: {redirect_uri}")
+            response = requests.post(
+                'https://accounts.spotify.com/api/token',
+                headers=headers,
+                data=token_data,
+                timeout=10
+            )
+            
+            print(f"🔍 DEBUG: Token exchange response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                token_info = response.json()
+                print(f"✅ DEBUG: Direct token exchange successful")
+                print(f"🔍 DEBUG: Token info keys: {list(token_info.keys())}")
+            else:
+                print(f"❌ DEBUG: Direct token exchange failed: {response.status_code}")
+                print(f"🔍 DEBUG: Error response: {response.text}")
                 return jsonify({
-                    'error': 'Token exchange failed. Please try logging in again.',
-                    'code': 'TOKEN_EXCHANGE_ERROR',
-                    'details': str(direct_error)
+                    'error': 'Authorization code expired or already used. Please try logging in again.',
+                    'code': 'INVALID_GRANT',
+                    'details': f'Status: {response.status_code}, Response: {response.text[:200]}'
                 }), 400
+                
+        except Exception as direct_error:
+            print(f"❌ DEBUG: Direct token exchange failed: {direct_error}")
+            return jsonify({
+                'error': 'Token exchange failed. Please try logging in again.',
+                'code': 'TOKEN_EXCHANGE_ERROR',
+                'details': str(direct_error)
+            }), 400
 
         if not token_info:
             print("❌ DEBUG: Failed to get access token")
