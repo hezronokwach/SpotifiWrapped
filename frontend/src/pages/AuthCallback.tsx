@@ -28,9 +28,11 @@ const AuthCallback: React.FC = () => {
 
       if (code) {
         console.log('✅ AuthCallback: OAuth code received, calling handleOAuthCallback directly...')
+        const state = searchParams.get('state')
+        console.log('✅ AuthCallback: State parameter:', state ? 'Present' : 'None')
 
-        // Call handleOAuthCallback directly
-        handleOAuthCallback(code)
+        // Call handleOAuthCallback directly with state
+        handleOAuthCallback(code, state || undefined)
           .then(() => {
             console.log('✅ AuthCallback: OAuth callback completed successfully')
             setProcessingComplete(true)

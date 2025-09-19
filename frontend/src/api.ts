@@ -195,8 +195,13 @@ export const authApi = {
   login: (clientId: string, clientSecret: string) =>
     api.post('/auth/login', { client_id: clientId, client_secret: clientSecret }),
     
-  callback: (code: string, clientId: string, clientSecret: string) =>
-    api.post('/auth/callback', { code, client_id: clientId, client_secret: clientSecret }),
+  callback: (code: string, clientId: string, clientSecret: string, state?: string) =>
+    api.post('/auth/callback', { 
+      code, 
+      client_id: clientId, 
+      client_secret: clientSecret,
+      ...(state && { state })
+    }),
     
   status: () => api.get('/auth/status')
 }

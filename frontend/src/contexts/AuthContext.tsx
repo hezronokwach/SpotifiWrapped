@@ -24,7 +24,7 @@ interface AuthContextType {
   logout: () => void
   isLoading: boolean
   isAuthenticated: boolean
-  handleOAuthCallback: (code: string) => Promise<void>
+  handleOAuthCallback: (code: string, state?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -118,9 +118,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  const handleOAuthCallback = useCallback(async (code: string) => {
+  const handleOAuthCallback = useCallback(async (code: string, state?: string) => {
     try {
       console.log('🔍 AuthContext: Starting OAuth callback processing...')
+      console.log('🔍 AuthContext: Code:', code ? 'Present' : 'None')
+      console.log('🔍 AuthContext: State:', state ? 'Present' : 'None')
       setIsLoading(true)
 
       // Get stored credentials for the callback
@@ -148,7 +150,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('✅ AuthContext: Credentials found for callback')
 
       console.log('🔍 AuthContext: Sending callback request to backend...')
-      const response = await authApi.callback(code, credentials.clientId, credentials.clientSecret)
+      // Include state parameter in callback
+      const callbackData = {
+        code,
+        client_id: credentials.clientId,
+        client_secret: credentials.clientSecret,
+        ...(state && { state })
+      }
+      console.log('🔍 AuthContext: Callback data:', { ...callbackData, client_secret: '***' })
+      
+      const response = await authApi.callback(code, credentials.clientId, credentials.clientSecret, state)
 
       console.log('✅ AuthContext: Callback response received:', response.status)
 
@@ -206,7 +217,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (code && !token) {
         console.log('🔍 AuthContext: Processing OAuth callback...')
-        handleOAuthCallback(code)
+        const state = urlParams.get('state')
+        console.log('🔍 AuthContext: State from URL:', state ? 'Present' : 'None')
+        handleOAuthCallback(code, state || undefined)
       }
     }
 
@@ -232,7 +245,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     if (code && !token) {
       console.log('🔍 AuthContext: URL change detected with OAuth code, processing...')
-      handleOAuthCallback(code)
+      const state = urlParams.get('state')
+      console.log('🔍 AuthContext: State from URL change:', state ? 'Present' : 'None')
+      handleOAuthCallback(code, state || undefined)
     }
   }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
 
