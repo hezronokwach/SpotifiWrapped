@@ -9,6 +9,7 @@ const AuthCallback: React.FC = () => {
   const { handleOAuthCallback } = useAuth()
   const [processingComplete, setProcessingComplete] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [isProcessing, setIsProcessing] = React.useState(false)
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -33,6 +34,7 @@ const AuthCallback: React.FC = () => {
           .then(() => {
             console.log('✅ AuthCallback: OAuth callback completed successfully')
             setProcessingComplete(true)
+            setIsProcessing(false)
             // Small delay to ensure state is updated
             setTimeout(() => {
               navigate('/dashboard', { replace: true })
@@ -41,6 +43,7 @@ const AuthCallback: React.FC = () => {
           .catch((error) => {
             console.error('❌ AuthCallback: OAuth callback failed:', error)
             setProcessingComplete(true)
+            setIsProcessing(false)
             setError(error.message || 'Authentication failed')
             // Don't redirect immediately, show error for 5 seconds
             setTimeout(() => {
@@ -49,14 +52,16 @@ const AuthCallback: React.FC = () => {
           })
       } else {
         console.error('❌ AuthCallback: No code received, redirecting to login')
+        setIsProcessing(false)
         navigate('/login', { replace: true })
       }
     }
 
-    if (!processingComplete) {
+    if (!processingComplete && !isProcessing) {
+      setIsProcessing(true)
       handleCallback()
     }
-  }, [searchParams, navigate, handleOAuthCallback, processingComplete])
+  }, [searchParams, navigate, handleOAuthCallback, processingComplete, isProcessing])
 
   if (error) {
     return (
