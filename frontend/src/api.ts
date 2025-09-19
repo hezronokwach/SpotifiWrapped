@@ -59,6 +59,8 @@ function getValidToken(): string | null {
 
 // Request interceptor to add auth token
 api.interceptors.request.use((config) => {
+  console.log('🔍 API Request:', config.method?.toUpperCase(), config.baseURL + config.url)
+  
   // Skip auth for login and callback endpoints
   const skipAuth = [
     '/auth/login',
