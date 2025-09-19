@@ -41,8 +41,13 @@ def login():
         session[f'spotify_client_secret_{session_id}'] = client_secret
         print(f"✅ DEBUG: User credentials stored with session ID: {session_id[:8]}...")
 
-        # Get redirect URI from environment
-        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
+        # Get redirect URI dynamically based on request origin
+        origin = request.headers.get('Origin', 'http://localhost:3000')
+        if 'vercel.app' in origin:
+            redirect_uri = f"{origin}/auth/callback"
+        else:
+            redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
+        print(f"🔍 DEBUG: origin: {origin}")
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
 
         # Create SpotifyAPI instance with user credentials
@@ -63,7 +68,10 @@ def login():
             return jsonify({'error': 'Failed to generate authorization URL'}), 500
 
         print("✅ DEBUG: Login successful, returning auth URL")
-        return jsonify({'auth_url': auth_url})
+        response = jsonify({'auth_url': auth_url})
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
 
     except Exception as e:
         print(f"❌ DEBUG: Login error: {e}")
@@ -96,8 +104,13 @@ def callback():
             print("❌ DEBUG: Missing client credentials")
             return jsonify({'error': 'Missing client credentials'}), 400
 
-        # Get redirect URI from environment
-        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
+        # Get redirect URI dynamically based on request origin
+        origin = request.headers.get('Origin', 'http://localhost:3000')
+        if 'vercel.app' in origin:
+            redirect_uri = f"{origin}/auth/callback"
+        else:
+            redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://127.0.0.1:3000/auth/callback')
+        print(f"🔍 DEBUG: origin: {origin}")
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
 
         # Create SpotifyAPI instance with user credentials
