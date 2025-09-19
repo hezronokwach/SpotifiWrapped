@@ -79,6 +79,9 @@ def login():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+# Store used codes to prevent reuse
+used_codes = set()
+
 @auth_bp.route('/callback', methods=['POST'])
 def callback():
     """Handle Spotify OAuth callback and create JWT token"""
@@ -114,6 +117,19 @@ def callback():
         print(f"🔍 DEBUG: origin: {origin}")
         print(f"🔍 DEBUG: redirect_uri: {redirect_uri}")
         print(f"🔍 DEBUG: redirect_uri matches origin: {redirect_uri == f'{origin}/auth/callback'}")
+        
+        # Check if code has already been used
+        code_hash = hash(code)
+        if code_hash in used_codes:
+            print("❌ DEBUG: Authorization code already used")
+            return jsonify({
+                'error': 'Authorization code already used. Please try logging in again.',
+                'code': 'CODE_REUSED'
+            }), 400
+        
+        # Mark code as used
+        used_codes.add(code_hash)
+        print(f"🔍 DEBUG: Code marked as used: {code_hash}")
         
         # Validate code format
         import urllib.parse
