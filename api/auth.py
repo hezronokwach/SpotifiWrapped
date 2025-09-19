@@ -124,12 +124,28 @@ def callback():
 
         # Exchange code for tokens
         print("🔍 DEBUG: Exchanging code for access token...")
-        token_info = spotify_api.get_access_token(code)
-        print(f"🔍 DEBUG: Token info received: {token_info is not None}")
+        try:
+            token_info = spotify_api.get_access_token(code)
+            print(f"🔍 DEBUG: Token info received: {token_info is not None}")
+        except Exception as token_error:
+            print(f"❌ DEBUG: Token exchange error: {token_error}")
+            if 'invalid_grant' in str(token_error):
+                return jsonify({
+                    'error': 'Authorization code expired or already used. Please try logging in again.',
+                    'code': 'INVALID_GRANT'
+                }), 400
+            else:
+                return jsonify({
+                    'error': f'Token exchange failed: {str(token_error)}',
+                    'code': 'TOKEN_EXCHANGE_ERROR'
+                }), 400
 
         if not token_info:
             print("❌ DEBUG: Failed to get access token")
-            return jsonify({'error': 'Failed to get access token'}), 400
+            return jsonify({
+                'error': 'Failed to get access token. Please try logging in again.',
+                'code': 'NO_TOKEN'
+            }), 400
 
         # Get user profile to create JWT
         print("🔍 DEBUG: Getting user profile...")
