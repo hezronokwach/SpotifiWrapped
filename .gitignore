@@ -185,8 +185,8 @@ cython_debug/
 .env.development
 .env.test
 
-# Data and logs
-data/
+# Data and logs (not frontend/src/data)
+/data/
 logs/
 backups/
 *.db
