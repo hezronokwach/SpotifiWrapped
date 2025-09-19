@@ -49,8 +49,11 @@ def create_app():
     jwt = JWTManager(app)
 
     # CORS configuration for production
+    allowed_origins = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+    print(f"🔍 CORS: Allowed origins: {allowed_origins}")
+    
     CORS(app,
-         origins=os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(','),
+         origins=allowed_origins,
          supports_credentials=True,
          allow_headers=['Content-Type', 'Authorization'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
@@ -59,6 +62,12 @@ def create_app():
     from collections import defaultdict
     import time
     request_counts = defaultdict(list)
+    
+    # Add CORS debugging
+    @app.before_request
+    def log_request():
+        print(f"🔍 Request: {request.method} {request.path} from {request.headers.get('Origin', 'No Origin')}")
+        print(f"🔍 Headers: {dict(request.headers)}")
     
     # Security middleware
     @app.before_request
@@ -109,6 +118,7 @@ def create_app():
     # Security headers
     @app.after_request
     def add_security_headers(response):
+        print(f"🔍 Response headers: {dict(response.headers)}")
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
