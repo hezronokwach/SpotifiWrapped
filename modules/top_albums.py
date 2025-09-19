@@ -1,8 +1,14 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from collections import defaultdict
 from modules.api import SpotifyAPI
+
+try:
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+    print("Warning: matplotlib/seaborn not installed. Visualization features will be limited.")
 
 def get_top_albums(spotify_api, limit=10, user_db=None):
     """
@@ -235,6 +241,10 @@ def visualize_top_albums(spotify_api, limit=10, save_path=None):
     Returns:
         Matplotlib figure
     """
+    if not MATPLOTLIB_AVAILABLE:
+        print("Matplotlib not available. Cannot create visualization.")
+        return None
+        
     top_albums = get_top_albums(spotify_api, limit)
     
     if top_albums.empty:
