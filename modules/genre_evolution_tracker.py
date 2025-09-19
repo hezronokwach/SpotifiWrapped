@@ -2,9 +2,15 @@
 import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from typing import Dict, List
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    print("Warning: plotly not installed. Visualization features will be limited.")
 
 class GenreEvolutionTracker:
     """Track and visualize genre preference evolution over time."""
@@ -280,8 +286,11 @@ class GenreEvolutionTracker:
         
         return changes[:3]  # Top 3 changes
     
-    def create_evolution_visualization(self, evolution_data: Dict) -> go.Figure:
+    def create_evolution_visualization(self, evolution_data: Dict):
         """Create genre evolution timeline visualization."""
+        if not PLOTLY_AVAILABLE:
+            return None
+            
         timeline_data = evolution_data['timeline_data']
         
         if not timeline_data:
