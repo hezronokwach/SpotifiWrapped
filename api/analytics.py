@@ -11,7 +11,7 @@ import json
 import os
 import sqlite3
 
-analytics_bp = Blueprint('analytics', __name__)
+anlytics_bp = Blueprint('analytics', __name__)
 
 def get_user_spotify_api():
     """Get SpotifyAPI instance for current user - simplified version"""
@@ -128,7 +128,7 @@ def get_genres():
     """Get genre analysis from user's listening history - based on original Dash implementation"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
 
         # Check if database exists and has genre data (like original)
         try:
@@ -194,7 +194,7 @@ def get_listening_patterns():
     """Get listening patterns analysis - based on original Dash implementation"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         print(f"🔍 PATTERNS DEBUG: User ID: {user_id}, DB path: {db_path}")
 
         # Use direct SQLite connection like original
@@ -338,7 +338,7 @@ def collect_listening_data():
     """Manually collect recent listening data for testing"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         spotify_api = get_user_spotify_api()
         if not spotify_api:
@@ -386,7 +386,7 @@ def get_wrapped_summary():
     """Get Spotify Wrapped-style summary"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         # Initialize components
         spotify_api = get_user_spotify_api()

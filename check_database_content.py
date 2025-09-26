@@ -8,7 +8,7 @@ import os
 def check_database_content():
     """Check what data exists in the database"""
     
-    db_path = 'data/user_31l7kphabrzch4qviylsa6t7x5km_spotify_data.db'
+    db_path = '/tmp/user_31l7kphabrzch4qviylsa6t7x5km_spotify_data.db'
     
     if not os.path.exists(db_path):
         print(f"❌ Database not found: {db_path}")

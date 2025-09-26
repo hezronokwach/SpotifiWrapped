@@ -7,10 +7,10 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class SpotifyDatabase:
-    def __init__(self, db_path='data/spotify_data.db'):
+    def __init__(self, db_path='/tmp/spotify_data.db'):
         """Initialize database with schema."""
         # Ensure data directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        # os.makedirs(os.path.dirname(db_path), exist_ok=True) # Not needed for /tmp
 
         # Don't delete the database if it exists - we want to keep our data
         self.db_path = db_path

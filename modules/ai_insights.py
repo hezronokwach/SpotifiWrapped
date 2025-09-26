@@ -4,7 +4,7 @@ import random
 
 def get_personality_analysis(user_id: str) -> Dict[str, Any]:
     """Generate personality analysis based on user's music data"""
-    db_path = f"data/user_{user_id}_spotify_data.db"
+    db_path = f"/tmp/user_{user_id}_spotify_data.db"
     
     try:
         conn = sqlite3.connect(db_path)
@@ -46,7 +46,7 @@ def get_personality_analysis(user_id: str) -> Dict[str, Any]:
 
 def get_wellness_analysis(user_id: str) -> Dict[str, Any]:
     """Generate wellness analysis based on user's music data"""
-    db_path = f"data/user_{user_id}_spotify_data.db"
+    db_path = f"/tmp/user_{user_id}_spotify_data.db"
     
     try:
         conn = sqlite3.connect(db_path)

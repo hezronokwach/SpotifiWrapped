@@ -38,7 +38,7 @@ def get_user_database_path(user_id):
     if safe_user_id != user_id:
         raise Exception('User ID contains invalid characters')
     
-    return f'data/user_{safe_user_id}_spotify_data.db'
+    return f'/tmp/user_{safe_user_id}_spotify_data.db'
 
 @music_bp.route('/test')
 @jwt_required()
@@ -460,7 +460,7 @@ def fix_missing_audio_features():
         user_id = get_jwt_identity()
         
         # Get user-specific database
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = get_user_database_path(user_id)
         db = SpotifyDatabase(db_path)
         
         # Get Spotify API

@@ -109,7 +109,7 @@ class EnhancedPersonalityAnalyzer:
             from modules.database import SpotifyDatabase
             from datetime import datetime
             # Get user-specific database
-            user_db = SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db')
+            user_db = SpotifyDatabase(db_path=f'/tmp/user_{user_id}_spotify_data.db')
             current_date = datetime.now().strftime('%Y-%m-%d')
             top_genres = user_db.get_user_top_genres(
                 user_id=user_id,
@@ -358,7 +358,7 @@ class EnhancedPersonalityAnalyzer:
             from modules.database import SpotifyDatabase
             from datetime import datetime
             # Get user-specific database
-            user_db = SpotifyDatabase(db_path=f'data/user_{user_id}_spotify_data.db')
+            user_db = SpotifyDatabase(db_path=f'/tmp/user_{user_id}_spotify_data.db')
             current_date = datetime.now().strftime('%Y-%m-%d')
             top_genre_data = user_db.get_user_top_genres(
                 user_id=user_id,

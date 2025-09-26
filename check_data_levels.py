@@ -10,7 +10,7 @@ def check_user_data_levels():
     """Check data levels for all users"""
     
     # Find all user databases
-    user_dbs = glob.glob('data/user_*_spotify_data.db')
+    user_dbs = glob.glob('/tmp/user_*_spotify_data.db')
     
     if not user_dbs:
         print("❌ No user databases found!")

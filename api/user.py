@@ -122,7 +122,7 @@ def collect_initial_data():
     """Collect initial user data from Spotify API including genre extraction"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = get_secure_database_path(user_id)
         
         # Initialize components
         from modules.data_collector import SpotifyDataCollector
@@ -252,7 +252,7 @@ def extract_genres():
     """Extract genres for user's artists"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = get_secure_database_path(user_id)
         
         # Initialize components
         from modules.genre_extractor import GenreExtractor

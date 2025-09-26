@@ -82,7 +82,7 @@ class SpotifyAPI:
         import tempfile
 
         # Clear Spotify OAuth cache files
-        cache_files = glob.glob('.spotify_cache*')
+        cache_files = glob.glob('/tmp/.spotify_cache*')
         for cache_file in cache_files:
             try:
                 os.remove(cache_file)
@@ -92,8 +92,8 @@ class SpotifyAPI:
 
         # Also check for cache files in temp directory
         temp_dir = tempfile.gettempdir()
-        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
-        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '/tmp/.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, '/tmp/spotify_auth_code.txt')))
         for cache_file in temp_cache_files:
             try:
                 os.remove(cache_file)
@@ -107,7 +107,7 @@ class SpotifyAPI:
         import tempfile
 
         # Clear Spotify OAuth cache files
-        cache_files = glob.glob('.spotify_cache*')
+        cache_files = glob.glob('/tmp/.spotify_cache*')
         for cache_file in cache_files:
             try:
                 os.remove(cache_file)
@@ -117,8 +117,8 @@ class SpotifyAPI:
 
         # Also check for cache files in temp directory
         temp_dir = tempfile.gettempdir()
-        temp_cache_files = glob.glob(os.path.join(temp_dir, '.spotify_cache*'))
-        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, 'spotify_auth_code.txt')))
+        temp_cache_files = glob.glob(os.path.join(temp_dir, '/tmp/.spotify_cache*'))
+        temp_cache_files.extend(glob.glob(os.path.join(temp_dir, '/tmp/spotify_auth_code.txt')))
         for cache_file in temp_cache_files:
             try:
                 os.remove(cache_file)
@@ -128,16 +128,16 @@ class SpotifyAPI:
 
         # Clear CSV data files
         csv_files = [
-            'data/user_profile.csv',
-            'data/current_track.csv',
-            'data/playlists.csv',
-            'data/top_tracks.csv',
-            'data/top_artists.csv',
-            'data/saved_tracks.csv',
-            'data/audio_features.csv',
-            'data/recently_played.csv',
-            'data/personality.csv',
-            'data/top_albums.csv'
+            '/tmp/user_profile.csv',
+            '/tmp/current_track.csv',
+            '/tmp/playlists.csv',
+            '/tmp/top_tracks.csv',
+            '/tmp/top_artists.csv',
+            '/tmp/saved_tracks.csv',
+            '/tmp/audio_features.csv',
+            '/tmp/recently_played.csv',
+            '/tmp/personality.csv',
+            '/tmp/top_albums.csv'
         ]
         for csv_file in csv_files:
             try:
@@ -283,22 +283,22 @@ class SpotifyAPI:
             code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}.txt')
             if os.path.exists(code_file):
                 with open(code_file, 'r') as f:
-                    auth_code = f.read().strip()
-                print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
-                try:
-                    token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
-                    if token_info:
-                        print(f"✅ DEBUG: Token exchange successful!")
-                        # Clean up the temporary file
-                        os.remove(code_file)
-                        return True
-                except Exception as e:
-                    print(f"❌ DEBUG: Token exchange failed: {e}")
-                    # Clean up the file anyway
-                    try:
-                        os.remove(code_file)
-                    except:
-                        pass
+                            auth_code = f.read().strip()
+                        print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
+                        try:
+                            token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
+                            if token_info:
+                                print(f"✅ DEBUG: Token exchange successful!")
+                                # Clean up the temporary file
+                                os.remove(code_file)
+                                return True
+                        except Exception as e:
+                            print(f"❌ DEBUG: Token exchange failed: {e}")
+                            # Clean up the file anyway
+                            try:
+                                os.remove(code_file)
+                            except:
+                                pass
 
             # Check if we have a cached token
             if hasattr(self.sp, 'auth_manager'):
@@ -590,7 +590,15 @@ class SpotifyAPI:
 
 
     def get_playlists(self, limit=10):
-        """Fetch user's playlists."""
+        """
+        Fetch user's playlists.
+
+        Args:
+            limit: Number of playlists to fetch
+
+        Returns:
+            List of playlist dictionaries
+        """
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
             return []
@@ -831,7 +839,16 @@ class SpotifyAPI:
 
 
     def get_audio_features_for_top_tracks(self, time_range='short_term', limit=10):
-        """Get detailed audio features for top tracks."""
+        """
+        Get detailed audio features for top tracks.
+
+        Args:
+            time_range: Time range for top tracks
+            limit: Number of tracks to fetch
+
+        Returns:
+            List of track dictionaries with audio features
+        """
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
             return []

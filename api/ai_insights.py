@@ -19,7 +19,7 @@ def get_personality():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_personality_analysis())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         try:
             # Use the Gemini-powered EnhancedPersonalityAnalyzer
@@ -70,7 +70,7 @@ def get_wellness():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_wellness_analysis())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         try:
             from modules.wellness_analyzer import WellnessAnalyzer
@@ -144,7 +144,7 @@ def get_stress_timeline():
     """Get detailed stress timeline data"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         from modules.enhanced_stress_detector import EnhancedStressDetector
         detector = EnhancedStressDetector(db_path)
@@ -165,7 +165,7 @@ def get_wellness_recommendations():
     """Get therapeutic music recommendations"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         from modules.wellness_analyzer import WellnessAnalyzer
         analyzer = WellnessAnalyzer(db_path)
@@ -192,7 +192,7 @@ def get_genre_evolution():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_genre_evolution())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         try:
             from modules.genre_evolution_tracker import GenreEvolutionTracker
@@ -242,7 +242,7 @@ def get_stress_analysis():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_stress_analysis())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         # Try enhanced stress detector first, fallback to wellness analyzer
         try:
@@ -314,7 +314,7 @@ def get_recommendations():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_advanced_recommendations())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         try:
             from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
@@ -368,7 +368,7 @@ def get_music_dna():
     """Get user's music DNA profile"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         from modules.ai_personality_enhancer import EnhancedPersonalityAnalyzer
         analyzer = EnhancedPersonalityAnalyzer(db_path)
@@ -399,7 +399,7 @@ def get_insights_summary():
     """Get comprehensive AI insights summary"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         # Collect all insights in parallel
         summary = {}
@@ -456,7 +456,7 @@ def get_enhanced_stress_analysis():
             from modules.ai_sample_data import ai_sample_generator
             return jsonify(ai_sample_generator.generate_enhanced_stress_analysis())
         
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         from modules.stress_analysis_api import StressAnalysisAPI
         stress_api = StressAnalysisAPI(db_path)
@@ -475,7 +475,7 @@ def get_genre_evolution_chart():
     """Get genre evolution chart data for React Chart.js"""
     try:
         user_id = get_jwt_identity()
-        db_path = f'data/user_{user_id}_spotify_data.db'
+        db_path = f'/tmp/user_{user_id}_spotify_data.db'
         
         from modules.genre_evolution_tracker import GenreEvolutionTracker
         tracker = GenreEvolutionTracker(db_path)

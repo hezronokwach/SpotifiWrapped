@@ -491,7 +491,7 @@ class SampleDataGenerator:
         finally:
             conn.close()
 
-    def clear_sample_data_from_database(self, db_path: str = 'data/spotify_data.db'):
+    def clear_sample_data_from_database(self, db_path: str = '/tmp/spotify_data.db'):
         """Remove all sample data from the database."""
         if not os.path.exists(db_path):
             return
@@ -520,10 +520,10 @@ class SampleDataGenerator:
         finally:
             conn.close()
 
-    def populate_sample_database(self, db_path: str = 'data/sample_spotify_data.db'):
+    def populate_sample_database(self, db_path: str = '/tmp/sample_spotify_data.db'):
         """Populate the database with comprehensive sample data."""
         # Ensure data directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        # os.makedirs(os.path.dirname(db_path), exist_ok=True) # Not needed for /tmp
 
         # Initialize the sample database with proper schema
         self._initialize_sample_database(db_path)
