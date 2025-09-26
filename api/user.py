@@ -40,72 +40,52 @@ def get_secure_database_path(user_id):
     return f'data/user_{safe_user_id}_spotify_data.db'
 
 def get_user_spotify_api():
-    """Get SpotifyAPI instance for current user"""
+    """Get SpotifyAPI instance for current user, relying on the cache."""
     try:
         claims = get_jwt()
+        user_id = claims.get('spotify_user_id')
         client_id = claims.get('client_id')
         client_secret = claims.get('client_secret')
-        spotify_access_token = claims.get('spotify_access_token')
-        redirect_uri = 'http://127.0.0.1:3000/auth/callback'
+        redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
 
-        if not all([client_id, client_secret, spotify_access_token]):
-            return None
+        if not all([user_id, client_id, client_secret]):
+            raise Exception('Missing user_id, client_id, or client_secret in JWT token')
 
-        # Initialize SpotifyAPI
-        spotify_api = SpotifyAPI(client_id, client_secret, redirect_uri)
-
-        # Set the access token directly
-        if hasattr(spotify_api, 'sp') and spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
-            token_info = {
-                'access_token': spotify_access_token,
-                'token_type': 'Bearer',
-                'expires_in': 3600,
-                'refresh_token': claims.get('spotify_refresh_token'),
-                'scope': spotify_api.scopes
-            }
-            spotify_api.sp.auth_manager.token_info = token_info
-
+        # Initialize SpotifyAPI with user_id to use the correct cache
+        spotify_api = SpotifyAPI(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            user_id=user_id
+        )
         return spotify_api
+
     except Exception as e:
         print(f"❌ Error creating SpotifyAPI: {e}")
         return None
 
 def get_spotify_api_for_user():
-    """Initialize SpotifyAPI with user credentials and access token from JWT token"""
+    """Initialize SpotifyAPI using the user's ID from the JWT to leverage the cached token."""
     try:
         claims = get_jwt()
+        user_id = claims.get('spotify_user_id')
         client_id = claims.get('client_id')
         client_secret = claims.get('client_secret')
-        spotify_access_token = claims.get('spotify_access_token')
         redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI', 'http://localhost:3000/auth/callback')
 
-        if not client_id or not client_secret:
-            raise Exception('Missing Spotify credentials in JWT token')
+        if not all([user_id, client_id, client_secret]):
+            raise Exception('Missing user_id, client_id, or client_secret in JWT token')
 
-        if not spotify_access_token:
-            raise Exception('Missing Spotify access token in JWT token')
-
-        # Initialize SpotifyAPI with credentials
+        # Initialize SpotifyAPI with user_id to use the correct cache
         spotify_api = SpotifyAPI(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_uri=redirect_uri
+            redirect_uri=redirect_uri,
+            user_id=user_id
         )
 
-        # Manually set the access token in the spotipy client
-        if spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
-            # Create a token info dict that spotipy expects
-            token_info = {
-                'access_token': spotify_access_token,
-                'token_type': 'Bearer',
-                'expires_in': 3600,  # 1 hour
-                'refresh_token': claims.get('spotify_refresh_token'),
-                'scope': spotify_api.scopes
-            }
-
-            # Set the token in the auth manager
-            spotify_api.sp.auth_manager.token_info = token_info
-
+        # The SpotifyAPI instance will now automatically use the cached token
+        # managed by SpotifyOAuth, which handles refreshing.
         return spotify_api
 
     except Exception as e:
