@@ -196,60 +196,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []) // No dependencies needed as it only uses stable state setters
 
-  // Handle OAuth callback - check on every render and when token changes
-  useEffect(() => {
-    const checkForOAuthCallback = () => {
-      const urlParams = new URLSearchParams(window.location.search)
-      const code = urlParams.get('code')
-      const error = urlParams.get('error')
-
-      console.log('🔍 AuthContext: Checking URL for OAuth callback')
-      console.log('🔍 AuthContext: Current URL:', window.location.href)
-      console.log('🔍 AuthContext: Code:', code ? 'Present' : 'None')
-      console.log('🔍 AuthContext: Error:', error)
-      console.log('🔍 AuthContext: Current token:', token ? 'Present' : 'None')
-
-      if (error) {
-        console.error('OAuth error:', error)
-        setIsLoading(false)
-        return
-      }
-
-      if (code && !token) {
-        console.log('🔍 AuthContext: Processing OAuth callback...')
-        const state = urlParams.get('state')
-        console.log('🔍 AuthContext: State from URL:', state ? 'Present' : 'None')
-        handleOAuthCallback(code, state || undefined)
-      }
-    }
-
-    checkForOAuthCallback()
-
-    // Listen for manual OAuth trigger
-    const handleForceOAuthCheck = () => {
-      console.log('🔍 AuthContext: Manual OAuth check triggered')
-      checkForOAuthCallback()
-    }
-
-    window.addEventListener('forceOAuthCheck', handleForceOAuthCheck)
-
-    return () => {
-      window.removeEventListener('forceOAuthCheck', handleForceOAuthCheck)
-    }
-  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
-
-  // Also check for OAuth callback when component mounts or URL changes
+  // Handle OAuth callback on component mount and when URL changes
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const code = urlParams.get('code')
+    const error = urlParams.get('error')
 
+    if (error) {
+      console.error('OAuth error from URL:', error)
+      setIsLoading(false)
+      // Clear the URL of error parameters
+      window.history.replaceState({}, document.title, window.location.pathname)
+      return
+    }
+
+    // Only process the code if it exists and we don't have a token yet
     if (code && !token) {
-      console.log('🔍 AuthContext: URL change detected with OAuth code, processing...')
+      console.log('AuthContext: Detected OAuth code in URL, processing...')
       const state = urlParams.get('state')
-      console.log('🔍 AuthContext: State from URL change:', state ? 'Present' : 'None')
       handleOAuthCallback(code, state || undefined)
     }
-  }, [token, handleOAuthCallback]) // Depend on token and handleOAuthCallback
+  }, [token, handleOAuthCallback]) // Rerunning when the token is cleared or callback handler is available
 
 
   const value: AuthContextType = {
