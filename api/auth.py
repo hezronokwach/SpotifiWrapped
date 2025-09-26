@@ -153,12 +153,9 @@ def callback():
             # Clean up state
             session.pop(f'oauth_state_{client_id[:8]}', None)
         
-        # Validate code format
-        import urllib.parse
-        decoded_code = urllib.parse.unquote(code)
-        print(f"🔍 DEBUG: Original code: {code[:20]}...")
-        print(f"🔍 DEBUG: Decoded code: {decoded_code[:20]}...")
-        print(f"🔍 DEBUG: Code needs decoding: {code != decoded_code}")
+        # The code should not be decoded as it may already be handled by the client
+        decoded_code = code
+        print(f"🔍 DEBUG: Using raw code: {code[:20]}...")
         print(f"🔍 DEBUG: Code timestamp check: {__import__('time').time()}")
 
         # Create SpotifyAPI instance with user credentials
