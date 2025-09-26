@@ -272,7 +272,7 @@ def callback():
             from datetime import datetime
             
             user_id = user_profile['id']
-            db_path = f'data/user_{user_id}_spotify_data.db'
+            db_path = f'/tmp/user_{user_id}_spotify_data.db'
             user_db = SpotifyDatabase(db_path)
             
             # Save user profile

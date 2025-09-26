@@ -172,8 +172,8 @@ class SpotifyAPI:
 
         try:
             print(f"🔐 DEBUG: Creating SpotifyOAuth manager...")
-            # SECURITY FIX: Use user-specific cache to prevent token sharing
-            user_cache_path = f'.spotify_cache_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}'
+            # Use /tmp for writable cache on serverless platforms
+            user_cache_path = f'/tmp/.spotify_cache_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}'
             print(f"🔐 DEBUG: Using user-specific cache: {user_cache_path}")
             auth_manager = SpotifyOAuth(
                 client_id=self.client_id,

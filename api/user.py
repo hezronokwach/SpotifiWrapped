@@ -37,7 +37,8 @@ def get_secure_database_path(user_id):
     if safe_user_id != user_id:
         raise Exception('User ID contains invalid characters')
     
-    return f'data/user_{safe_user_id}_spotify_data.db'
+    # Use /tmp for writable storage on serverless platforms
+    return f'/tmp/user_{safe_user_id}_spotify_data.db'
 
 def get_user_spotify_api():
     """Get SpotifyAPI instance for current user, relying on the cache."""
