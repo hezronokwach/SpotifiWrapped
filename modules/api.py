@@ -203,6 +203,7 @@ class SpotifyAPI:
                     if os.path.exists(code_file):
                         with open(code_file, 'r') as f:
                             auth_code = f.read().strip()
+                        
                         print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
                         token_info = auth_manager.get_access_token(auth_code, as_dict=True)
                         # Clean up the temporary file
@@ -283,22 +284,22 @@ class SpotifyAPI:
             code_file = os.path.join(temp_dir, f'spotify_auth_code_{self.user_id}_{self.client_id[:8] if self.client_id else "anon"}.txt')
             if os.path.exists(code_file):
                 with open(code_file, 'r') as f:
-                            auth_code = f.read().strip()
-                        print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
+                    auth_code = f.read().strip()
+                    print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
+                    try:
+                        token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
+                        if token_info:
+                            print(f"✅ DEBUG: Token exchange successful!")
+                            # Clean up the temporary file
+                            os.remove(code_file)
+                            return True
+                    except Exception as e:
+                        print(f"❌ DEBUG: Token exchange failed: {e}")
+                        # Clean up the file anyway
                         try:
-                            token_info = self.sp.auth_manager.get_access_token(auth_code, as_dict=True)
-                            if token_info:
-                                print(f"✅ DEBUG: Token exchange successful!")
-                                # Clean up the temporary file
-                                os.remove(code_file)
-                                return True
-                        except Exception as e:
-                            print(f"❌ DEBUG: Token exchange failed: {e}")
-                            # Clean up the file anyway
-                            try:
-                                os.remove(code_file)
-                            except:
-                                pass
+                            os.remove(code_file)
+                        except:
+                            pass
 
             # Check if we have a cached token
             if hasattr(self.sp, 'auth_manager'):
