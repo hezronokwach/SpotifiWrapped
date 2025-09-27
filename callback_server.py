@@ -51,8 +51,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
         """Send a success response with auto-redirect."""
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
-        self.end_headers()
-        
+        self.end_headers()        
         html_response = '''
         <!DOCTYPE html>
         <html>
