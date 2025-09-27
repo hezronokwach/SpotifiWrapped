@@ -59,6 +59,18 @@ def get_user_spotify_api():
             redirect_uri=redirect_uri,
             user_id=user_id
         )
+
+        # Manually set the access token in the spotipy client
+        if spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
+            token_info = {
+                'access_token': claims.get('spotify_access_token'),
+                'token_type': 'Bearer',
+                'expires_in': 3600,  # 1 hour
+                'refresh_token': claims.get('spotify_refresh_token'),
+                'scope': spotify_api.scopes
+            }
+            spotify_api.sp.auth_manager.token_info = token_info
+
         return spotify_api
 
     except Exception as e:
@@ -85,8 +97,17 @@ def get_spotify_api_for_user():
             user_id=user_id
         )
 
-        # The SpotifyAPI instance will now automatically use the cached token
-        # managed by SpotifyOAuth, which handles refreshing.
+        # Manually set the access token in the spotipy client
+        if spotify_api.sp and hasattr(spotify_api.sp, 'auth_manager'):
+            token_info = {
+                'access_token': claims.get('spotify_access_token'),
+                'token_type': 'Bearer',
+                'expires_in': 3600,  # 1 hour
+                'refresh_token': claims.get('spotify_refresh_token'),
+                'scope': spotify_api.scopes
+            }
+            spotify_api.sp.auth_manager.token_info = token_info
+
         return spotify_api
 
     except Exception as e:
