@@ -203,11 +203,11 @@ class SpotifyAPI:
                     if os.path.exists(code_file):
                         with open(code_file, 'r') as f:
                             auth_code = f.read().strip()
-                        print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
-                        token_info = auth_manager.get_access_token(auth_code, as_dict=True)
-                        # Clean up the temporary file
-                        os.remove(code_file)
-                        print(f"✅ DEBUG: Token exchange successful")
+                    print(f"✅ DEBUG: Found user-specific authorization code, exchanging for token...")
+                    token_info = auth_manager.get_access_token(auth_code, as_dict=True)
+                    # Clean up the temporary file
+                    os.remove(code_file)
+                    print(f"✅ DEBUG: Token exchange successful")
                     else:
                         print(f"⚠️ DEBUG: No cached token or auth code available")
                         # Generate auth URL for user (but don't prompt in terminal)
