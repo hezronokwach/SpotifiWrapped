@@ -387,7 +387,8 @@ class SpotifyAPI:
             return fallback
 
     def get_audio_features(self, track_ids: List[str]) -> Dict[str, Any]:
-        """Get audio features for a list of track IDs."""
+        """
+        Get audio features for a list of track IDs."""
         if not self.sp:
             if self.use_sample_data:
                 return self.sample_generator.generate_audio_features(track_ids)
@@ -901,7 +902,16 @@ class SpotifyAPI:
 
 
     def get_top_artists(self, limit=10, time_range='short_term'):
-        """Fetch user's top artists."""
+        """
+        Fetch user's top artists.
+
+        Args:
+            limit: Number of artists to fetch
+            time_range: 'short_term' (4 weeks), 'medium_term' (6 months), or 'long_term' (years)
+
+        Returns:
+            List of artist dictionaries with name and image_url
+        """
         if not self.sp:
             print("❌ DEBUG: No Spotify connection available")
             return []
