@@ -11,7 +11,7 @@ const cache = new Map<string, { data: any; timestamp: number }>()
 // API base configuration - Force Leepcell backend in production
 const API_BASE_URL = window.location.hostname.includes('localhost') 
   ? 'http://localhost:5000/api'
-  : 'https://potifirapped-hezronokwach2523-4txz7dqh.leapcell.dev/api'
+  : 'https://potifirapped-lumiverse7560-zcay7ljc.leapcell.online/api'
 
 console.log('🔍 API Base URL:', API_BASE_URL)
 
